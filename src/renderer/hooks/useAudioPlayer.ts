@@ -4,6 +4,8 @@ import { usePlayerStore } from '../store/playerStore.js';
 let globalAudio: HTMLAudioElement | null = null;
 let listenersInitialized = false;
 let currentPlayingTrackId: string | null = null;
+let pendingRestoreTime: number | null = null;
+let hasCheckedInitialResume = false;
 
 export function getAudioElement(): HTMLAudioElement {
   if (!globalAudio) {
@@ -15,6 +17,7 @@ export function getAudioElement(): HTMLAudioElement {
 
 export function seekAudioTo(newTime: number): void {
   const audio = getAudioElement();
+  pendingRestoreTime = null;
   if (audio && !isNaN(newTime)) {
     try {
       audio.currentTime = newTime;
@@ -25,6 +28,15 @@ export function seekAudioTo(newTime: number): void {
 
 export function useAudioPlayer() {
   const audio = getAudioElement();
+
+  // Check saved session time on initial hook run
+  if (!hasCheckedInitialResume) {
+    hasCheckedInitialResume = true;
+    const initialSavedTime = usePlayerStore.getState().currentTime;
+    if (initialSavedTime > 0) {
+      pendingRestoreTime = initialSavedTime;
+    }
+  }
 
   const {
     currentTrack,
@@ -45,8 +57,22 @@ export function useAudioPlayer() {
     if (listenersInitialized || !globalAudio) return;
     listenersInitialized = true;
 
+    const applyPendingRestore = () => {
+      if (globalAudio && pendingRestoreTime !== null && pendingRestoreTime > 0) {
+        try {
+          if (Math.abs(globalAudio.currentTime - pendingRestoreTime) > 0.5) {
+            globalAudio.currentTime = pendingRestoreTime;
+          }
+        } catch {}
+        pendingRestoreTime = null;
+      }
+    };
+
     globalAudio.addEventListener('timeupdate', () => {
       if (globalAudio) {
+        if (pendingRestoreTime !== null) {
+          return;
+        }
         setCurrentTime(globalAudio.currentTime);
       }
     });
@@ -55,19 +81,27 @@ export function useAudioPlayer() {
       if (globalAudio && !isNaN(globalAudio.duration)) {
         setDuration(globalAudio.duration);
       }
-      const savedTime = usePlayerStore.getState().currentTime;
-      if (globalAudio && savedTime > 0 && Math.abs(globalAudio.currentTime - savedTime) > 0.5) {
-        globalAudio.currentTime = savedTime;
-      }
+      applyPendingRestore();
+    });
+
+    globalAudio.addEventListener('canplay', () => {
+      applyPendingRestore();
     });
 
     globalAudio.addEventListener('ended', () => {
+      pendingRestoreTime = null;
       usePlayerStore.getState().playNext();
     });
 
     globalAudio.addEventListener('error', () => {
       if (globalAudio && globalAudio.src && globalAudio.src !== window.location.href) {
         console.warn('Audio playback error on source:', globalAudio.src);
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (globalAudio && !isNaN(globalAudio.currentTime) && globalAudio.currentTime > 0) {
+        usePlayerStore.getState().setCurrentTime(globalAudio.currentTime);
       }
     });
   }, []);
