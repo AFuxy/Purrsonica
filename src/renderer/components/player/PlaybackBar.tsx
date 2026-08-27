@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Play,
   Pause,
@@ -16,6 +16,8 @@ import {
   Music,
   Disc,
   Folder,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -49,6 +51,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
   } = usePlayerStore();
 
   const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail } = useLibraryStore();
+  const [copiedPath, setCopiedPath] = useState(false);
 
   const coverUrl = currentTrack?.cover_art_path && window.api
     ? window.api.getCoverUrl(currentTrack.cover_art_path)
@@ -126,17 +129,36 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
               </div>
 
               {currentTrack.file_path && (
-                <div
-                  onClick={() => {
-                    if (window.api?.showItemInFolder) {
-                      window.api.showItemInFolder(currentTrack.file_path);
-                    }
-                  }}
-                  className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] opacity-70 hover:opacity-100 hover:text-cyan-400 cursor-pointer truncate transition-all mt-0.5"
-                  title={`File location: ${currentTrack.file_path}\nClick to reveal in folder`}
-                >
-                  <Folder className="w-2.5 h-2.5 flex-shrink-0 text-[var(--text-muted)]" />
-                  <span className="truncate font-mono">{currentTrack.file_path}</span>
+                <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] mt-0.5 max-w-full">
+                  <div
+                    onClick={() => {
+                      if (window.api?.showItemInFolder) {
+                        window.api.showItemInFolder(currentTrack.file_path);
+                      }
+                    }}
+                    className="flex items-center gap-1 opacity-70 hover:opacity-100 hover:text-cyan-400 cursor-pointer truncate transition-all flex-1 min-w-0"
+                    title={`File location: ${currentTrack.file_path}\nClick to reveal in Windows Explorer`}
+                  >
+                    <Folder className="w-2.5 h-2.5 flex-shrink-0 text-cyan-400/80" />
+                    <span className="truncate font-mono">{currentTrack.file_path}</span>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (currentTrack.file_path) {
+                        navigator.clipboard.writeText(currentTrack.file_path);
+                        setCopiedPath(true);
+                        setTimeout(() => setCopiedPath(false), 2000);
+                      }
+                    }}
+                    className={`p-0.5 rounded hover:bg-[var(--bg-tertiary)] transition-colors flex-shrink-0 cursor-pointer ${
+                      copiedPath ? 'text-emerald-400' : 'text-[var(--text-muted)] hover:text-white'
+                    }`}
+                    title={copiedPath ? 'File path copied to clipboard!' : 'Copy file location path'}
+                  >
+                    {copiedPath ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </button>
                 </div>
               )}
             </div>
