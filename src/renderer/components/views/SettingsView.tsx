@@ -30,6 +30,7 @@ import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
+import { APP_CHANGELOGS } from '../../data/changelogs.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 
 export const SettingsView: React.FC = () => {
@@ -56,8 +57,17 @@ export const SettingsView: React.FC = () => {
   const [newExclusion, setNewExclusion] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Patch Notes Expansion
-  const [showPatchNotes, setShowPatchNotes] = useState(true);
+  // Multi-version changelog accordion state (latest version open by default)
+  const [expandedChangelogs, setExpandedChangelogs] = useState<Record<string, boolean>>({
+    [APP_CHANGELOGS[0]?.version || '1.1.3']: true,
+  });
+
+  const toggleChangelog = (ver: string) => {
+    setExpandedChangelogs((prev) => ({
+      ...prev,
+      [ver]: !prev[ver],
+    }));
+  };
 
   // Dynamic App Version
   const [appVersion, setAppVersion] = useState('1.1.3');
@@ -623,34 +633,88 @@ export const SettingsView: React.FC = () => {
             </div>
           )}
 
-          {/* Current Version Patch Notes / Highlights Accordion */}
-          {!updateStatus.releaseNotes && (
-            <div className="pt-3 border-t border-[var(--border-color)]">
-              <button
-                onClick={() => setShowPatchNotes(!showPatchNotes)}
-                className="w-full flex items-center justify-between text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors py-1"
-              >
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                  v{appVersion} Release Highlights & Changelog
-                </span>
-                {showPatchNotes ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              </button>
-
-              {showPatchNotes && (
-                <div className="mt-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg p-3 text-xs text-[var(--text-secondary)] space-y-2">
-                  <div className="font-bold text-[var(--text-primary)] text-xs">v{appVersion} — Settings Hub & Audio Streaming Fixes</div>
-                  <ul className="list-disc list-inside space-y-1 text-[11px] text-[var(--text-muted)]">
-                    <li><strong className="text-[var(--text-primary)]">Settings Hub</strong>: Preferences, scanner toggles, exclusions, and storage stats.</li>
-                    <li><strong className="text-[var(--text-primary)]">Maintenance Suite</strong>: Re-extract ID3 & folder artwork, re-generate 128-bar waveforms.</li>
-                    <li><strong className="text-[var(--text-primary)]">Danger Zone</strong>: Cache cleaner, library reset, and factory reset tools.</li>
-                    <li><strong className="text-[var(--text-primary)]">Media Streaming</strong>: HTTP 206 Partial Content Range streaming with exact MIME headers.</li>
-                    <li><strong className="text-[var(--text-primary)]">Navigation</strong>: Clickable album names across song tables and now playing sidebar.</li>
-                  </ul>
-                </div>
-              )}
+          {/* Complete Version Changelog History List */}
+          <div className="pt-3 border-t border-[var(--border-color)] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                Release History & Changelogs
+              </span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                {APP_CHANGELOGS.length} Versions
+              </span>
             </div>
-          )}
+
+            <div className="space-y-2 mt-2">
+              {APP_CHANGELOGS.map((rel) => {
+                const isOpen = !!expandedChangelogs[rel.version];
+                return (
+                  <div
+                    key={rel.version}
+                    className="border border-[var(--border-color)] bg-[var(--bg-tertiary)] rounded-lg overflow-hidden transition-all"
+                  >
+                    <button
+                      onClick={() => toggleChangelog(rel.version)}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded ${
+                            rel.isLatest
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                              : 'bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-color)]'
+                          }`}
+                        >
+                          v{rel.version}
+                        </span>
+                        <span className="text-xs font-semibold text-[var(--text-primary)]">
+                          {rel.title}
+                        </span>
+                        {rel.isLatest && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">
+                            Latest
+                          </span>
+                        )}
+                      </div>
+                      {isOpen ? (
+                        <ChevronUp className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                      )}
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-3 pb-3 pt-1 border-t border-[var(--border-color)] space-y-2.5 text-xs">
+                        {rel.sections.map((sec, sIdx) => (
+                          <div key={sIdx} className="space-y-1">
+                            <div className="font-bold text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+                              {sec.heading}
+                            </div>
+                            <ul className="list-disc list-inside space-y-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
+                              {sec.items.map((item, iIdx) => {
+                                const parts = item.split(': ');
+                                return (
+                                  <li key={iIdx}>
+                                    {parts.length > 1 ? (
+                                      <>
+                                        <strong className="text-[var(--text-primary)]">{parts[0]}</strong>: {parts.slice(1).join(': ')}
+                                      </>
+                                    ) : (
+                                      item
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="pt-4 border-t border-[var(--border-color)] flex items-center justify-between text-xs text-[var(--text-muted)]">
             <span>Engineered with Electron, React, TypeScript & SQLite</span>
