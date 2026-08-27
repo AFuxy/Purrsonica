@@ -194,9 +194,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const selectedPlaylist = view === 'playlist_detail' ? get().selectedPlaylist : null;
     const selectedArtist = view === 'artist_detail' ? get().selectedArtist : null;
     const selectedTrackDetail = view === 'track_detail' ? get().selectedTrackDetail : null;
+    const searchQuery = view === 'search' ? get().searchQuery : '';
 
     set({
       currentView: view,
+      searchQuery,
       selectedDrive,
       selectedAlbum,
       selectedPlaylist,
@@ -320,7 +322,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const params: any = {
         sortBy,
         sortOrder,
-        limit: 1000,
       };
 
       if (searchQuery.trim()) {

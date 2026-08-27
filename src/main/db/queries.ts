@@ -108,7 +108,10 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
       CASE WHEN t.track_number IS NULL OR t.track_number = 0 THEN 9999 ELSE t.track_number END ASC,
       t.title COLLATE NOCASE ${sortOrder}`;
   } else {
-    orderByClause = `ORDER BY t.${sortBy} COLLATE NOCASE ${sortOrder}`;
+    const isTextCol = ['title', 'artist', 'album', 'genre', 'camelot_key', 'file_name', 'file_path', 'album_artist'].includes(sortBy);
+    orderByClause = isTextCol
+      ? `ORDER BY t.${sortBy} COLLATE NOCASE ${sortOrder}`
+      : `ORDER BY t.${sortBy} ${sortOrder}`;
   }
 
   let paginationClause = '';
