@@ -313,9 +313,15 @@ export const VideoModal: React.FC = () => {
                   videoRef.current.currentTime = savedTime;
                 }
               }
+              if (isPlaying && videoRef.current) {
+                videoRef.current.play().catch(() => {});
+              }
             }}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
+            onCanPlay={() => {
+              if (isPlaying && videoRef.current) {
+                videoRef.current.play().catch(() => {});
+              }
+            }}
             onEnded={() => playNext()}
           />
 
