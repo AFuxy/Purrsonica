@@ -38,6 +38,7 @@ interface PlayerState {
   setVideoModalOpen: (open: boolean) => void;
   toggleRightSidebar: () => void;
   updateCurrentTrackMetadata: (updated: Partial<Track>) => void;
+  updateTrackLikeState: (trackId: string, isLiked: boolean) => void;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -235,6 +236,17 @@ export const usePlayerStore = create<PlayerState>()(
         },
       };
     });
+  },
+
+  updateTrackLikeState: (trackId: string, isLiked: boolean) => {
+    set((state) => ({
+      currentTrack:
+        state.currentTrack?.id === trackId
+          ? { ...state.currentTrack, is_liked: isLiked }
+          : state.currentTrack,
+      queue: state.queue.map((t) => (t.id === trackId ? { ...t, is_liked: isLiked } : t)),
+      history: state.history.map((t) => (t.id === trackId ? { ...t, is_liked: isLiked } : t)),
+    }));
   },
 }),
     {

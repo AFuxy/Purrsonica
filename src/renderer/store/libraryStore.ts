@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Track, DriveInfo, Album, Playlist, LibraryStats } from '../../shared/types.js';
+import { usePlayerStore } from './playerStore.js';
 
 export type LibraryViewType =
   | 'all'
@@ -405,21 +406,41 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   toggleLikeTrack: async (trackId: string) => {
     if (!window.api) return;
 
-    // Optimistic UI update
+    // Determine current like state
+    const currentLiked =
+      get().tracks.find((t) => t.id === trackId)?.is_liked ??
+      (usePlayerStore.getState().currentTrack?.id === trackId
+        ? usePlayerStore.getState().currentTrack?.is_liked
+        : false);
+    const optimisticState = !currentLiked;
+
+    // Optimistic UI update across LibraryStore
     set((state) => ({
       tracks: state.tracks.map((t) =>
-        t.id === trackId ? { ...t, is_liked: !t.is_liked } : t
+        t.id === trackId ? { ...t, is_liked: optimisticState } : t
       ),
+      selectedTrackDetail:
+        state.selectedTrackDetail?.id === trackId
+          ? { ...state.selectedTrackDetail, is_liked: optimisticState }
+          : state.selectedTrackDetail,
     }));
+
+    // Optimistic UI update across PlayerStore (currentTrack, queue, history)
+    usePlayerStore.getState().updateTrackLikeState(trackId, optimisticState);
 
     try {
       const newLikedState = await window.api.toggleLike(trackId);
-      // Sync exact state
+      // Sync exact confirmed state across both stores
       set((state) => ({
         tracks: state.tracks.map((t) =>
           t.id === trackId ? { ...t, is_liked: newLikedState } : t
         ),
+        selectedTrackDetail:
+          state.selectedTrackDetail?.id === trackId
+            ? { ...state.selectedTrackDetail, is_liked: newLikedState }
+            : state.selectedTrackDetail,
       }));
+      usePlayerStore.getState().updateTrackLikeState(trackId, newLikedState);
       get().fetchStats();
     } catch (err) {
       console.error('Error toggling like:', err);
