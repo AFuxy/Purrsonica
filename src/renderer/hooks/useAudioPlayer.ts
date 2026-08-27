@@ -3,6 +3,7 @@ import { usePlayerStore } from '../store/playerStore.js';
 
 let globalAudio: HTMLAudioElement | null = null;
 let listenersInitialized = false;
+let currentPlayingTrackId: string | null = null;
 
 export function getAudioElement(): HTMLAudioElement {
   if (!globalAudio) {
@@ -76,23 +77,27 @@ export function useAudioPlayer() {
     if (!audio) return;
 
     if (currentTrack && currentTrack.media_type !== 'video') {
-      const mediaUrl = window.api
-        ? window.api.getMediaUrl(currentTrack.file_path)
-        : currentTrack.file_path;
+      if (currentPlayingTrackId !== currentTrack.id) {
+        currentPlayingTrackId = currentTrack.id;
+        const mediaUrl = window.api
+          ? window.api.getMediaUrl(currentTrack.file_path)
+          : currentTrack.file_path;
 
-      if (audio.src !== mediaUrl) {
         audio.src = mediaUrl;
         audio.load();
-      }
 
-      if (isPlaying) {
-        audio.play().catch((err) => {
-          console.warn('Auto-play blocked or media unsupported:', err);
-        });
+        if (isPlaying) {
+          audio.play().catch((err) => {
+            console.warn('Auto-play blocked or media unsupported:', err);
+          });
+        }
       }
     } else {
-      audio.pause();
-      audio.src = '';
+      if (currentPlayingTrackId !== null) {
+        currentPlayingTrackId = null;
+        audio.pause();
+        audio.src = '';
+      }
     }
   }, [currentTrack]);
 
