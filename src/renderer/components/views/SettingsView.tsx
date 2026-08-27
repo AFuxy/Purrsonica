@@ -199,14 +199,15 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[var(--bg-primary)] text-[var(--text-primary)] select-none max-w-4xl mx-auto w-full relative">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-24 right-8 bg-neutral-900 border border-emerald-500/50 text-emerald-400 px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+    <div className="flex-1 w-full h-full overflow-y-auto min-h-0 bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative">
+      <div className="max-w-4xl mx-auto p-8 space-y-8 pb-24">
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className="fixed bottom-24 right-8 bg-neutral-900 border border-emerald-500/50 text-emerald-400 px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
 
       {/* Settings Header */}
       <div className="border-b border-[var(--border-color)] pb-4 flex items-center justify-between">
@@ -684,6 +685,7 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 };
