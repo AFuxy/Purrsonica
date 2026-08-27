@@ -24,6 +24,7 @@ export const RightSidebar: React.FC = () => {
     removeFromQueue,
     clearQueue,
     playTrack,
+    setVideoModalOpen,
   } = usePlayerStore();
 
   const { setEditingTrack, selectAlbumByName } = useLibraryStore();
@@ -75,9 +76,22 @@ export const RightSidebar: React.FC = () => {
                 </div>
               )}
 
+              {currentTrack.media_type === 'video' && (
+                <button
+                  onClick={() => setVideoModalOpen(true)}
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer"
+                  title="Open Video Player"
+                >
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-600/90 backdrop-blur-sm text-white font-semibold text-xs shadow-lg hover:scale-105 transition-transform">
+                    <Tv className="w-4 h-4" />
+                    <span>Watch Video</span>
+                  </div>
+                </button>
+              )}
+
               <button
                 onClick={() => setEditingTrack(currentTrack)}
-                className="absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                className="absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10"
                 title="Edit Track Metadata"
               >
                 <Edit3 className="w-3.5 h-3.5 text-emerald-400" />

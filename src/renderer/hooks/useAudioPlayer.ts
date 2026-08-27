@@ -57,7 +57,7 @@ export function useAudioPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (currentTrack) {
+    if (currentTrack && currentTrack.media_type !== 'video') {
       const mediaUrl = window.api
         ? window.api.getMediaUrl(currentTrack.file_path)
         : currentTrack.file_path;
@@ -81,7 +81,7 @@ export function useAudioPlayer() {
   // Handle Play/Pause
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentTrack) return;
+    if (!audio || !currentTrack || currentTrack.media_type === 'video') return;
 
     if (isPlaying) {
       audio.play().catch((err) => {
@@ -90,7 +90,7 @@ export function useAudioPlayer() {
     } else {
       audio.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, currentTrack]);
 
   // Handle Volume / Mute
   useEffect(() => {

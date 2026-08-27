@@ -58,7 +58,16 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
       <div className="flex items-center gap-3 w-1/4 min-w-[200px]">
         {currentTrack ? (
           <>
-            <div className="relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 group shadow-md">
+            <div
+              onClick={() => {
+                if (currentTrack.media_type === 'video') {
+                  setVideoModalOpen(true);
+                }
+              }}
+              className={`relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 group shadow-md ${
+                currentTrack.media_type === 'video' ? 'cursor-pointer ring-1 ring-purple-500/30 hover:ring-purple-500/60 transition-all' : ''
+              }`}
+            >
               {coverUrl ? (
                 <img
                   src={coverUrl}
@@ -67,18 +76,17 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                  {currentTrack.media_type === 'video' ? <Tv className="w-6 h-6" /> : <Music className="w-6 h-6" />}
+                  {currentTrack.media_type === 'video' ? <Tv className="w-6 h-6 text-purple-400" /> : <Music className="w-6 h-6" />}
                 </div>
               )}
 
               {currentTrack.media_type === 'video' && (
-                <button
-                  onClick={() => setVideoModalOpen(true)}
-                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
-                  title="Open Video Player"
+                <div
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                  title="Click to Open Video Player"
                 >
-                  <Tv className="w-5 h-5" />
-                </button>
+                  <Tv className="w-5 h-5 text-purple-300" />
+                </div>
               )}
             </div>
 
