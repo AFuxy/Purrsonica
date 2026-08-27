@@ -1,6 +1,8 @@
 import path from 'node:path';
+import fs from 'node:fs';
 
 export const DEFAULT_EXCLUDED_DIRECTORY_NAMES = new Set([
+  // Windows & OS Internals
   'windows',
   'program files',
   'program files (x86)',
@@ -25,7 +27,70 @@ export const DEFAULT_EXCLUDED_DIRECTORY_NAMES = new Set([
   'perflogs',
   '$windows.~bt',
   '$windows.~ws',
+  'windowsapps',
+  'wsl',
+
+  // Game Stores & Launchers
+  'games',
+  'steam',
+  'steamlibrary',
+  'steamapps',
+  'epic games',
+  'riot games',
+  'riot client',
+  'gog games',
+  'gog galaxy',
+  'origin games',
+  'electronic arts',
+  'ea games',
+  'ea desktop',
+  'ubisoft',
+  'ubisoft game launcher',
+  'battle.net',
+  'blizzard',
+  'xboxgames',
+  'oculus',
+  'meta quest',
+
+  // Game Engines & Audio Middleware
+  'unity',
+  'unityplayer',
+  'unreal engine',
+  'unrealengine',
+  'godot',
+  'cryengine',
+  'sourceengine',
+  'soundbanks',
+  'soundbank',
+  'wwise',
+  'fmod',
+  'gamemaker',
+  'rpgmaker',
+
+  // Popular Game Directories
+  'roblox',
+  'minecraft',
+  'genshin impact',
+  'valorant',
+  'league of legends',
+  'world of warcraft',
+  'fortnite',
+  'overwatch',
+  'steamvr',
 ]);
+
+// Signature files that mark a folder as a game installation directory
+const GAME_SIGNATURE_FILES = [
+  'unityplayer.dll',
+  'steam_api.dll',
+  'steam_api64.dll',
+  'fmod.dll',
+  'fmodstudio.dll',
+  'aksoundengine.dll',
+  'bink2w64.dll',
+  'binkw32.dll',
+  'xinput1_3.dll',
+];
 
 export const SUPPORTED_AUDIO_EXTENSIONS = new Set([
   '.mp3',
@@ -56,12 +121,12 @@ export function shouldExcludeFolder(folderPath: string, customExclusions: string
   const normalized = folderPath.toLowerCase().replace(/\//g, '\\');
   const baseName = path.basename(normalized);
 
-  // Check built-in folder names
+  // 1. Check built-in folder names
   if (DEFAULT_EXCLUDED_DIRECTORY_NAMES.has(baseName)) {
     return true;
   }
 
-  // Check if any segment of the path matches blacklisted directory names
+  // 2. Check if any path segment matches blacklisted directory names
   const segments = normalized.split('\\');
   for (const seg of segments) {
     if (DEFAULT_EXCLUDED_DIRECTORY_NAMES.has(seg)) {
@@ -69,13 +134,23 @@ export function shouldExcludeFolder(folderPath: string, customExclusions: string
     }
   }
 
-  // Check user-defined custom exclusions
+  // 3. Check user-defined custom exclusions
   for (const custom of customExclusions) {
     const normCustom = custom.toLowerCase().replace(/\//g, '\\').trim();
     if (normCustom && (normalized === normCustom || normalized.startsWith(normCustom + '\\'))) {
       return true;
     }
   }
+
+  // 4. Quick heuristic check: If folder contains game engine DLLs / signature files, skip directory
+  try {
+    const files = fs.readdirSync(folderPath);
+    for (const f of files) {
+      if (GAME_SIGNATURE_FILES.includes(f.toLowerCase())) {
+        return true;
+      }
+    }
+  } catch {}
 
   return false;
 }

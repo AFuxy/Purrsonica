@@ -287,6 +287,13 @@ async function parseMediaFile(
     }
   }
 
+  // Smart SFX / Game Audio Filter: Discard untagged audio under 15 seconds (UI sounds, footsteps, gunshots)
+  if (mediaType === 'audio' && duration > 0 && duration < 15) {
+    if (artist === 'Unknown Artist' && album === 'Unknown Album') {
+      return null;
+    }
+  }
+
   // Waveform peak extraction (for audio files)
   if (mediaType === 'audio' && options.generateWaveforms) {
     try {
