@@ -2,7 +2,7 @@ import { Client } from '@xhayper/discord-rpc';
 import { DiscordPresencePayload } from '../shared/types.js';
 import { getScanSettings } from './db/queries.js';
 
-const DISCORD_CLIENT_ID = '1344391782298714152';
+const DISCORD_CLIENT_ID = '1542613080855543868';
 
 let rpcClient: Client | null = null;
 let isConnected = false;
