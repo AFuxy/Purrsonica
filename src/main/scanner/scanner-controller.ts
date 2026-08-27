@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app } from 'electron';
 import { ScanProgress, ScanSettings, DriveInfo } from '../../shared/types.js';
@@ -69,11 +70,81 @@ export async function detectSystemDrives(): Promise<DriveInfo[]> {
         }
       }
     } catch {}
+  } else if (process.platform === 'darwin') {
+    // macOS Volume & Music Directory Detection
+    const homeDir = os.homedir();
+    const musicDir = path.join(homeDir, 'Music');
+    if (fs.existsSync(musicDir)) {
+      foundDrives.set(musicDir, {
+        letter: musicDir,
+        label: 'Music Library',
+        trackCount: foundDrives.get(musicDir)?.trackCount || 0,
+      });
+    }
+
+    // Scan /Volumes for mounted drives & external disks
+    if (fs.existsSync('/Volumes')) {
+      try {
+        const volumes = fs.readdirSync('/Volumes');
+        for (const vol of volumes) {
+          if (vol.startsWith('.')) continue;
+          const volPath = path.join('/Volumes', vol);
+          foundDrives.set(volPath, {
+            letter: volPath,
+            label: vol,
+            trackCount: foundDrives.get(volPath)?.trackCount || 0,
+          });
+        }
+      } catch {}
+    }
+
+    if (foundDrives.size === 0) {
+      foundDrives.set('/', {
+        letter: '/',
+        label: 'Macintosh HD',
+        trackCount: existingSummary[0]?.trackCount || 0,
+      });
+    }
   } else {
-    // POSIX root fallback
+    // Linux Volume & Mount Detection
+    const homeDir = os.homedir();
+    const musicDir = path.join(homeDir, 'Music');
+    if (fs.existsSync(musicDir)) {
+      foundDrives.set(musicDir, {
+        letter: musicDir,
+        label: 'Music Library',
+        trackCount: foundDrives.get(musicDir)?.trackCount || 0,
+      });
+    }
+
+    // Check common Linux mount points: /media/<user>, /run/media/<user>, /mnt
+    const user = process.env.USER || path.basename(homeDir);
+    const mediaPaths = [
+      `/media/${user}`,
+      `/run/media/${user}`,
+      '/mnt',
+    ];
+
+    for (const mp of mediaPaths) {
+      if (fs.existsSync(mp)) {
+        try {
+          const mounts = fs.readdirSync(mp);
+          for (const m of mounts) {
+            if (m.startsWith('.')) continue;
+            const fullPath = path.join(mp, m);
+            foundDrives.set(fullPath, {
+              letter: fullPath,
+              label: m,
+              trackCount: foundDrives.get(fullPath)?.trackCount || 0,
+            });
+          }
+        } catch {}
+      }
+    }
+
     foundDrives.set('/', {
       letter: '/',
-      label: 'Root Directory',
+      label: 'Root Filesystem',
       trackCount: existingSummary[0]?.trackCount || 0,
     });
   }

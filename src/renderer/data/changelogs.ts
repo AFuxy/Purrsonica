@@ -10,9 +10,24 @@ export interface ChangelogRelease {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.3.0',
+    title: 'Cross-Platform macOS & Linux Support',
+    isLatest: true,
+    sections: [
+      {
+        heading: 'Multi-Platform Features',
+        items: [
+          'Native macOS Support: Dedicated macOS experience with hiddenInset titlebar, native traffic light controls (🔴🟡🟢), and Apple Silicon + Intel DMG/ZIP distribution.',
+          'Native Linux Support: Universal AppImage, Debian (.deb), and Tarball (.tar.gz) packages with support for modern Linux desktop environments.',
+          'POSIX Volume & Drive Detection: Automatic library and volume resolution for macOS (~/Music, /Volumes) and Linux (/media, /run/media, /mnt).',
+          'Platform-Specific File Exclusion Rules: Smart background scanner filters excluding macOS system containers and Linux system partitions.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.1',
     title: 'Instant Ghost Paging, Zero-Freeze Navigation & Resilient Album Art',
-    isLatest: true,
     sections: [
       {
         heading: 'Fixes & Performance Enhancements',

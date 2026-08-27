@@ -423,7 +423,10 @@ export const SettingsView: React.FC = () => {
                 <input
                   type="color"
                   value={accentColor.startsWith('#') && accentColor.length === 7 ? accentColor : '#10b981'}
-                  onChange={(e) => setAccentColor(e.target.value, 'custom')}
+                  onChange={(e) => {
+                    setAccentColor(e.target.value, 'custom');
+                    setCustomHexInput(e.target.value);
+                  }}
                   className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
                   title="Pick a color from wheel"
                 />
@@ -442,6 +445,28 @@ export const SettingsView: React.FC = () => {
                   maxLength={7}
                 />
               </div>
+
+              <button
+                onClick={() => {
+                  if (/^#?([0-9A-F]{3}){1,2}$/i.test(customHexInput)) {
+                    setAccentColor(customHexInput.startsWith('#') ? customHexInput : `#${customHexInput}`, 'custom');
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-color)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all cursor-pointer"
+              >
+                Apply Color
+              </button>
+
+              <button
+                onClick={() => {
+                  setAccentColor('#10b981', 'emerald');
+                  setCustomHexInput('#10B981');
+                }}
+                className="px-2.5 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                title="Reset to default Emerald Green"
+              >
+                Reset
+              </button>
             </div>
 
             <div className="flex items-center gap-2 text-xs">

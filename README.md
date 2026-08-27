@@ -1,25 +1,42 @@
 # Purrsonica
 
-A local music and video player for Windows with background storage scanning, waveform playback, DJ Camelot wheel key analysis, and playlist management.
+A modern local music and video player for Windows, macOS, and Linux with high-throughput background scanning, interactive waveform scrubbers, DJ Camelot wheel harmonic analysis, Discord Rich Presence, and customizable accent themes.
 
 ---
 
 ## Downloads
 
-Download the latest Windows release from the [GitHub Releases page](https://github.com/AFuxy/Purrsonica/releases/latest).
+Download the latest release for **Windows**, **macOS**, or **Linux** from the [GitHub Releases page](https://github.com/AFuxy/Purrsonica/releases/latest).
+
+* **Windows**: Installer (`.exe`) and standalone Portable (`.exe`).
+* **macOS**: Apple Silicon (M1/M2/M3/M4) & Intel Universal DMG (`.dmg`) and ZIP archive (`.zip`).
+* **Linux**: Universal AppImage (`.AppImage`), Debian package (`.deb`), and Tarball (`.tar.gz`).
+
+---
+
+## Key Features
+
+- **Multi-Platform Support**: Tailored native experience across Windows, macOS (with native traffic light window buttons), and Linux.
+- **High-Throughput Ghost Windowing**: Lightning-fast instant page switching and smooth virtual scrolling across massive libraries (50,000+ tracks).
+- **Background Storage Scanner**: Fast, multi-threaded worker scanner with smart exclusion rules (games, dev dependencies, and OS system caches).
+- **Discord Rich Presence (RPC)**: Live profile status broadcasting active song, artist, album, live countdown timer, and repository action buttons.
+- **Custom Accent Themes**: 7 signature palettes + hex color wheel picker with live DOM theme engine.
+- **Interactive Waveform Scrubbing**: Visual audio waveforms with seekable progress bars and smooth track transitions.
+- **DJ Camelot Wheel Analysis**: Automatic key parsing and interactive Camelot Wheel harmonic compatibility matrix (`1A`–`12B`).
+- **Global System Media Keys**: Hardware media key control (Play/Pause, Next, Previous, Stop) even when minimized in the background.
 
 ---
 
 ## Quick Start Guide
 
 ### Adding Music to Your Library
-- **Drag and Drop**: Drag audio or video files (or entire folders) from Windows Explorer directly into the application window.
-- **Scan Drives**: Click **Scan Library** in the sidebar to scan selected physical drives (e.g. `C:`, `D:`) in a background thread. You can start, stop, and configure exclusion folders at any time.
-- **Manual Import**: Use the **Import Files** or **Import Folder** buttons in the sidebar to open native file pickers.
+- **Drag and Drop**: Drag audio or video files (or entire folders) from your file manager (Explorer, Finder, Nautilus) directly into Purrsonica.
+- **Scan Drives**: Click **Scan Library** in the sidebar to scan physical drives or mounted volumes in a background worker thread.
+- **Manual Import**: Use the **Import Files** or **Import Folder** buttons in the sidebar to select local directories.
 
 ### Playlists
 - Click the **+** button next to Playlists in the sidebar to create a new playlist.
-- Open a playlist and click the **Pencil icon** or the playlist artwork to rename, add a description, or upload custom cover images.
+- Open a playlist and click the **Pencil icon** or the artwork tile to rename, add a description, or upload custom cover images.
 - Add songs by clicking the three-dot menu (`•••`) on any track row.
 
 ### Metadata & Camelot Key Editing
@@ -28,9 +45,6 @@ Download the latest Windows release from the [GitHub Releases page](https://gith
 - Use the interactive **Camelot Wheel Picker** to assign musical keys (`1A`–`12B`) and view harmonically compatible keys for DJ mixing.
 - Changes can be saved to the local database and optionally written back into physical ID3 file tags.
 
-### Appearance
-- Toggle between Light and Dark mode using the theme button in the top titlebar.
-
 ---
 
 ## Building from Source
@@ -38,7 +52,7 @@ Download the latest Windows release from the [GitHub Releases page](https://gith
 ### Prerequisites
 - Node.js 20 or higher
 - npm 10 or higher
-- Windows 10/11 64-bit
+- Windows 10/11, macOS 11+, or Linux (Ubuntu/Debian/Fedora/Arch)
 
 ### Setup
 ```bash
@@ -58,23 +72,20 @@ npm run rebuild
 npm run dev
 ```
 
-### Packaging Windows Executable
+### Packaging Binaries
 ```bash
-npm run build
+# Build for Windows (.exe installer & portable)
+npm run build:win
+
+# Build for macOS (.dmg & .zip)
+npm run build:mac
+
+# Build for Linux (.AppImage, .deb, .tar.gz)
+npm run build:linux
+
+# Build for all platforms
+npm run build:all
 ```
-
----
-
-## Publishing Releases
-
-Releases are automated using GitHub Actions:
-1. Update `"version"` in `package.json`.
-2. Commit changes and push a version tag:
-   ```bash
-   git tag v1.0.1
-   git push origin v1.0.1
-   ```
-3. GitHub Actions will automatically compile the release and publish it to the GitHub Releases page.
 
 ---
 

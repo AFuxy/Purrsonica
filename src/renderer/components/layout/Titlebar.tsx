@@ -91,8 +91,10 @@ export const Titlebar: React.FC = () => {
   };
   const handleClose = () => window.api?.close();
 
+  const isMac = window.api?.platform === 'darwin';
+
   return (
-    <header className="titlebar-drag-region h-12 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center justify-between px-4 z-50 select-none">
+    <header className={`titlebar-drag-region h-12 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center justify-between z-50 select-none ${isMac ? 'pl-20 pr-4' : 'px-4'}`}>
       {/* Brand, Logo & Navigation History Controls */}
       <div
         className="titlebar-no-drag flex items-center gap-2"
@@ -285,32 +287,34 @@ export const Titlebar: React.FC = () => {
           )}
         </button>
 
-        <div className="flex items-center" style={{ WebkitAppRegion: 'no-drag' } as any}>
-          <button
-            onClick={handleMinimize}
-            style={{ WebkitAppRegion: 'no-drag' } as any}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors rounded-sm cursor-pointer"
-            title="Minimize"
-          >
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={handleMaximize}
-            style={{ WebkitAppRegion: 'no-drag' } as any}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors rounded-sm cursor-pointer"
-            title={isMaximized ? 'Restore' : 'Maximize'}
-          >
-            {isMaximized ? <Copy className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            onClick={handleClose}
-            style={{ WebkitAppRegion: 'no-drag' } as any}
-            className="p-2 text-[var(--text-secondary)] hover:text-white hover:bg-rose-600 transition-colors rounded-sm cursor-pointer"
-            title="Close"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {!isMac && (
+          <div className="flex items-center" style={{ WebkitAppRegion: 'no-drag' } as any}>
+            <button
+              onClick={handleMinimize}
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors rounded-sm cursor-pointer"
+              title="Minimize"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleMaximize}
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors rounded-sm cursor-pointer"
+              title={isMaximized ? 'Restore' : 'Maximize'}
+            >
+              {isMaximized ? <Copy className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={handleClose}
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+              className="p-2 text-[var(--text-secondary)] hover:text-white hover:bg-rose-600 transition-colors rounded-sm cursor-pointer"
+              title="Close"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

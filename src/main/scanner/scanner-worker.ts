@@ -1,6 +1,7 @@
 import { parentPort } from 'node:worker_threads';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import crypto from 'node:crypto';
 import { parseFile } from 'music-metadata';
 import { parseKey } from '../../shared/camelot.js';
@@ -81,8 +82,13 @@ async function runScan(options: ScanOptions) {
   } else if (options.drives && options.drives.length > 0) {
     rootsToScan.push(...options.drives);
   } else {
-    // Default to C:\ and D:\
-    rootsToScan.push('C:\\');
+    // Default roots by OS
+    if (process.platform === 'win32') {
+      rootsToScan.push('C:\\');
+    } else {
+      const musicDir = path.join(os.homedir(), 'Music');
+      rootsToScan.push(fs.existsSync(musicDir) ? musicDir : os.homedir());
+    }
   }
 
   // Ensure covers cache directory exists
@@ -218,7 +224,15 @@ async function parseMediaFile(
   const stats = await fs.promises.stat(filePath);
   const ext = path.extname(filePath).toLowerCase().replace('.', '');
   const fileName = path.basename(filePath);
-  const driveLetter = path.parse(filePath).root.replace('\\', '').replace('/', '') || 'C:';
+  let driveLetter = 'C:';
+  if (process.platform === 'win32') {
+    driveLetter = path.parse(filePath).root.replace(/[\\/]/g, '') || 'C:';
+  } else if (filePath.startsWith('/Volumes/')) {
+    const parts = filePath.split('/');
+    driveLetter = parts.slice(0, 3).join('/');
+  } else {
+    driveLetter = '/';
+  }
 
   let title = path.basename(filePath, path.extname(filePath));
   let artist = 'Unknown Artist';

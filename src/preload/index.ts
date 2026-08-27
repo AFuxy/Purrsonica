@@ -21,6 +21,7 @@ export const electronAPI = {
     ipcRenderer.invoke('discord:set-enabled', enabled),
 
   // Window controls & App Info
+  platform: process.platform,
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),

@@ -330,8 +330,9 @@ function createWindow(): void {
     height: 840,
     minWidth: 960,
     minHeight: 640,
-    frame: false, // Frameless Spotify look
-    titleBarStyle: 'hidden',
+    frame: process.platform === 'darwin' ? false : false, // Frameless design
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    trafficLightPosition: process.platform === 'darwin' ? { x: 14, y: 14 } : undefined,
     backgroundColor: '#121212',
     icon: defaultIcon,
     webPreferences: {

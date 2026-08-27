@@ -1,4 +1,4 @@
-name: Release Build
+name: Multi-Platform Release Build
 
 on:
   push:
@@ -10,8 +10,19 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  release:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+          - os: macos-latest
+            target: --mac
+          - os: ubuntu-22.04
+            target: --linux
 
     steps:
       - name: Checkout Source Code
@@ -21,6 +32,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install Linux Build Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools libsecret-1-dev
 
       - name: Install Dependencies
         run: npm ci
@@ -34,4 +51,4 @@ jobs:
       - name: Build & Publish Release to GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --publish always
+        run: npx electron-builder ${{ matrix.target }} --publish always
