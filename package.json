@@ -52,7 +52,8 @@
     "publish": {
       "provider": "github",
       "owner": "AFuxy",
-      "repo": "Purrsonica"
+      "repo": "Purrsonica",
+      "releaseType": "release"
     }
   },
   "keywords": [

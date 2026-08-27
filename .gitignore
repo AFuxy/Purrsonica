@@ -13,6 +13,7 @@ dist
 dist-electron
 dist-ssr
 release
+release.md
 *.local
 .purrsonica_data
 
