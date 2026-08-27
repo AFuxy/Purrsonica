@@ -35,14 +35,17 @@ CREATE TABLE IF NOT EXISTS tracks (
 
 -- Indexes for lightning fast queries, search, and sorting
 CREATE INDEX IF NOT EXISTS idx_tracks_drive ON tracks(drive_letter);
+CREATE INDEX IF NOT EXISTS idx_tracks_drive_media ON tracks(drive_letter, media_type);
 CREATE INDEX IF NOT EXISTS idx_tracks_media_type ON tracks(media_type);
 CREATE INDEX IF NOT EXISTS idx_tracks_is_liked ON tracks(is_liked);
+CREATE INDEX IF NOT EXISTS idx_tracks_liked_media ON tracks(is_liked, media_type);
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
 CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre);
 CREATE INDEX IF NOT EXISTS idx_tracks_camelot_key ON tracks(camelot_key);
 CREATE INDEX IF NOT EXISTS idx_tracks_bpm ON tracks(bpm);
 CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
+CREATE INDEX IF NOT EXISTS idx_tracks_created ON tracks(created_at DESC);
 
 -- Albums table
 CREATE TABLE IF NOT EXISTS albums (

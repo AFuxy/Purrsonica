@@ -145,6 +145,15 @@ export async function startScan(
   try {
     activeWorker = new Worker(workerScriptPath);
 
+    let lastLibraryNotifyTime = 0;
+    const notifyLibraryThrottled = (force = false) => {
+      const now = Date.now();
+      if (force || now - lastLibraryNotifyTime > 1800) {
+        lastLibraryNotifyTime = now;
+        mainWindow?.webContents.send('library:updated');
+      }
+    };
+
     activeWorker.on('message', (msg: any) => {
       if (msg.type === 'PROGRESS') {
         currentProgress = {
@@ -154,9 +163,8 @@ export async function startScan(
         mainWindow?.webContents.send('scanner:progress', currentProgress);
       } else if (msg.type === 'BATCH_RESULTS') {
         if (msg.payload.tracks && msg.payload.tracks.length > 0) {
-          console.log(`[Purrsonica Scanner] Indexing batch of ${msg.payload.tracks.length} tracks...`);
           upsertTracksBatch(msg.payload.tracks);
-          mainWindow?.webContents.send('library:updated');
+          notifyLibraryThrottled(false);
         }
       } else if (msg.type === 'COMPLETED' || msg.type === 'ABORTED') {
         console.log(`[Purrsonica Scanner] Scan ${msg.type.toLowerCase()}: ${msg.payload.foundMediaCount} media files found.`);
@@ -168,7 +176,7 @@ export async function startScan(
           elapsedMs: msg.payload.elapsedMs,
         };
         mainWindow?.webContents.send('scanner:progress', currentProgress);
-        mainWindow?.webContents.send('library:updated');
+        notifyLibraryThrottled(true);
         cleanupWorker();
       } else if (msg.type === 'ERROR') {
         console.error('[Purrsonica Scanner] Worker error message:', msg.payload);

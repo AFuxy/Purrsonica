@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, net } from 'electron';
+import { app, BrowserWindow, protocol, net, nativeImage } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -34,19 +34,29 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+function parseProtocolPath(requestUrl: string, scheme: string): string {
+  const prefix = `${scheme}://`;
+  let raw = requestUrl.startsWith(prefix) ? requestUrl.slice(prefix.length) : requestUrl;
+  let decoded = decodeURIComponent(raw);
+
+  // Clean leading slashes on Windows (e.g. /D:/... or /D:\...)
+  if (process.platform === 'win32') {
+    if (/^\/[a-zA-Z]:/.test(decoded)) {
+      decoded = decoded.substring(1);
+    }
+  }
+
+  return path.normalize(decoded);
+}
+
 function registerStreamingProtocols() {
   // Protocol: media://<encoded-file-path>
   protocol.handle('media', async (request) => {
     try {
-      const url = new URL(request.url);
-      let decodedPath = decodeURIComponent(url.pathname);
-
-      // Handle Windows drive paths like /C:/Users/...
-      if (process.platform === 'win32' && decodedPath.startsWith('/') && /^\/[a-zA-Z]:/.test(decodedPath)) {
-        decodedPath = decodedPath.substring(1);
-      }
+      const decodedPath = parseProtocolPath(request.url, 'media');
 
       if (!fs.existsSync(decodedPath)) {
+        console.warn('[media://] File Not Found:', decodedPath);
         return new Response('File Not Found', { status: 404 });
       }
 
@@ -55,7 +65,7 @@ function registerStreamingProtocols() {
         headers: request.headers,
       });
     } catch (err: any) {
-      console.error('Error serving media protocol:', err);
+      console.error('[media://] Protocol error:', err);
       return new Response('Internal Server Error: ' + err.message, { status: 500 });
     }
   });
@@ -63,12 +73,7 @@ function registerStreamingProtocols() {
   // Protocol: cover://<encoded-file-path>
   protocol.handle('cover', async (request) => {
     try {
-      const url = new URL(request.url);
-      let decodedPath = decodeURIComponent(url.pathname);
-
-      if (process.platform === 'win32' && decodedPath.startsWith('/') && /^\/[a-zA-Z]:/.test(decodedPath)) {
-        decodedPath = decodedPath.substring(1);
-      }
+      const decodedPath = parseProtocolPath(request.url, 'cover');
 
       if (!fs.existsSync(decodedPath)) {
         return new Response('Cover Not Found', { status: 404 });
@@ -100,8 +105,23 @@ function resolvePreloadPath(): string {
   return candidates[0];
 }
 
+export function resolveIconPath(iconFile: string): string | null {
+  const candidates = [
+    path.join(__dirname, '../../public', iconFile),
+    path.join(app.getAppPath(), 'public', iconFile),
+    path.join(process.resourcesPath, 'public', iconFile),
+    path.join(process.resourcesPath, 'app.asar/public', iconFile),
+    path.join(process.cwd(), 'public', iconFile),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return null;
+}
+
 function createWindow(): void {
-  const defaultIcon = path.join(process.cwd(), 'public', 'PurrSonica-White-logo.png');
+  const iconPath = resolveIconPath('PurrSonica-White-logo.png');
+  const defaultIcon = iconPath ? nativeImage.createFromPath(iconPath) : undefined;
   const preloadScript = resolvePreloadPath();
 
   mainWindow = new BrowserWindow({
@@ -112,7 +132,7 @@ function createWindow(): void {
     frame: false, // Frameless Spotify look
     titleBarStyle: 'hidden',
     backgroundColor: '#121212',
-    icon: fs.existsSync(defaultIcon) ? defaultIcon : undefined,
+    icon: defaultIcon,
     webPreferences: {
       preload: preloadScript,
       nodeIntegration: false,

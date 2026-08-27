@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -22,6 +22,9 @@ interface TrackTableProps {
   tracks: Track[];
 }
 
+const ROW_HEIGHT = 44; // Fixed height per row in pixels
+const OVERSCAN = 10; // Extra buffer rows rendered above & below
+
 export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
   const { currentTrack, isPlaying, setTrack, togglePlay, addToQueue } = usePlayerStore();
   const {
@@ -33,12 +36,38 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
     playlists,
     addTrackToPlaylist,
     sortBy,
-    sortOrder,
     setSorting,
   } = useLibraryStore();
 
   const [activeMenuTrackId, setActiveMenuTrackId] = useState<string | null>(null);
   const [playlistSubmenuTrackId, setPlaylistSubmenuTrackId] = useState<string | null>(null);
+
+  // Virtualization state
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(600);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleResize = () => {
+      setContainerHeight(el.clientHeight);
+    };
+
+    const handleScroll = () => {
+      setScrollTop(el.scrollTop);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    el.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      el.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const handleRowPlay = (track: Track) => {
     if (currentTrack?.id === track.id) {
@@ -52,9 +81,21 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
     setSorting(field);
   };
 
+  // Virtual window calculation
+  const totalCount = tracks.length;
+  const totalHeight = totalCount * ROW_HEIGHT;
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT) + 2 * OVERSCAN;
+  const endIndex = Math.min(totalCount, startIndex + visibleCount);
+  const visibleTracks = tracks.slice(startIndex, endIndex);
+  const offsetY = startIndex * ROW_HEIGHT;
+
   return (
-    <div className="w-full select-none text-xs text-[var(--text-secondary)]">
-      {/* Table Header */}
+    <div
+      ref={containerRef}
+      className="w-full h-full overflow-y-auto select-none text-xs text-[var(--text-secondary)]"
+    >
+      {/* Table Header (Sticky) */}
       <div className="grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 py-2 border-b border-[var(--border-color)] text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] sticky top-0 bg-[var(--bg-primary)] z-10">
         <div className="text-center">#</div>
 
@@ -102,195 +143,247 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
         <div className="text-center">•••</div>
       </div>
 
-      {/* Table Rows */}
+      {/* Table Rows (Virtualized Container) */}
       {tracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
           <Music className="w-12 h-12 mb-3 opacity-30" />
           <p className="text-sm font-semibold">No media found in this view</p>
           <p className="text-xs mt-1 opacity-70">
-            Click "Scan PC" in the sidebar or "Import Files" to add media.
+            Click "Scan PC" in the sidebar or drag and drop media files to add.
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-[var(--border-color)]">
-          {tracks.map((track, index) => {
-            const isCurrent = currentTrack?.id === track.id;
-            const isTrackPlaying = isCurrent && isPlaying;
-            const coverUrl = track.cover_art_path && window.api
-              ? window.api.getCoverUrl(track.cover_art_path)
-              : null;
+        <div
+          style={{ height: `${totalHeight}px`, position: 'relative' }}
+          className="w-full"
+        >
+          <div
+            style={{
+              transform: `translateY(${offsetY}px)`,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+            }}
+            className="divide-y divide-[var(--border-color)]"
+          >
+            {visibleTracks.map((track, relativeIndex) => {
+              const actualIndex = startIndex + relativeIndex;
+              const isCurrent = currentTrack?.id === track.id;
+              const isTrackPlaying = isCurrent && isPlaying;
+              const coverUrl = track.cover_art_path && window.api
+                ? window.api.getCoverUrl(track.cover_art_path)
+                : null;
 
-            return (
-              <div
-                key={track.id}
-                onDoubleClick={() => handleRowPlay(track)}
-                className={`grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 py-2 hover:bg-[var(--bg-tertiary)] transition-colors group cursor-default ${
-                  isCurrent ? 'bg-[var(--bg-tertiary)] text-emerald-400' : ''
-                }`}
-              >
-                {/* Index / Play Button */}
-                <div className="flex items-center justify-center relative">
-                  <span className={`text-xs group-hover:hidden ${isCurrent ? 'text-emerald-400 font-bold' : 'text-[var(--text-muted)]'}`}>
-                    {index + 1}
-                  </span>
-                  <button
-                    onClick={() => handleRowPlay(track)}
-                    className="hidden group-hover:flex items-center justify-center text-[var(--text-primary)] hover:scale-110 transition-transform"
-                  >
-                    {isTrackPlaying ? (
-                      <Pause className="w-4 h-4 fill-current text-emerald-400" />
-                    ) : (
-                      <Play className="w-4 h-4 fill-current" />
-                    )}
-                  </button>
-                </div>
+              return (
+                <div
+                  key={track.id}
+                  style={{ height: `${ROW_HEIGHT}px` }}
+                  onDoubleClick={() => handleRowPlay(track)}
+                  className={`grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 hover:bg-[var(--bg-tertiary)] transition-colors group cursor-default ${
+                    isCurrent ? 'bg-[var(--bg-tertiary)] text-emerald-400' : ''
+                  }`}
+                >
+                  {/* Index / Play Button */}
+                  <div className="flex items-center justify-center relative">
+                    <span className={`text-xs group-hover:hidden ${isCurrent ? 'text-emerald-400 font-bold' : 'text-[var(--text-muted)]'}`}>
+                      {actualIndex + 1}
+                    </span>
+                    <button
+                      onClick={() => handleRowPlay(track)}
+                      className="hidden group-hover:flex items-center justify-center text-[var(--text-primary)] hover:scale-110 transition-transform"
+                    >
+                      {isTrackPlaying ? (
+                        <Pause className="w-4 h-4 fill-current text-emerald-400" />
+                      ) : (
+                        <Play className="w-4 h-4 fill-current" />
+                      )}
+                    </button>
+                  </div>
 
-                {/* Title, Artist, & Thumbnail */}
-                <div className="flex items-center gap-3 min-w-0 pr-4">
-                  <div className="w-9 h-9 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
-                    {coverUrl ? (
-                      <img src={coverUrl} alt="" className="w-full h-full object-cover" />
-                    ) : track.media_type === 'video' ? (
-                      <Tv className="w-4 h-4 text-purple-400" />
+                  {/* Title, Artist, & Thumbnail */}
+                  <div className="flex items-center gap-3 min-w-0 pr-4">
+                    <div className="w-8 h-8 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+                      {coverUrl ? (
+                        <img
+                          src={coverUrl}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : track.media_type === 'video' ? (
+                        <Tv className="w-4 h-4 text-purple-400" />
+                      ) : (
+                        <Music className="w-4 h-4 text-[var(--text-muted)]" />
+                      )}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className={`font-semibold truncate text-xs ${isCurrent ? 'text-emerald-400' : 'text-[var(--text-primary)]'}`}>
+                        {track.title || track.file_name}
+                      </span>
+                      <span className="text-[11px] text-[var(--text-secondary)] truncate">
+                        {track.artist || 'Unknown Artist'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Album */}
+                  <div className="truncate text-[var(--text-secondary)] text-xs pr-4">
+                    {track.album || '—'}
+                  </div>
+
+                  {/* BPM */}
+                  <div className="text-right font-mono text-[11px] pr-2 text-[var(--text-muted)]">
+                    {track.bpm ? Math.round(track.bpm) : '—'}
+                  </div>
+
+                  {/* Camelot Key Badge */}
+                  <div className="flex items-center justify-center">
+                    {track.camelot_key ? (
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                          track.camelot_key.endsWith('A')
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                        }`}
+                        title={track.musical_key || track.camelot_key}
+                      >
+                        {track.camelot_key}
+                      </span>
                     ) : (
-                      <Music className="w-4 h-4 text-[var(--text-muted)]" />
+                      <span className="text-[var(--text-muted)] text-[11px]">—</span>
                     )}
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className={`font-semibold truncate text-xs ${isCurrent ? 'text-emerald-400' : 'text-[var(--text-primary)]'}`}>
-                      {track.title}
-                    </span>
-                    <span className="text-[11px] text-[var(--text-secondary)] truncate">
-                      {track.artist}
-                    </span>
+
+                  {/* Duration */}
+                  <div className="text-right font-mono text-[11px] pr-2 text-[var(--text-muted)]">
+                    {formatDuration(track.duration)}
                   </div>
-                </div>
 
-                {/* Album */}
-                <div className="truncate text-xs text-[var(--text-secondary)] pr-3">
-                  {track.album}
-                </div>
-
-                {/* BPM */}
-                <div className="text-right font-mono text-[11px] pr-2 text-[var(--text-muted)]">
-                  {track.bpm ? Math.round(track.bpm) : '—'}
-                </div>
-
-                {/* Camelot & Musical Key */}
-                <div className="flex items-center justify-center">
-                  {track.camelot_key ? (
-                    <span className="px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] font-mono font-bold text-[10px] text-emerald-400" title={track.musical_key || ''}>
-                      {track.camelot_key}
-                    </span>
-                  ) : (
-                    <span className="text-[var(--text-muted)] text-[11px]">—</span>
-                  )}
-                </div>
-
-                {/* Duration */}
-                <div className="text-right font-mono text-[11px] pr-2 text-[var(--text-muted)]">
-                  {formatDuration(track.duration)}
-                </div>
-
-                {/* Like Button */}
-                <div className="flex items-center justify-center">
-                  <button
-                    onClick={() => toggleLikeTrack(track.id)}
-                    className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1"
-                    title={track.is_liked ? 'Liked' : 'Like'}
-                  >
-                    <Heart
-                      className={`w-3.5 h-3.5 ${
-                        track.is_liked
-                          ? 'fill-emerald-500 text-emerald-500'
-                          : 'opacity-0 group-hover:opacity-100 hover:text-white'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* 3-Dots Context Menu */}
-                <div className="relative flex items-center justify-center">
-                  <button
-                    onClick={() =>
-                      setActiveMenuTrackId(activeMenuTrackId === track.id ? null : track.id)
-                    }
-                    className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded transition-colors"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-
-                  {/* Dropdown Menu */}
-                  {activeMenuTrackId === track.id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => {
-                          setActiveMenuTrackId(null);
-                          setPlaylistSubmenuTrackId(null);
-                        }}
+                  {/* Like Button */}
+                  <div className="flex items-center justify-center">
+                    <button
+                      onClick={() => toggleLikeTrack(track.id)}
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1"
+                      title={track.is_liked ? 'Liked' : 'Like'}
+                    >
+                      <Heart
+                        className={`w-3.5 h-3.5 ${
+                          track.is_liked
+                            ? 'fill-emerald-500 text-emerald-500'
+                            : 'opacity-0 group-hover:opacity-100 hover:text-white'
+                        }`}
                       />
-                      <div className="absolute right-0 top-8 w-48 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50 text-xs">
-                        {currentView === 'playlist_detail' && selectedPlaylist && (
+                    </button>
+                  </div>
+
+                  {/* 3-Dots Context Menu */}
+                  <div className="relative flex items-center justify-center">
+                    <button
+                      onClick={() =>
+                        setActiveMenuTrackId(activeMenuTrackId === track.id ? null : track.id)
+                      }
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded transition-colors"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {activeMenuTrackId === track.id && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => {
+                            setActiveMenuTrackId(null);
+                            setPlaylistSubmenuTrackId(null);
+                          }}
+                        />
+                        <div className="absolute right-0 top-8 w-48 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50 text-xs">
+                          {currentView === 'playlist_detail' && selectedPlaylist && (
+                            <button
+                              onClick={() => {
+                                removeTrackFromPlaylist(selectedPlaylist.id, track.id);
+                                setActiveMenuTrackId(null);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-rose-400 flex items-center gap-2 border-b border-[var(--border-color)]"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Remove from this Playlist</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => {
-                              removeTrackFromPlaylist(selectedPlaylist.id, track.id);
+                              addToQueue(track);
                               setActiveMenuTrackId(null);
                             }}
-                            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-rose-400 flex items-center gap-2 border-b border-[var(--border-color)]"
+                            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center gap-2"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove from this Playlist</span>
+                            <ListPlus className="w-3.5 h-3.5" />
+                            <span>Add to Queue</span>
                           </button>
-                        )}
 
-                        <button
-                          onClick={() => {
-                            addToQueue(track);
-                            setActiveMenuTrackId(null);
-                          }}
-                          className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center gap-2"
-                        >
-                          <ListPlus className="w-3.5 h-3.5" />
-                          <span>Add to Queue</span>
-                        </button>
+                          <div className="relative">
+                            <button
+                              onClick={() =>
+                                setPlaylistSubmenuTrackId(
+                                  playlistSubmenuTrackId === track.id ? null : track.id
+                                )
+                              }
+                              className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Add to Playlist</span>
+                              </div>
+                              <span className="text-[10px]">▶</span>
+                            </button>
 
-                        <button
-                          onClick={() => {
-                            setEditingTrack(track);
-                            setActiveMenuTrackId(null);
-                          }}
-                          className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center gap-2"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Edit Details & Art</span>
-                        </button>
+                            {/* Playlist Submenu */}
+                            {playlistSubmenuTrackId === track.id && (
+                              <div className="absolute left-full top-0 w-44 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50 ml-1">
+                                {playlists.length === 0 ? (
+                                  <div className="px-3 py-1.5 text-[11px] text-[var(--text-muted)]">
+                                    No playlists created
+                                  </div>
+                                ) : (
+                                  playlists.map((pl) => (
+                                    <button
+                                      key={pl.id}
+                                      onClick={() => {
+                                        addTrackToPlaylist(pl.id, track.id);
+                                        setActiveMenuTrackId(null);
+                                        setPlaylistSubmenuTrackId(null);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] truncate block text-xs"
+                                    >
+                                      {pl.name}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
 
-                        {/* Add to Playlist Submenu */}
-                        <div className="border-t border-[var(--border-color)] my-1" />
-                        <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-muted)] uppercase">
-                          Add to Playlist
+                          <button
+                            onClick={() => {
+                              setEditingTrack(track);
+                              setActiveMenuTrackId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center gap-2"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit Track Info</span>
+                          </button>
                         </div>
-                        {playlists.map((pl) => (
-                          <button
-                            key={pl.id}
-                            onClick={() => {
-                              addTrackToPlaylist(pl.id, track.id);
-                              setActiveMenuTrackId(null);
-                            }}
-                            className="w-full px-3 py-1.5 text-left hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] truncate flex items-center gap-2"
-                          >
-                            <span>•</span>
-                            <span className="truncate">{pl.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -93,13 +93,21 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     });
   });
 
-  // Automatically check for updates on startup only if packaged with update config
+  // Automatically check for updates on startup and periodically while app remains open
   if (app.isPackaged && hasUpdateConfig()) {
+    // Initial check after 4 seconds
     setTimeout(() => {
       autoUpdater.checkForUpdates().catch((err) => {
         console.warn('[Purrsonica Updater] Startup check bypassed:', err?.message || err);
       });
     }, 4000);
+
+    // Periodic check every 1 hour while running continuously
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.warn('[Purrsonica Updater] Periodic check bypassed:', err?.message || err);
+      });
+    }, 60 * 60 * 1000);
   }
 }
 

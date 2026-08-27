@@ -47,7 +47,7 @@ export const MainContent: React.FC = () => {
     : null;
 
   return (
-    <main className="flex-1 bg-[var(--bg-primary)] overflow-y-auto flex flex-col h-full select-none">
+    <main className="flex-1 bg-[var(--bg-primary)] overflow-hidden flex flex-col h-full select-none">
       {/* Dynamic View Header Banner */}
       <div className="p-6 pb-4 border-b border-[var(--border-color)] bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)]">
         {/* All Media View Header */}
@@ -335,8 +335,8 @@ export const MainContent: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Standard Track Table List */
-        <div className="flex-1 pb-10">
+        /* Standard Track Table List (Virtualized) */
+        <div className="flex-1 min-h-0 relative">
           <TrackTable tracks={tracks} />
         </div>
       )}

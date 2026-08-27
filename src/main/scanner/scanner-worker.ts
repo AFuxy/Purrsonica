@@ -42,7 +42,7 @@ async function runScan(options: ScanOptions) {
   const startTime = Date.now();
   let scannedFilesCount = 0;
   let foundMediaCount = 0;
-  const BATCH_SIZE = 10; // Responsive small batches
+  const BATCH_SIZE = 100; // Efficient high-throughput batches
   let currentBatch: Partial<Track>[] = [];
   let lastFlushTime = Date.now();
 
@@ -184,6 +184,32 @@ async function runScan(options: ScanOptions) {
   }
 }
 
+const COMMON_COVER_NAMES = [
+  'cover.jpg',
+  'cover.jpeg',
+  'cover.png',
+  'cover.webp',
+  'folder.jpg',
+  'folder.jpeg',
+  'folder.png',
+  'albumart.jpg',
+  'albumart.png',
+  'front.jpg',
+  'front.png',
+];
+
+async function findFolderCoverArt(dir: string): Promise<string | undefined> {
+  try {
+    for (const name of COMMON_COVER_NAMES) {
+      const p = path.join(dir, name);
+      if (fs.existsSync(p)) {
+        return p;
+      }
+    }
+  } catch {}
+  return undefined;
+}
+
 async function parseMediaFile(
   filePath: string,
   mediaType: 'audio' | 'video',
@@ -249,8 +275,16 @@ async function parseMediaFile(
       }
       coverArtPath = cachedFile;
     }
+
+    // Fallback to directory cover art (folder.jpg, cover.jpg, etc.)
+    if (!coverArtPath) {
+      coverArtPath = await findFolderCoverArt(path.dirname(filePath));
+    }
   } catch (err) {
-    // If music-metadata fails (e.g. video files or raw headers), fallback to basic info
+    // If music-metadata fails (e.g. video files or raw headers), check folder for thumbnail
+    if (!coverArtPath) {
+      coverArtPath = await findFolderCoverArt(path.dirname(filePath));
+    }
   }
 
   // Waveform peak extraction (for audio files)

@@ -53,6 +53,7 @@ export function initDatabase(customPath?: string): Database.Database {
   dbInstance.pragma('foreign_keys = ON');
   dbInstance.pragma('cache_size = -64000'); // 64MB cache
   dbInstance.pragma('temp_store = MEMORY');
+  dbInstance.pragma('mmap_size = 268435456'); // 256MB memory mapping
 
   // Execute schema creation
   dbInstance.exec(INIT_SCHEMA_SQL);

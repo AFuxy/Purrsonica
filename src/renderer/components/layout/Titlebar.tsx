@@ -7,6 +7,20 @@ export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
   const { searchQuery, setSearchQuery } = useLibraryStore();
   const [isMaximized, setIsMaximized] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localSearch !== searchQuery) {
+        setSearchQuery(localSearch);
+      }
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
 
   useEffect(() => {
     const checkMaximized = async () => {
@@ -55,8 +69,8 @@ export const Titlebar: React.FC = () => {
           <Search className="absolute left-3 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
           <input
             type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             placeholder="Search tracks, artists, albums, or keys (e.g. 8A, 128 bpm)..."
             className="w-full bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] focus:bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder-[var(--text-muted)] text-xs rounded-full pl-9 pr-8 py-1.5 border border-transparent focus:border-[var(--accent)] transition-all outline-none"
           />

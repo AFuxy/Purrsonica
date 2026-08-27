@@ -1,8 +1,9 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, nativeImage, app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFile } from 'music-metadata';
 import NodeID3 from 'node-id3';
+import { resolveIconPath } from './index.js';
 import {
   checkForUpdates,
   quitAndInstallUpdate,
@@ -68,9 +69,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('theme:setIcon', (_event, themeMode: 'dark' | 'light') => {
     const iconFile = themeMode === 'dark' ? 'PurrSonica-White-logo.png' : 'PurrSonica-Black-logo.png';
-    const iconPath = path.join(process.cwd(), 'public', iconFile);
-    if (fs.existsSync(iconPath)) {
-      mainWindow.setIcon(iconPath);
+    const iconPath = resolveIconPath(iconFile);
+    if (iconPath) {
+      try {
+        const img = nativeImage.createFromPath(iconPath);
+        mainWindow.setIcon(img);
+      } catch (err) {
+        console.warn('Failed to set window icon:', err);
+      }
     }
   });
 
