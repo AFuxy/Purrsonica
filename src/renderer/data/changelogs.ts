@@ -22,6 +22,7 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
           'Custom Beta Update Badges: Distinct purple badges and alerts notify users when experimental pre-release builds are downloaded and ready to install.',
           'Intelligent Album & Song Deduplication: Eliminated duplicate album cards across multi-artist tracks and eliminated duplicate songs within album tracklists (caused by duplicate files or multiple folders on disk).',
           'Verify Library & Clean Missing Files: Added a built-in maintenance tool in Settings to verify all indexed paths and prune dead records for moved or deleted files.',
+          'Player Bar Album & File Location: Added active Album name (with clickable jump-to-album navigation) and physical file location path (with instant click-to-reveal in File Explorer) directly inside the bottom player bar.',
         ],
       },
     ],

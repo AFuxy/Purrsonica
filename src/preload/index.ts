@@ -103,6 +103,7 @@ export const electronAPI = {
   wipeLibrary: (): Promise<boolean> => ipcRenderer.invoke('system:wipeLibrary'),
   factoryReset: (): Promise<boolean> => ipcRenderer.invoke('system:factoryReset'),
   cleanDeadTracks: (): Promise<{ removedCount: number }> => ipcRenderer.invoke('system:cleanDeadTracks'),
+  showItemInFolder: (filePath: string): Promise<boolean> => ipcRenderer.invoke('system:showItemInFolder', filePath),
 
   // Dialogs & Drag-and-Drop Import
   pickFiles: (): Promise<Track[]> => ipcRenderer.invoke('dialog:pickFiles'),

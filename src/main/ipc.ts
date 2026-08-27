@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow, nativeImage, app } from 'electron';
+import { ipcMain, dialog, BrowserWindow, nativeImage, app, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFile } from 'music-metadata';
@@ -142,6 +142,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const result = cleanDeadTracks();
     mainWindow?.webContents.send('library:updated');
     return result;
+  });
+
+  ipcMain.handle('system:showItemInFolder', async (_event, filePath: string) => {
+    if (filePath && fs.existsSync(filePath)) {
+      shell.showItemInFolder(filePath);
+      return true;
+    }
+    return false;
   });
 
   ipcMain.handle('system:wipeLibrary', async () => {

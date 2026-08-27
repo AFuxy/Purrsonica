@@ -14,6 +14,8 @@ import {
   ListMusic,
   Tv,
   Music,
+  Disc,
+  Folder,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -46,7 +48,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
     setVideoModalOpen,
   } = usePlayerStore();
 
-  const { toggleLikeTrack } = useLibraryStore();
+  const { toggleLikeTrack, selectAlbumByName } = useLibraryStore();
 
   const coverUrl = currentTrack?.cover_art_path && window.api
     ? window.api.getCoverUrl(currentTrack.cover_art_path)
@@ -54,8 +56,8 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
 
   return (
     <footer className="h-20 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] px-4 flex items-center justify-between z-40 select-none">
-      {/* Left: Track Info & Cover */}
-      <div className="flex items-center gap-3 w-1/4 min-w-[200px]">
+      {/* Left: Track Info, Album & File Location */}
+      <div className="flex items-center gap-3 w-1/3 max-w-sm min-w-[220px]">
         {currentTrack ? (
           <>
             <div
@@ -90,18 +92,52 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
               )}
             </div>
 
-            <div className="flex flex-col min-w-0 pr-2">
-              <span className="text-sm font-semibold text-[var(--text-primary)] truncate hover:underline cursor-pointer">
+            <div className="flex flex-col min-w-0 pr-1 flex-1">
+              <span
+                className="text-xs font-semibold text-[var(--text-primary)] truncate hover:underline cursor-pointer leading-tight"
+                title={currentTrack.title}
+              >
                 {currentTrack.title}
               </span>
-              <span className="text-xs text-[var(--text-secondary)] truncate hover:underline cursor-pointer">
-                {currentTrack.artist}
-              </span>
+
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] truncate leading-tight mt-0.5">
+                <span className="truncate hover:underline cursor-pointer" title={currentTrack.artist}>
+                  {currentTrack.artist}
+                </span>
+                {currentTrack.album && (
+                  <>
+                    <span className="text-[var(--text-muted)] opacity-60">•</span>
+                    <span
+                      onClick={() => selectAlbumByName(currentTrack.album, currentTrack.album_artist || currentTrack.artist)}
+                      className="truncate hover:text-emerald-400 hover:underline cursor-pointer flex items-center gap-1 text-[var(--text-muted)] hover:opacity-100 transition-colors"
+                      title={`Album: ${currentTrack.album} (Click to open album)`}
+                    >
+                      <Disc className="w-2.5 h-2.5 flex-shrink-0" />
+                      <span>{currentTrack.album}</span>
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {currentTrack.file_path && (
+                <div
+                  onClick={() => {
+                    if (window.api?.showItemInFolder) {
+                      window.api.showItemInFolder(currentTrack.file_path);
+                    }
+                  }}
+                  className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] opacity-70 hover:opacity-100 hover:text-cyan-400 cursor-pointer truncate transition-all mt-0.5"
+                  title={`File location: ${currentTrack.file_path}\nClick to reveal in folder`}
+                >
+                  <Folder className="w-2.5 h-2.5 flex-shrink-0 text-[var(--text-muted)]" />
+                  <span className="truncate font-mono">{currentTrack.file_path}</span>
+                </div>
+              )}
             </div>
 
             <button
               onClick={() => toggleLikeTrack(currentTrack.id)}
-              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1 transition-colors"
+              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1 transition-colors flex-shrink-0"
               title={currentTrack.is_liked ? 'Remove from Liked' : 'Save to Liked'}
             >
               <Heart
