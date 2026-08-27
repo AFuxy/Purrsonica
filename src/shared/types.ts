@@ -91,6 +91,23 @@ export interface ScanSettings {
   generateWaveforms: boolean;
   autoDetectKeyBpm: boolean;
   allowPrerelease?: boolean;
+  enableDiscordRpc?: boolean;
+  discordRpcShowButtons?: boolean;
+}
+
+export interface DiscordPresencePayload {
+  track?: {
+    id: string;
+    title?: string;
+    artist?: string;
+    album?: string;
+    duration?: number;
+    file_name?: string;
+    media_type?: string;
+  } | null;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
 }
 
 export interface CamelotKeyInfo {

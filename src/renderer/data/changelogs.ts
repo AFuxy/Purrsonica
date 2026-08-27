@@ -10,9 +10,24 @@ export interface ChangelogRelease {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.2.0',
+    title: 'Discord Rich Presence (RPC) & Social Integrations',
+    isLatest: true,
+    sections: [
+      {
+        heading: 'New Features & Integrations',
+        items: [
+          'Discord Rich Presence (RPC): Automatically broadcasts your currently playing song, artist, album, live playback countdown timer, and play/pause status directly to your Discord profile activity.',
+          'Custom Action Button: Includes an optional link button on your Discord status connecting friends to the Purrsonica repository.',
+          'Integrations & Social Settings: Dedicated control center in Settings to toggle Discord Rich Presence on/off and customize button visibility.',
+          'Smart Throttling & Silent Reconnection: Intelligent rate-limited updates that automatically and seamlessly reconnect if Discord is launched after Purrsonica.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.1.5',
     title: 'Audio Engine Singleton, Video Auto-Play, All Media Ingestion & Session Resume',
-    isLatest: true,
     sections: [
       {
         heading: 'Fixes & Enhancements',

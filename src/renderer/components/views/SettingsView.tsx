@@ -24,6 +24,8 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  Share2,
+  Radio,
 } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -32,6 +34,7 @@ import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 import { APP_CHANGELOGS } from '../../data/changelogs.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
+import { ScanSettings } from '../../../shared/types.js';
 
 export const SettingsView: React.FC = () => {
   const { theme, setTheme } = useThemeStore();
@@ -96,8 +99,7 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const currentSettings = settings || {
-    scannedDrives: [],
+  const currentSettings: ScanSettings = settings || {
     customFolders: [],
     excludedPaths: [],
     scanAudio: true,
@@ -105,6 +107,8 @@ export const SettingsView: React.FC = () => {
     generateWaveforms: true,
     autoDetectKeyBpm: true,
     allowPrerelease: false,
+    enableDiscordRpc: true,
+    discordRpcShowButtons: true,
   };
 
   const handleAddExclusion = async (e: React.FormEvent) => {
@@ -135,6 +139,21 @@ export const SettingsView: React.FC = () => {
     await saveSettings({ ...currentSettings, allowPrerelease: nextVal });
     showToast(nextVal ? 'Pre-release channel enabled: Checking for beta builds' : 'Pre-release channel disabled');
     checkForUpdates();
+  };
+
+  const handleToggleDiscordRpc = async () => {
+    const nextVal = currentSettings.enableDiscordRpc === false ? true : false;
+    await saveSettings({ ...currentSettings, enableDiscordRpc: nextVal });
+    if (window.api?.setDiscordRpcEnabled) {
+      window.api.setDiscordRpcEnabled(nextVal);
+    }
+    showToast(nextVal ? 'Discord Rich Presence enabled' : 'Discord Rich Presence disabled');
+  };
+
+  const handleToggleDiscordButtons = async () => {
+    const nextVal = currentSettings.discordRpcShowButtons === false ? true : false;
+    await saveSettings({ ...currentSettings, discordRpcShowButtons: nextVal });
+    showToast(nextVal ? 'Discord link button enabled' : 'Discord link button disabled');
   };
 
   const [isCleaningGhostTracks, setIsCleaningGhostTracks] = useState(false);
@@ -449,7 +468,7 @@ export const SettingsView: React.FC = () => {
             </form>
 
             <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-              {currentSettings.excludedPaths.map((rule, idx) => (
+              {currentSettings.excludedPaths.map((rule: string, idx: number) => (
                 <div
                   key={idx}
                   className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-tertiary)] rounded text-xs text-[var(--text-secondary)] group font-mono"
@@ -621,7 +640,76 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
 
-      {/* Section 4: Auto-Updates & About */}
+      {/* Section 4: Integrations & Social */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+          <Share2 className="w-4 h-4 text-indigo-400" />
+          <span>Integrations & Social</span>
+        </h2>
+
+        <div className="p-5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                <Radio className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                  <span>Discord Rich Presence (RPC)</span>
+                  {currentSettings.enableDiscordRpc !== false && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30 uppercase tracking-wider">
+                      Active
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                  Broadcasts your current song title, artist, album, live playback timer, and play/pause status to your Discord profile.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleToggleDiscordRpc}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                currentSettings.enableDiscordRpc !== false ? 'bg-indigo-600' : 'bg-neutral-600'
+              }`}
+              title="Toggle Discord Rich Presence"
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                  currentSettings.enableDiscordRpc !== false ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {currentSettings.enableDiscordRpc !== false && (
+            <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between pl-1">
+              <div>
+                <div className="font-semibold text-xs text-[var(--text-primary)]">Include "Get Purrsonica" Button</div>
+                <div className="text-[11px] text-[var(--text-muted)]">
+                  Displays an action button on your Discord status linking to the Purrsonica repository.
+                </div>
+              </div>
+              <button
+                onClick={handleToggleDiscordButtons}
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                  currentSettings.discordRpcShowButtons !== false ? 'bg-indigo-600' : 'bg-neutral-600'
+                }`}
+                title="Toggle Link Button on Discord Status"
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                    currentSettings.discordRpcShowButtons !== false ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Section 5: Auto-Updates & About */}
       <section className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-emerald-400" />

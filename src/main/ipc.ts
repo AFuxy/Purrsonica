@@ -45,9 +45,22 @@ import { getMediaType } from './scanner/exclusions.js';
 import { recacheAllArtwork, cancelArtworkRecache } from './scanner/artwork-recacher.js';
 import { recacheAllWaveforms, cancelWaveformsRecache } from './scanner/waveform-recacher.js';
 import { parseKey } from '../shared/camelot.js';
-import { Track, UpdateTrackMetadataPayload, ScanSettings } from '../shared/types.js';
+import { updateDiscordPresence, clearDiscordPresence, setDiscordRpcEnabled } from './discord.js';
+import { Track, UpdateTrackMetadataPayload, ScanSettings, DiscordPresencePayload } from '../shared/types.js';
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
+  // --- Discord Rich Presence ---
+  ipcMain.handle('discord:update-presence', (_event, payload: DiscordPresencePayload) => {
+    updateDiscordPresence(payload);
+  });
+
+  ipcMain.handle('discord:clear-presence', () => {
+    clearDiscordPresence();
+  });
+
+  ipcMain.handle('discord:set-enabled', (_event, enabled: boolean) => {
+    setDiscordRpcEnabled(enabled);
+  });
   // --- Window Controls ---
   ipcMain.handle('window:minimize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;

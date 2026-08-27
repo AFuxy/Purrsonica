@@ -6,6 +6,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { initDatabase, closeDatabase } from './db/database.js';
 import { registerIpcHandlers } from './ipc.js';
 import { initAutoUpdater } from './updater.js';
+import { initDiscordRpc, destroyDiscordRpc } from './discord.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -261,6 +262,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   initDatabase();
   registerStreamingProtocols();
+  initDiscordRpc();
   createWindow();
 
   app.on('activate', () => {
@@ -271,6 +273,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  destroyDiscordRpc();
   closeDatabase();
   if (process.platform !== 'darwin') {
     app.quit();

@@ -511,6 +511,8 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   generateWaveforms: true,
   autoDetectKeyBpm: true,
   allowPrerelease: false,
+  enableDiscordRpc: true,
+  discordRpcShowButtons: true,
 };
 
 export function getScanSettings(): ScanSettings {

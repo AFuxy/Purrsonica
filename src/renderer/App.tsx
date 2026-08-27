@@ -14,9 +14,11 @@ import { useScanStore } from './store/scanStore.js';
 import { useUpdateStore } from './store/updateStore.js';
 import { useMaintenanceStore } from './store/maintenanceStore.js';
 import { usePlayerStore } from './store/playerStore.js';
+import { useDiscordRpc } from './hooks/useDiscordRpc.js';
 
 export const App: React.FC = () => {
   const { seekTo } = useAudioPlayer();
+  useDiscordRpc();
   const { refreshAll, editingTrack, setEditingTrack } = useLibraryStore();
   const { currentTrack, togglePlay, playNext, playPrevious, isVideoModalOpen } = usePlayerStore();
   const { setProgress } = useScanStore();

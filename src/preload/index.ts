@@ -9,9 +9,17 @@ import {
   ScanSettings,
   UpdateTrackMetadataPayload,
   UpdateStatus,
+  DiscordPresencePayload,
 } from '../shared/types.js';
 
 export const electronAPI = {
+  // Discord Rich Presence
+  updateDiscordPresence: (payload: DiscordPresencePayload) =>
+    ipcRenderer.invoke('discord:update-presence', payload),
+  clearDiscordPresence: () => ipcRenderer.invoke('discord:clear-presence'),
+  setDiscordRpcEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke('discord:set-enabled', enabled),
+
   // Window controls & App Info
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
