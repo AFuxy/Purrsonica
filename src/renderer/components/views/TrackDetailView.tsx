@@ -19,7 +19,7 @@ import {
 import { Track } from '../../../shared/types.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
-import { useAudioPlayer } from '../../hooks/useAudioPlayer.js';
+import { seekAudioTo } from '../../hooks/useAudioPlayer.js';
 import { WaveformBar } from '../player/WaveformBar.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 
@@ -30,7 +30,6 @@ interface TrackDetailViewProps {
 export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
   const { currentTrack, isPlaying, currentTime, setTrack, togglePlay, setVideoModalOpen } = usePlayerStore();
   const { toggleLikeTrack, setEditingTrack, selectArtist, selectAlbumByName } = useLibraryStore();
-  const { seekTo } = useAudioPlayer();
   const [copied, setCopied] = React.useState(false);
 
   const isCurrent = currentTrack?.id === track.id;
@@ -226,7 +225,7 @@ export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
               if (!isCurrent) {
                 setTrack(track);
               }
-              seekTo(t);
+              seekAudioTo(t);
             }}
           />
         </div>

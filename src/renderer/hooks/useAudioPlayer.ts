@@ -1,8 +1,29 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { usePlayerStore } from '../store/playerStore.js';
 
+let globalAudio: HTMLAudioElement | null = null;
+let listenersInitialized = false;
+
+export function getAudioElement(): HTMLAudioElement {
+  if (!globalAudio) {
+    globalAudio = new Audio();
+    globalAudio.preload = 'auto';
+  }
+  return globalAudio;
+}
+
+export function seekAudioTo(newTime: number): void {
+  const audio = getAudioElement();
+  if (audio && !isNaN(newTime)) {
+    try {
+      audio.currentTime = newTime;
+    } catch {}
+  }
+  usePlayerStore.getState().setCurrentTime(newTime);
+}
+
 export function useAudioPlayer() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audio = getAudioElement();
 
   const {
     currentTrack,
@@ -11,7 +32,6 @@ export function useAudioPlayer() {
     isMuted,
     currentTime,
     duration,
-    repeatMode,
     setIsPlaying,
     setCurrentTime,
     setDuration,
@@ -19,49 +39,40 @@ export function useAudioPlayer() {
     playPrevious,
   } = usePlayerStore();
 
-  // Initialize audio element
+  // Initialize event listeners once on the global audio instance
   useEffect(() => {
-    if (!audioRef.current) {
-      const audio = new Audio();
-      audio.preload = 'auto';
-      audioRef.current = audio;
+    if (listenersInitialized || !globalAudio) return;
+    listenersInitialized = true;
 
-      audio.addEventListener('timeupdate', () => {
-        setCurrentTime(audio.currentTime);
-      });
-
-      audio.addEventListener('loadedmetadata', () => {
-        if (!isNaN(audio.duration)) {
-          setDuration(audio.duration);
-        }
-        const savedTime = usePlayerStore.getState().currentTime;
-        if (savedTime > 0 && Math.abs(audio.currentTime - savedTime) > 0.5) {
-          audio.currentTime = savedTime;
-        }
-      });
-
-      audio.addEventListener('ended', () => {
-        playNext();
-      });
-
-      audio.addEventListener('error', () => {
-        if (audio.src && audio.src !== window.location.href) {
-          console.warn('Audio playback error on source:', audio.src);
-        }
-      });
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
+    globalAudio.addEventListener('timeupdate', () => {
+      if (globalAudio) {
+        setCurrentTime(globalAudio.currentTime);
       }
-    };
+    });
+
+    globalAudio.addEventListener('loadedmetadata', () => {
+      if (globalAudio && !isNaN(globalAudio.duration)) {
+        setDuration(globalAudio.duration);
+      }
+      const savedTime = usePlayerStore.getState().currentTime;
+      if (globalAudio && savedTime > 0 && Math.abs(globalAudio.currentTime - savedTime) > 0.5) {
+        globalAudio.currentTime = savedTime;
+      }
+    });
+
+    globalAudio.addEventListener('ended', () => {
+      usePlayerStore.getState().playNext();
+    });
+
+    globalAudio.addEventListener('error', () => {
+      if (globalAudio && globalAudio.src && globalAudio.src !== window.location.href) {
+        console.warn('Audio playback error on source:', globalAudio.src);
+      }
+    });
   }, []);
 
   // Update track source
   useEffect(() => {
-    const audio = audioRef.current;
     if (!audio) return;
 
     if (currentTrack && currentTrack.media_type !== 'video') {
@@ -87,7 +98,6 @@ export function useAudioPlayer() {
 
   // Handle Play/Pause
   useEffect(() => {
-    const audio = audioRef.current;
     if (!audio || !currentTrack || currentTrack.media_type === 'video') return;
 
     if (isPlaying) {
@@ -101,7 +111,6 @@ export function useAudioPlayer() {
 
   // Handle Volume / Mute
   useEffect(() => {
-    const audio = audioRef.current;
     if (!audio) return;
     audio.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
@@ -150,32 +159,24 @@ export function useAudioPlayer() {
 
       navigator.mediaSession.setActionHandler('seekto', (details) => {
         if (details.seekTime !== undefined) {
-          seekTo(details.seekTime);
+          seekAudioTo(details.seekTime);
         }
       });
 
       navigator.mediaSession.setActionHandler('seekbackward', (details) => {
         const skipTime = details.seekOffset || 10;
-        seekTo(Math.max(0, currentTime - skipTime));
+        seekAudioTo(Math.max(0, currentTime - skipTime));
       });
 
       navigator.mediaSession.setActionHandler('seekforward', (details) => {
         const skipTime = details.seekOffset || 10;
-        seekTo(Math.min(duration || 1, currentTime + skipTime));
+        seekAudioTo(Math.min(duration || 1, currentTime + skipTime));
       });
     } catch {}
   }, [currentTrack, isPlaying, duration]);
 
-  // External seek sync (if difference > 1.5s)
-  const seekTo = (newTime: number) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
   return {
-    audioElement: audioRef.current,
-    seekTo,
+    audioElement: audio,
+    seekTo: seekAudioTo,
   };
 }
