@@ -343,6 +343,33 @@ const TrackTableRow = memo<TrackTableRowProps>(
 
 TrackTableRow.displayName = 'TrackTableRow';
 
+/**
+ * Lightweight skeleton ghost row for instantly rendering virtual placeholders during fast scrolls
+ */
+const TrackTableSkeletonRow = memo<{ actualIndex: number }>(({ actualIndex }) => (
+  <div
+    style={{ height: `${ROW_HEIGHT}px` }}
+    className="grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 animate-pulse opacity-40"
+  >
+    <div className="text-center font-mono text-[var(--text-muted)] text-xs">{actualIndex + 1}</div>
+    <div className="flex items-center gap-3 pr-4">
+      <div className="w-8 h-8 rounded bg-[var(--bg-tertiary)] flex-shrink-0" />
+      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+        <div className="h-3 w-32 bg-[var(--bg-tertiary)] rounded" />
+        <div className="h-2.5 w-20 bg-[var(--bg-tertiary)]/70 rounded" />
+      </div>
+    </div>
+    <div className="h-3 w-24 bg-[var(--bg-tertiary)] rounded pr-4" />
+    <div className="h-3 w-8 bg-[var(--bg-tertiary)] rounded ml-auto mr-2" />
+    <div className="h-4 w-10 bg-[var(--bg-tertiary)] rounded mx-auto" />
+    <div className="h-3 w-10 bg-[var(--bg-tertiary)] rounded ml-auto mr-2" />
+    <div className="mx-auto h-3.5 w-3.5 bg-[var(--bg-tertiary)] rounded-full" />
+    <div className="mx-auto h-3.5 w-3.5 bg-[var(--bg-tertiary)] rounded-full" />
+  </div>
+));
+
+TrackTableSkeletonRow.displayName = 'TrackTableSkeletonRow';
+
 export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
   const { currentTrack, isPlaying, setTrack, togglePlay, addToQueue } = usePlayerStore();
   const {
@@ -358,6 +385,10 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
     selectAlbumByName,
     selectArtist,
     selectTrackDetail,
+    totalTracks,
+    hasMore,
+    isLoadingMore,
+    fetchMoreTracks,
   } = useLibraryStore();
 
   const [activeMenuTrackId, setActiveMenuTrackId] = useState<string | null>(null);
@@ -427,14 +458,25 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
     setPlaylistSubmenuTrackId(null);
   }, []);
 
-  // Virtual window calculation (Ghost rows)
-  const totalCount = tracks.length;
+  // Ghost Virtualization calculations
+  const totalCount = Math.max(tracks.length, totalTracks);
   const totalHeight = totalCount * ROW_HEIGHT;
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT) + 2 * OVERSCAN;
   const endIndex = Math.min(totalCount, startIndex + visibleCount);
-  const visibleTracks = tracks.slice(startIndex, endIndex);
   const offsetY = startIndex * ROW_HEIGHT;
+
+  // Infinite Ghost Trigger when scrolling near the loaded boundary
+  useEffect(() => {
+    if (endIndex >= tracks.length - 25 && hasMore && !isLoadingMore) {
+      fetchMoreTracks();
+    }
+  }, [endIndex, tracks.length, hasMore, isLoadingMore, fetchMoreTracks]);
+
+  const visibleRowIndices = Array.from(
+    { length: Math.max(0, endIndex - startIndex) },
+    (_, i) => startIndex + i
+  );
 
   return (
     <div
@@ -490,7 +532,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
       </div>
 
       {/* Table Rows (Virtualized Ghost Container) */}
-      {tracks.length === 0 ? (
+      {totalCount === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
           <Music className="w-12 h-12 mb-3 opacity-30" />
           <p className="text-sm font-semibold">No media found in this view</p>
@@ -514,8 +556,18 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
             }}
             className="divide-y divide-[var(--border-color)]"
           >
-            {visibleTracks.map((track, relativeIndex) => {
-              const actualIndex = startIndex + relativeIndex;
+            {visibleRowIndices.map((actualIndex) => {
+              const track = tracks[actualIndex];
+
+              if (!track) {
+                return (
+                  <TrackTableSkeletonRow
+                    key={`ghost-${actualIndex}`}
+                    actualIndex={actualIndex}
+                  />
+                );
+              }
+
               const isCurrent = currentTrack?.id === track.id;
               const isTrackPlaying = isCurrent && isPlaying;
 

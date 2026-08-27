@@ -42,6 +42,8 @@ interface LibraryState {
   tracks: Track[];
   totalTracks: number;
   isLoading: boolean;
+  hasMore: boolean;
+  isLoadingMore: boolean;
 
   searchQuery: string;
   sortBy: 'title' | 'artist' | 'album' | 'duration' | 'bpm' | 'camelot_key' | 'created_at' | 'track_number';
@@ -73,6 +75,7 @@ interface LibraryState {
 
   // Data fetchers
   fetchTracks: () => Promise<void>;
+  fetchMoreTracks: () => Promise<void>;
   fetchDrives: () => Promise<void>;
   fetchAlbums: () => Promise<void>;
   fetchPlaylists: () => Promise<void>;
@@ -108,6 +111,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   tracks: [],
   totalTracks: 0,
   isLoading: false,
+  hasMore: true,
+  isLoadingMore: false,
 
   searchQuery: '',
   sortBy: 'title',
@@ -164,7 +169,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedArtist: prev.selectedArtist,
       selectedTrackDetail: prev.selectedTrackDetail,
     });
-    get().fetchTracks();
+
+    if (prev.view === 'albums') {
+      get().fetchAlbums();
+    } else if (prev.view === 'playlists') {
+      get().fetchPlaylists();
+    } else if (prev.view === 'settings' || prev.view === 'track_detail') {
+      // no track list query needed
+    } else {
+      get().fetchTracks();
+    }
   },
 
   goForward: () => {
@@ -185,7 +199,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedArtist: next.selectedArtist,
       selectedTrackDetail: next.selectedTrackDetail,
     });
-    get().fetchTracks();
+
+    if (next.view === 'albums') {
+      get().fetchAlbums();
+    } else if (next.view === 'playlists') {
+      get().fetchPlaylists();
+    } else if (next.view === 'settings' || next.view === 'track_detail') {
+      // no track list query needed
+    } else {
+      get().fetchTracks();
+    }
   },
 
   setView: (view: LibraryViewType) => {
@@ -207,7 +230,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     });
 
     get().pushNav({ view, selectedDrive, selectedAlbum, selectedPlaylist, selectedArtist, selectedTrackDetail });
-    get().fetchTracks();
+
+    if (view === 'albums') {
+      get().fetchAlbums();
+    } else if (view === 'playlists') {
+      get().fetchPlaylists();
+    } else if (view === 'settings' || view === 'track_detail') {
+      // no track list query needed
+    } else {
+      get().fetchTracks();
+    }
   },
 
   selectDrive: (driveLetter: string) => {
@@ -322,6 +354,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const params: any = {
         sortBy,
         sortOrder,
+        limit: 250,
+        offset: 0,
       };
 
       if (searchQuery.trim()) {
@@ -346,11 +380,57 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       set({
         tracks: result.tracks,
         totalTracks: result.total,
+        hasMore: result.tracks.length < result.total,
         isLoading: false,
       });
     } catch (err) {
       console.error('Error fetching tracks:', err);
       set({ isLoading: false });
+    }
+  },
+
+  fetchMoreTracks: async () => {
+    if (!window.api || get().isLoadingMore || !get().hasMore) return;
+    set({ isLoadingMore: true });
+
+    try {
+      const { currentView, selectedDrive, selectedAlbum, selectedPlaylist, selectedArtist, searchQuery, sortBy, sortOrder, tracks, totalTracks } = get();
+
+      const params: any = {
+        sortBy,
+        sortOrder,
+        limit: 250,
+        offset: tracks.length,
+      };
+
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
+      if (currentView === 'liked') {
+        params.isLiked = true;
+      } else if (currentView === 'drive' && selectedDrive) {
+        params.drive = selectedDrive;
+      } else if (currentView === 'album_detail' && selectedAlbum) {
+        params.album = selectedAlbum.name;
+      } else if (currentView === 'artist_detail' && selectedArtist) {
+        params.artist = selectedArtist;
+      } else if (currentView === 'playlist_detail' && selectedPlaylist) {
+        params.playlistId = selectedPlaylist.id;
+      } else if (currentView === 'videos') {
+        params.mediaType = 'video';
+      }
+
+      const result = await window.api.queryTracks(params);
+      const combined = [...tracks, ...result.tracks];
+      set({
+        tracks: combined,
+        hasMore: combined.length < totalTracks,
+        isLoadingMore: false,
+      });
+    } catch (err) {
+      console.error('Error fetching more tracks:', err);
+      set({ isLoadingMore: false });
     }
   },
 

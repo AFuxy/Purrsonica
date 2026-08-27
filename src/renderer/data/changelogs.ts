@@ -10,15 +10,30 @@ export interface ChangelogRelease {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.2.1',
+    title: 'Instant Ghost Paging, Zero-Freeze Navigation & Resilient Album Art',
+    isLatest: true,
+    sections: [
+      {
+        heading: 'Fixes & Performance Enhancements',
+        items: [
+          'Instant View Switching: Completely eliminated page-switching freezes when navigating to All Media, Playlists, Drives, or Albums by introducing asynchronous 250-item windowing.',
+          'Ghost Virtualization & Infinite Scroll: Track Table renders lightweight skeleton placeholders for instantaneous responsiveness across libraries of 50,000+ songs.',
+          'Smart View Query Routing: Prevented non-track views (Albums, Playlists, Settings) from needlessly querying the entire database on navigation.',
+          'Resilient Album Art Streaming: Rebuilt cover streaming protocol with dynamic on-the-fly ID3 tag extraction and directory fallback (folder.jpg, cover.jpg), preventing transparent blanks or broken images.',
+          'Universal TrackCover Component: Unified album art rendering with automatic error recovery and glowing theme icon fallbacks across all views.',
+          'Scan Telemetry Throttling: Eliminated background scan refresh storms from freezing the user interface during deep scans.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.0',
     title: 'Discord Rich Presence, Accent Themes & Global Media Keys',
-    isLatest: true,
     sections: [
       {
         heading: 'New Features & Integrations',
         items: [
-          'Resilient Album Art & Cover Rendering: Rebuilt cover streaming protocol with dynamic on-the-fly extraction from embedded ID3 tags and directory fallback (folder.jpg, cover.jpg), with seamless error recovery across all views.',
-          'All Media Speed & Memory Optimization: Eliminated synchronous JSON waveform parsing across entire libraries, accelerating playlist and library loads to instant ~15ms response times.',
           'Global System Media Keys: Control Play/Pause, Next Track, and Previous Track using physical keyboard media keys, headsets, and controllers even when Purrsonica is minimized in the background.',
           'Discord Rich Presence (RPC): Automatically broadcasts your currently playing song, artist, album, live playback countdown timer, and play/pause status directly to your Discord profile activity.',
           'Custom Accent Color Picker & Presets: Customize Purrsonica with tailored signature palettes (Cyberpunk Purple, Sapphire Blue, Ruby Red, Sunset Gold, Electric Cyan, Neon Pink) or pick any custom hex color with live preview.',
