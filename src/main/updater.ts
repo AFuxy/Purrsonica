@@ -31,6 +31,25 @@ function hasUpdateConfig(): boolean {
   }
 }
 
+function extractReleaseNotes(rawNotes: any): string | undefined {
+  if (!rawNotes) return undefined;
+  if (typeof rawNotes === 'string') return rawNotes.trim();
+  if (Array.isArray(rawNotes)) {
+    return rawNotes
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (item && item.note) {
+          const verHeader = item.version ? `### v${item.version}\n` : '';
+          return `${verHeader}${item.note.trim()}`;
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n\n');
+  }
+  return undefined;
+}
+
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
   targetWindow = mainWindow;
 
@@ -46,10 +65,11 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[Purrsonica Updater] Update available:', info.version);
+    const notes = extractReleaseNotes(info.releaseNotes);
     sendStatus({
       state: 'available',
       version: info.version,
-      releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
+      releaseNotes: notes,
     });
   });
 
@@ -65,15 +85,19 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     console.log(`[Purrsonica Updater] Download progress: ${Math.round(progress.percent)}%`);
     sendStatus({
       state: 'downloading',
+      version: currentStatus.version,
       percent: Math.round(progress.percent),
+      releaseNotes: currentStatus.releaseNotes,
     });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[Purrsonica Updater] Update downloaded successfully:', info.version);
+    const notes = extractReleaseNotes(info.releaseNotes) || currentStatus.releaseNotes;
     sendStatus({
       state: 'downloaded',
       version: info.version,
+      releaseNotes: notes,
     });
   });
 

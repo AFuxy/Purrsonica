@@ -21,6 +21,9 @@ import {
   Flame,
   Image as ImageIcon,
   AudioWaveform,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -51,6 +54,9 @@ export const SettingsView: React.FC = () => {
   // Waveform recache state
   const [isRecachingWaveforms, setIsRecachingWaveforms] = useState(false);
   const [waveformProgress, setWaveformProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // Patch Notes Expansion
+  const [showPatchNotes, setShowPatchNotes] = useState(true);
 
   // Danger Zone Confirmation States
   const [confirmWipe, setConfirmWipe] = useState(false);
@@ -570,6 +576,53 @@ export const SettingsView: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Dynamic Release Patch Notes Box (When update is available or downloaded) */}
+          {updateStatus.releaseNotes && (
+            <div className="pt-3 border-t border-[var(--border-color)] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" />
+                  What's New in v{updateStatus.version}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                  Release Notes
+                </span>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg p-3 max-h-48 overflow-y-auto text-xs text-[var(--text-secondary)] whitespace-pre-line leading-relaxed font-sans select-text">
+                {updateStatus.releaseNotes}
+              </div>
+            </div>
+          )}
+
+          {/* Current Version Patch Notes / Highlights Accordion */}
+          {!updateStatus.releaseNotes && (
+            <div className="pt-3 border-t border-[var(--border-color)]">
+              <button
+                onClick={() => setShowPatchNotes(!showPatchNotes)}
+                className="w-full flex items-center justify-between text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors py-1"
+              >
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  v1.1.0 Release Highlights & Changelog
+                </span>
+                {showPatchNotes ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+
+              {showPatchNotes && (
+                <div className="mt-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg p-3 text-xs text-[var(--text-secondary)] space-y-2">
+                  <div className="font-bold text-[var(--text-primary)] text-xs">v1.1.0 — Settings & Maintenance Hub</div>
+                  <ul className="list-disc list-inside space-y-1 text-[11px] text-[var(--text-muted)]">
+                    <li><strong className="text-[var(--text-primary)]">Settings Hub</strong>: Preferences, scanner toggles, exclusions, and storage stats.</li>
+                    <li><strong className="text-[var(--text-primary)]">Maintenance Suite</strong>: Re-extract ID3 & folder artwork, re-generate 128-bar waveforms.</li>
+                    <li><strong className="text-[var(--text-primary)]">Danger Zone</strong>: Cache cleaner, library reset, and factory reset tools.</li>
+                    <li><strong className="text-[var(--text-primary)]">Media Streaming</strong>: HTTP 206 Partial Content Range streaming with exact MIME headers.</li>
+                    <li><strong className="text-[var(--text-primary)]">Navigation</strong>: Clickable album names across song tables and now playing sidebar.</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="pt-4 border-t border-[var(--border-color)] flex items-center justify-between text-xs text-[var(--text-muted)]">
             <span>Engineered with Electron, React, TypeScript & SQLite</span>
