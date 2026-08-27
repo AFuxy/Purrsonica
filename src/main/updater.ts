@@ -43,21 +43,62 @@ function hasUpdateConfig(): boolean {
   }
 }
 
+function cleanReleaseNotesHtml(rawHtml: string): string {
+  if (!rawHtml) return '';
+
+  let text = rawHtml;
+
+  // Replace headings
+  text = text.replace(/<\/h[1-6]>/gi, '\n\n');
+  text = text.replace(/<h[1-6][^>]*>/gi, '\n### ');
+
+  // Replace paragraphs and linebreaks
+  text = text.replace(/<\/p>/gi, '\n\n');
+  text = text.replace(/<p[^>]*>/gi, '');
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<hr\s*\/?>/gi, '\n---\n');
+
+  // Replace list items with bullet points
+  text = text.replace(/<li[^>]*>/gi, '• ');
+  text = text.replace(/<\/li>/gi, '\n');
+  text = text.replace(/<\/?ul[^>]*>/gi, '\n');
+  text = text.replace(/<\/?ol[^>]*>/gi, '\n');
+
+  // Strip remaining HTML tags
+  text = text.replace(/<[^>]+>/g, '');
+
+  // Decode common HTML entities
+  text = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&bull;/g, '•')
+    .replace(/&ndash;/g, '–')
+    .replace(/&mdash;/g, '—');
+
+  // Clean excessive whitespace
+  return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function extractReleaseNotes(rawNotes: any): string | undefined {
   if (!rawNotes) return undefined;
-  if (typeof rawNotes === 'string') return rawNotes.trim();
+  if (typeof rawNotes === 'string') return cleanReleaseNotesHtml(rawNotes);
   if (Array.isArray(rawNotes)) {
-    return rawNotes
+    const combined = rawNotes
       .map((item) => {
-        if (typeof item === 'string') return item.trim();
+        if (typeof item === 'string') return cleanReleaseNotesHtml(item);
         if (item && item.note) {
           const verHeader = item.version ? `### v${item.version}\n` : '';
-          return `${verHeader}${item.note.trim()}`;
+          return `${verHeader}${cleanReleaseNotesHtml(item.note)}`;
         }
         return '';
       })
       .filter(Boolean)
       .join('\n\n');
+    return combined || undefined;
   }
   return undefined;
 }

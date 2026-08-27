@@ -718,8 +718,70 @@ export const SettingsView: React.FC = () => {
                   Release Notes
                 </span>
               </div>
-              <div className="bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg p-3 max-h-48 overflow-y-auto text-xs text-[var(--text-secondary)] whitespace-pre-line leading-relaxed font-sans select-text">
-                {updateStatus.releaseNotes}
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg p-3.5 max-h-56 overflow-y-auto select-text shadow-inner">
+                {(() => {
+                  let clean = updateStatus.releaseNotes
+                    .replace(/<\/h[1-6]>/gi, '\n\n')
+                    .replace(/<h[1-6][^>]*>/gi, '\n### ')
+                    .replace(/<\/p>/gi, '\n\n')
+                    .replace(/<p[^>]*>/gi, '')
+                    .replace(/<br\s*\/?>/gi, '\n')
+                    .replace(/<hr\s*\/?>/gi, '\n---\n')
+                    .replace(/<li[^>]*>/gi, '• ')
+                    .replace(/<\/li>/gi, '\n')
+                    .replace(/<\/?ul[^>]*>/gi, '\n')
+                    .replace(/<\/?ol[^>]*>/gi, '\n')
+                    .replace(/<[^>]+>/g, '')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/&nbsp;/g, ' ');
+
+                  const lines = clean.split('\n').map((l) => l.trim()).filter(Boolean);
+
+                  return (
+                    <div className="space-y-1.5 text-xs">
+                      {lines.map((line, idx) => {
+                        if (line.startsWith('###') || line.startsWith('##') || line.startsWith('#')) {
+                          return (
+                            <div key={idx} className="font-bold text-xs text-[var(--text-primary)] pt-1 uppercase tracking-wide">
+                              {line.replace(/^#+\s*/, '')}
+                            </div>
+                          );
+                        }
+                        if (line === '---') {
+                          return <hr key={idx} className="border-[var(--border-color)] my-1" />;
+                        }
+                        if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
+                          const content = line.replace(/^[•\-*]\s*/, '');
+                          const colonIdx = content.indexOf(': ');
+                          return (
+                            <div key={idx} className="flex items-start gap-2 pl-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
+                              <span className="text-emerald-400 font-bold flex-shrink-0">•</span>
+                              <div>
+                                {colonIdx !== -1 ? (
+                                  <>
+                                    <strong className="text-[var(--text-secondary)] font-semibold">{content.substring(0, colonIdx)}:</strong>
+                                    <span>{content.substring(colonIdx + 1)}</span>
+                                  </>
+                                ) : (
+                                  <span>{content}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={idx} className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                            {line}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
