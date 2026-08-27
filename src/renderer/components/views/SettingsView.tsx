@@ -29,6 +29,7 @@ import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
+import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 
 export const SettingsView: React.FC = () => {
@@ -43,23 +44,23 @@ export const SettingsView: React.FC = () => {
     setModalOpen,
   } = useScanStore();
   const { status: updateStatus, isChecking, checkForUpdates, installUpdate } = useUpdateStore();
+  const {
+    artworkTask,
+    waveformTask,
+    startArtworkRecache,
+    cancelArtworkRecache,
+    startWaveformRecache,
+    cancelWaveformRecache,
+  } = useMaintenanceStore();
 
   const [newExclusion, setNewExclusion] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Artwork recache state
-  const [isRecaching, setIsRecaching] = useState(false);
-  const [recacheProgress, setRecacheProgress] = useState<{ current: number; total: number } | null>(null);
-
-  // Waveform recache state
-  const [isRecachingWaveforms, setIsRecachingWaveforms] = useState(false);
-  const [waveformProgress, setWaveformProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Patch Notes Expansion
   const [showPatchNotes, setShowPatchNotes] = useState(true);
 
   // Dynamic App Version
-  const [appVersion, setAppVersion] = useState('1.1.1');
+  const [appVersion, setAppVersion] = useState('1.1.3');
 
   // Danger Zone Confirmation States
   const [confirmWipe, setConfirmWipe] = useState(false);
@@ -79,28 +80,6 @@ export const SettingsView: React.FC = () => {
       fetchSettings();
     }
   }, [settings, fetchSettings]);
-
-  useEffect(() => {
-    if (window.api?.onRecacheProgress) {
-      const unsub = window.api.onRecacheProgress((p) => {
-        setRecacheProgress(p);
-      });
-      return () => {
-        unsub();
-      };
-    }
-  }, []);
-
-  useEffect(() => {
-    if (window.api?.onRecacheWaveformsProgress) {
-      const unsub = window.api.onRecacheWaveformsProgress((p) => {
-        setWaveformProgress(p);
-      });
-      return () => {
-        unsub();
-      };
-    }
-  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -141,34 +120,40 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleRecacheArtwork = async () => {
-    if (!window.api || isRecaching) return;
-    setIsRecaching(true);
-    setRecacheProgress(null);
+    if (artworkTask.isActive) {
+      await cancelArtworkRecache();
+      showToast('Artwork caching cancelled');
+      return;
+    }
     try {
-      const result = await window.api.recacheArtwork();
+      const result = await startArtworkRecache();
       await refreshAll();
-      showToast(`Artwork re-cached: ${result.updatedCount} tracks updated`);
+      if (result.cancelled) {
+        showToast('Artwork caching stopped');
+      } else {
+        showToast(`Artwork re-cached: ${result.updatedCount} tracks updated`);
+      }
     } catch (err) {
       showToast('Error re-caching artwork');
-    } finally {
-      setIsRecaching(false);
-      setRecacheProgress(null);
     }
   };
 
   const handleRecacheWaveforms = async () => {
-    if (!window.api || isRecachingWaveforms) return;
-    setIsRecachingWaveforms(true);
-    setWaveformProgress(null);
+    if (waveformTask.isActive) {
+      await cancelWaveformRecache();
+      showToast('Waveform generation cancelled');
+      return;
+    }
     try {
-      const result = await window.api.recacheWaveforms();
+      const result = await startWaveformRecache();
       await refreshAll();
-      showToast(`Waveforms generated: ${result.generatedCount} tracks computed`);
+      if (result.cancelled) {
+        showToast('Waveform generation stopped');
+      } else {
+        showToast(`Waveforms generated: ${result.generatedCount} tracks computed`);
+      }
     } catch (err) {
       showToast('Error generating waveforms');
-    } finally {
-      setIsRecachingWaveforms(false);
-      setWaveformProgress(null);
     }
   };
 
@@ -493,20 +478,36 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={handleRecacheArtwork}
-              disabled={isRecaching || isRecachingWaveforms}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRecaching ? 'animate-spin text-emerald-400' : ''}`} />
-              <span>
-                {isRecaching
-                  ? recacheProgress
-                    ? `Re-caching (${recacheProgress.current}/${recacheProgress.total})...`
-                    : 'Re-caching...'
-                  : 'Re-cache Artwork'}
-              </span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRecacheArtwork}
+                disabled={waveformTask.isActive}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 ${
+                  artworkTask.isActive
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
+                    : 'bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border-[var(--border-color)] text-[var(--text-primary)]'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${artworkTask.isActive ? 'animate-spin text-emerald-400' : ''}`} />
+                <span>
+                  {artworkTask.isActive
+                    ? artworkTask.total > 0
+                      ? `Re-caching (${artworkTask.current}/${artworkTask.total})...`
+                      : 'Re-caching...'
+                    : 'Re-cache Artwork'}
+                </span>
+              </button>
+
+              {artworkTask.isActive && (
+                <button
+                  onClick={cancelArtworkRecache}
+                  className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-md transition-colors"
+                  title="Cancel Artwork Caching"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Waveforms Re-Generation Card */}
@@ -521,20 +522,36 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={handleRecacheWaveforms}
-              disabled={isRecaching || isRecachingWaveforms}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRecachingWaveforms ? 'animate-spin text-cyan-400' : ''}`} />
-              <span>
-                {isRecachingWaveforms
-                  ? waveformProgress
-                    ? `Generating (${waveformProgress.current}/${waveformProgress.total})...`
-                    : 'Generating...'
-                  : 'Re-generate Waveforms'}
-              </span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRecacheWaveforms}
+                disabled={artworkTask.isActive}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 ${
+                  waveformTask.isActive
+                    ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/30'
+                    : 'bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border-[var(--border-color)] text-[var(--text-primary)]'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${waveformTask.isActive ? 'animate-spin text-cyan-400' : ''}`} />
+                <span>
+                  {waveformTask.isActive
+                    ? waveformTask.total > 0
+                      ? `Generating (${waveformTask.current}/${waveformTask.total})...`
+                      : 'Generating...'
+                    : 'Re-generate Waveforms'}
+                </span>
+              </button>
+
+              {waveformTask.isActive && (
+                <button
+                  onClick={cancelWaveformRecache}
+                  className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-md transition-colors"
+                  title="Cancel Waveform Generation"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>

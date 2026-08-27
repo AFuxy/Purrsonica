@@ -12,12 +12,14 @@ import { useAudioPlayer } from './hooks/useAudioPlayer.js';
 import { useLibraryStore } from './store/libraryStore.js';
 import { useScanStore } from './store/scanStore.js';
 import { useUpdateStore } from './store/updateStore.js';
+import { useMaintenanceStore } from './store/maintenanceStore.js';
 
 export const App: React.FC = () => {
   const { seekTo } = useAudioPlayer();
   const { refreshAll, editingTrack, setEditingTrack } = useLibraryStore();
   const { setProgress } = useScanStore();
   const { setStatus } = useUpdateStore();
+  const { setArtworkProgress, setWaveformProgress } = useMaintenanceStore();
 
   useEffect(() => {
     // Initial fetch of library data
@@ -27,6 +29,8 @@ export const App: React.FC = () => {
     let cleanupScan: (() => void) | undefined;
     let cleanupLib: (() => void) | undefined;
     let cleanupUpdate: (() => void) | undefined;
+    let cleanupArtwork: (() => void) | undefined;
+    let cleanupWaveforms: (() => void) | undefined;
 
     if (window.api) {
       cleanupScan = window.api.onScanProgress((progress) => {
@@ -42,12 +46,26 @@ export const App: React.FC = () => {
           setStatus(status);
         });
       }
+
+      if (window.api.onRecacheProgress) {
+        cleanupArtwork = window.api.onRecacheProgress((p) => {
+          setArtworkProgress(p);
+        });
+      }
+
+      if (window.api.onRecacheWaveformsProgress) {
+        cleanupWaveforms = window.api.onRecacheWaveformsProgress((p) => {
+          setWaveformProgress(p);
+        });
+      }
     }
 
     return () => {
       cleanupScan?.();
       cleanupLib?.();
       cleanupUpdate?.();
+      cleanupArtwork?.();
+      cleanupWaveforms?.();
     };
   }, []);
 

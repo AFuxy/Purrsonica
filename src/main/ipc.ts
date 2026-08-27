@@ -40,8 +40,8 @@ import {
 import { getCoversCacheDir, clearCoversCache } from './db/database.js';
 import { extractWaveformPeaks } from './scanner/waveform.js';
 import { getMediaType } from './scanner/exclusions.js';
-import { recacheAllArtwork } from './scanner/artwork-recacher.js';
-import { recacheAllWaveforms } from './scanner/waveform-recacher.js';
+import { recacheAllArtwork, cancelArtworkRecache } from './scanner/artwork-recacher.js';
+import { recacheAllWaveforms, cancelWaveformsRecache } from './scanner/waveform-recacher.js';
 import { parseKey } from '../shared/camelot.js';
 import { Track, UpdateTrackMetadataPayload, ScanSettings } from '../shared/types.js';
 
@@ -107,19 +107,33 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.handle('system:recacheArtwork', async (event) => {
-    const result = await recacheAllArtwork((current, total) => {
-      event.sender.send('artwork:recacheProgress', { current, total });
+    const result = await recacheAllArtwork((current, total, status) => {
+      const payload = { current, total, status: status || 'running' };
+      event.sender.send('artwork:recacheProgress', payload);
+      mainWindow?.webContents.send('artwork:recacheProgress', payload);
     });
     mainWindow?.webContents.send('library:updated');
     return result;
   });
 
+  ipcMain.handle('system:cancelRecacheArtwork', async () => {
+    cancelArtworkRecache();
+    return true;
+  });
+
   ipcMain.handle('system:recacheWaveforms', async (event) => {
-    const result = await recacheAllWaveforms((current, total) => {
-      event.sender.send('waveforms:recacheProgress', { current, total });
+    const result = await recacheAllWaveforms((current, total, status) => {
+      const payload = { current, total, status: status || 'running' };
+      event.sender.send('waveforms:recacheProgress', payload);
+      mainWindow?.webContents.send('waveforms:recacheProgress', payload);
     });
     mainWindow?.webContents.send('library:updated');
     return result;
+  });
+
+  ipcMain.handle('system:cancelRecacheWaveforms', async () => {
+    cancelWaveformsRecache();
+    return true;
   });
 
   ipcMain.handle('system:wipeLibrary', async () => {

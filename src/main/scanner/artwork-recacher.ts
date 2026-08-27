@@ -5,6 +5,12 @@ import { parseFile } from 'music-metadata';
 import { getDB } from '../db/database.js';
 import { getCoversCacheDir } from '../db/database.js';
 
+let isArtworkCancelled = false;
+
+export function cancelArtworkRecache(): void {
+  isArtworkCancelled = true;
+}
+
 const COMMON_COVER_NAMES = [
   'cover.jpg',
   'cover.jpeg',
@@ -32,8 +38,9 @@ async function findFolderCoverArt(dir: string): Promise<string | undefined> {
 }
 
 export async function recacheAllArtwork(
-  onProgress?: (current: number, total: number) => void
-): Promise<{ updatedCount: number; total: number }> {
+  onProgress?: (current: number, total: number, status?: 'running' | 'completed' | 'cancelled') => void
+): Promise<{ updatedCount: number; total: number; cancelled: boolean }> {
+  isArtworkCancelled = false;
   const db = getDB();
   const cacheDir = getCoversCacheDir();
 
@@ -54,7 +61,21 @@ export async function recacheAllArtwork(
   const updateStmt = db.prepare('UPDATE tracks SET cover_art_path = ? WHERE id = ?');
 
   for (let i = 0; i < total; i++) {
+    if (isArtworkCancelled) {
+      if (onProgress) onProgress(i, total, 'cancelled');
+      return { updatedCount, total, cancelled: true };
+    }
+
     const row = rows[i];
+
+    // Smart Resume: If the track already has a valid cover on disk, skip expensive ID3 parsing
+    if (row.cover_art_path && fs.existsSync(row.cover_art_path)) {
+      if (onProgress && (i % 25 === 0 || i === total - 1)) {
+        onProgress(i + 1, total, 'running');
+      }
+      continue;
+    }
+
     if (!fs.existsSync(row.file_path)) continue;
 
     let newCoverPath: string | undefined = undefined;
@@ -87,8 +108,8 @@ export async function recacheAllArtwork(
       updatedCount++;
     }
 
-    if (onProgress && i % 25 === 0) {
-      onProgress(i + 1, total);
+    if (onProgress && (i % 15 === 0 || i === total - 1)) {
+      onProgress(i + 1, total, 'running');
     }
   }
 
@@ -106,5 +127,6 @@ export async function recacheAllArtwork(
     `).run();
   } catch {}
 
-  return { updatedCount, total };
+  if (onProgress) onProgress(total, total, 'completed');
+  return { updatedCount, total, cancelled: false };
 }

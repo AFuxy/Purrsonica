@@ -82,16 +82,18 @@ export const electronAPI = {
 
   // Danger Zone / Maintenance
   clearCache: (): Promise<boolean> => ipcRenderer.invoke('system:clearCache'),
-  recacheArtwork: (): Promise<{ updatedCount: number; total: number }> =>
+  recacheArtwork: (): Promise<{ updatedCount: number; total: number; cancelled?: boolean }> =>
     ipcRenderer.invoke('system:recacheArtwork'),
-  onRecacheProgress: (callback: (progress: { current: number; total: number }) => void) => {
+  cancelRecacheArtwork: (): Promise<boolean> => ipcRenderer.invoke('system:cancelRecacheArtwork'),
+  onRecacheProgress: (callback: (progress: { current: number; total: number; status?: string }) => void) => {
     const handler = (_event: any, data: any) => callback(data);
     ipcRenderer.on('artwork:recacheProgress', handler);
     return () => ipcRenderer.removeListener('artwork:recacheProgress', handler);
   },
-  recacheWaveforms: (): Promise<{ generatedCount: number; total: number }> =>
+  recacheWaveforms: (): Promise<{ generatedCount: number; total: number; cancelled?: boolean }> =>
     ipcRenderer.invoke('system:recacheWaveforms'),
-  onRecacheWaveformsProgress: (callback: (progress: { current: number; total: number }) => void) => {
+  cancelRecacheWaveforms: (): Promise<boolean> => ipcRenderer.invoke('system:cancelRecacheWaveforms'),
+  onRecacheWaveformsProgress: (callback: (progress: { current: number; total: number; status?: string }) => void) => {
     const handler = (_event: any, data: any) => callback(data);
     ipcRenderer.on('waveforms:recacheProgress', handler);
     return () => {

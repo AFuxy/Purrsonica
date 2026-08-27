@@ -2,9 +2,16 @@ import fs from 'node:fs';
 import { getDB } from '../db/database.js';
 import { extractWaveformPeaks } from './waveform.js';
 
+let isWaveformsCancelled = false;
+
+export function cancelWaveformsRecache(): void {
+  isWaveformsCancelled = true;
+}
+
 export async function recacheAllWaveforms(
-  onProgress?: (current: number, total: number) => void
-): Promise<{ generatedCount: number; total: number }> {
+  onProgress?: (current: number, total: number, status?: 'running' | 'completed' | 'cancelled') => void
+): Promise<{ generatedCount: number; total: number; cancelled: boolean }> {
+  isWaveformsCancelled = false;
   const db = getDB();
 
   const rows = db
@@ -21,7 +28,21 @@ export async function recacheAllWaveforms(
   const updateStmt = db.prepare('UPDATE tracks SET waveform_data = ? WHERE id = ?');
 
   for (let i = 0; i < total; i++) {
+    if (isWaveformsCancelled) {
+      if (onProgress) onProgress(i, total, 'cancelled');
+      return { generatedCount, total, cancelled: true };
+    }
+
     const row = rows[i];
+
+    // Smart Resume: If the track already has waveform data, skip re-computation
+    if (row.waveform_data && row.waveform_data.length > 10) {
+      if (onProgress && (i % 20 === 0 || i === total - 1)) {
+        onProgress(i + 1, total, 'running');
+      }
+      continue;
+    }
+
     if (!fs.existsSync(row.file_path)) continue;
 
     try {
@@ -32,10 +53,11 @@ export async function recacheAllWaveforms(
       }
     } catch {}
 
-    if (onProgress && (i % 15 === 0 || i === total - 1)) {
-      onProgress(i + 1, total);
+    if (onProgress && (i % 10 === 0 || i === total - 1)) {
+      onProgress(i + 1, total, 'running');
     }
   }
 
-  return { generatedCount, total };
+  if (onProgress) onProgress(total, total, 'completed');
+  return { generatedCount, total, cancelled: false };
 }

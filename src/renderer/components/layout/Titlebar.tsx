@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw } from 'lucide-react';
+import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw, Activity, Image as ImageIcon } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
+import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
   const { searchQuery, setSearchQuery, currentView, setView } = useLibraryStore();
   const { status: updateStatus } = useUpdateStore();
+  const { artworkTask, waveformTask, cancelArtworkRecache, cancelWaveformRecache } = useMaintenanceStore();
   const [isMaximized, setIsMaximized] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
@@ -48,7 +50,7 @@ export const Titlebar: React.FC = () => {
 
   return (
     <header className="titlebar-drag-region h-12 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center justify-between px-4 z-50 select-none">
-      {/* Brand & Logo + Compact Navbar Update Indicator */}
+      {/* Brand & Logo + Compact Navbar Status Indicators */}
       <div
         className="titlebar-no-drag flex items-center gap-2.5"
         style={{ WebkitAppRegion: 'no-drag' } as any}
@@ -61,8 +63,56 @@ export const Titlebar: React.FC = () => {
           title="Purrsonica"
         />
 
+        {/* Artwork Caching Live Progress Pill */}
+        {artworkTask.isActive && (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] shadow-sm">
+            <RefreshCw className="w-3 h-3 animate-spin flex-shrink-0" />
+            <button
+              onClick={() => setView('settings')}
+              className="hover:underline font-medium cursor-pointer"
+              title="Caching artwork. Click to open Settings."
+            >
+              Art ({artworkTask.current}/{artworkTask.total})
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                cancelArtworkRecache();
+              }}
+              className="text-emerald-400/70 hover:text-white ml-0.5 p-0.5 rounded transition-colors"
+              title="Cancel Artwork Caching"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
+        {/* Waveform Generation Live Progress Pill */}
+        {waveformTask.isActive && (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-[11px] shadow-sm">
+            <Activity className="w-3 h-3 animate-pulse flex-shrink-0" />
+            <button
+              onClick={() => setView('settings')}
+              className="hover:underline font-medium cursor-pointer"
+              title="Generating waveforms. Click to open Settings."
+            >
+              Waveforms ({waveformTask.current}/{waveformTask.total})
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                cancelWaveformRecache();
+              }}
+              className="text-cyan-400/70 hover:text-white ml-0.5 p-0.5 rounded transition-colors"
+              title="Cancel Waveform Generation"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
         {/* Compact Navbar Update Pill Notification */}
-        {updateStatus.state === 'downloaded' && (
+        {updateStatus.state === 'downloaded' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
             onClick={() => setView('settings')}
             className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-bold shadow-sm hover:bg-emerald-500/30 transition-all cursor-pointer animate-pulse"
@@ -74,7 +124,7 @@ export const Titlebar: React.FC = () => {
           </button>
         )}
 
-        {updateStatus.state === 'downloading' && (
+        {updateStatus.state === 'downloading' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
             onClick={() => setView('settings')}
             className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[11px] font-semibold transition-all cursor-pointer"
@@ -85,7 +135,7 @@ export const Titlebar: React.FC = () => {
           </button>
         )}
 
-        {updateStatus.state === 'available' && (
+        {updateStatus.state === 'available' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
             onClick={() => setView('settings')}
             className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[11px] font-semibold transition-all cursor-pointer"
