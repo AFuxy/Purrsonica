@@ -30,14 +30,6 @@ export function useAudioPlayer() {
         setCurrentTime(audio.currentTime);
       });
 
-      audio.addEventListener('play', () => {
-        setIsPlaying(true);
-      });
-
-      audio.addEventListener('pause', () => {
-        setIsPlaying(false);
-      });
-
       audio.addEventListener('loadedmetadata', () => {
         if (!isNaN(audio.duration)) {
           setDuration(audio.duration);
@@ -52,9 +44,10 @@ export function useAudioPlayer() {
         playNext();
       });
 
-      audio.addEventListener('error', (e) => {
-        console.warn('Audio playback error:', e);
-        setIsPlaying(false);
+      audio.addEventListener('error', () => {
+        if (audio.src && audio.src !== window.location.href) {
+          console.warn('Audio playback error on source:', audio.src);
+        }
       });
     }
 
@@ -121,12 +114,14 @@ export function useAudioPlayer() {
       ? window.api.getCoverUrl(currentTrack.cover_art_path)
       : undefined;
 
+    const isStandardScheme = coverUrl ? /^(https?|data|blob):/i.test(coverUrl) : false;
+
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title || currentTrack.file_name,
         artist: currentTrack.artist || 'Unknown Artist',
         album: currentTrack.album || '',
-        artwork: coverUrl
+        artwork: isStandardScheme && coverUrl
           ? [
               { src: coverUrl, sizes: '96x96', type: 'image/jpeg' },
               { src: coverUrl, sizes: '256x256', type: 'image/jpeg' },
