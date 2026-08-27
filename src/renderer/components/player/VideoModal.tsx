@@ -151,6 +151,10 @@ export const VideoModal: React.FC = () => {
             onLoadedMetadata={() => {
               if (videoRef.current && !isNaN(videoRef.current.duration)) {
                 setDuration(videoRef.current.duration);
+                const savedTime = usePlayerStore.getState().currentTime;
+                if (savedTime > 0 && Math.abs(videoRef.current.currentTime - savedTime) > 0.5) {
+                  videoRef.current.currentTime = savedTime;
+                }
               }
             }}
             onPlay={() => setIsPlaying(true)}

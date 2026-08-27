@@ -32,6 +32,10 @@ export function useAudioPlayer() {
         if (!isNaN(audio.duration)) {
           setDuration(audio.duration);
         }
+        const savedTime = usePlayerStore.getState().currentTime;
+        if (savedTime > 0 && Math.abs(audio.currentTime - savedTime) > 0.5) {
+          audio.currentTime = savedTime;
+        }
       });
 
       audio.addEventListener('ended', () => {

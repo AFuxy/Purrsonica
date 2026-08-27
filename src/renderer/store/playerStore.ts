@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { Track } from '../../shared/types.js';
 
 export type RepeatMode = 'off' | 'all' | 'one';
@@ -39,7 +40,9 @@ interface PlayerState {
   updateCurrentTrackMetadata: (updated: Partial<Track>) => void;
 }
 
-export const usePlayerStore = create<PlayerState>((set, get) => ({
+export const usePlayerStore = create<PlayerState>()(
+  persist(
+    (set, get) => ({
   currentTrack: null,
   isPlaying: false,
   currentTime: 0,
@@ -233,4 +236,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       };
     });
   },
-}));
+}),
+    {
+      name: 'purrsonica_player_session',
+      partialize: (state) => ({
+        currentTrack: state.currentTrack,
+        currentTime: state.currentTime,
+        duration: state.duration,
+        volume: state.volume,
+        isMuted: state.isMuted,
+        repeatMode: state.repeatMode,
+        isShuffle: state.isShuffle,
+        queue: state.queue,
+        history: state.history,
+      }),
+    }
+  )
+);
