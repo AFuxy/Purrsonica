@@ -10,9 +10,25 @@ export interface ChangelogRelease {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.1.5',
+    title: 'DJ Tag Recognition, Waveform Regeneration & Video Player Scrubber',
+    isLatest: true,
+    sections: [
+      {
+        heading: 'Improvements & Enhancements',
+        items: [
+          'DJ Tags & Camelot Key Recognition: Clarified the scan setting to accurately reflect that Purrsonica extracts embedded BPM and Key tags and maps them to the standardized 1A–12B Camelot Wheel harmonic mixing system.',
+          'Full Waveform Regeneration: Enabled complete on-demand re-calculation of 128-bar energy amplitude waveforms for all audio tracks in Storage & Maintenance.',
+          'Interactive Video Player Scrubber & Controls: Added interactive timeline click & drag seeking with hover timestamp tooltips, skip ±10s buttons, volume slider, and smart auto-hiding overlay.',
+          'Hardware Media Key & Player Synchronization: Fixed play/pause state synchronization when using keyboard multimedia keys, headsets, or Windows System Media Transport Controls.',
+          'Submenu Positioning: Repositioned playlist context submenus inward to prevent off-screen horizontal stretching on narrow windows.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.1.4',
     title: 'Pre-release Channel, Watermark Badge & Beta Updates',
-    isLatest: true,
     sections: [
       {
         heading: 'New Features & Enhancements',

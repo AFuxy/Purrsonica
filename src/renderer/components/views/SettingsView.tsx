@@ -400,7 +400,7 @@ export const SettingsView: React.FC = () => {
               />
             </div>
 
-            {/* Key/BPM Detection */}
+            {/* DJ Key/BPM Tag Recognition */}
             <div
               onClick={handleToggleKeyBpm}
               className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
@@ -408,8 +408,8 @@ export const SettingsView: React.FC = () => {
               <div className="flex items-center gap-3">
                 <Layers className="w-4 h-4 text-amber-400" />
                 <div>
-                  <div className="font-semibold text-xs text-[var(--text-primary)]">Camelot & BPM Analysis</div>
-                  <div className="text-[11px] text-[var(--text-muted)]">Harmonic mixing key recognition</div>
+                  <div className="font-semibold text-xs text-[var(--text-primary)]">DJ Tags & Camelot Key Recognition</div>
+                  <div className="text-[11px] text-[var(--text-muted)]">Extracts BPM and normalizes key tags to the 1A–12B Camelot Wheel</div>
                 </div>
               </div>
               <input
