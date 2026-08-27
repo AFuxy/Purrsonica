@@ -10,12 +10,14 @@ import {
   Clock,
   Sparkles,
   Edit3,
+  User,
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { TrackTable } from '../common/TrackTable.js';
 import { PlaylistEditModal } from '../modals/PlaylistEditModal.js';
 import { SettingsView } from './SettingsView.js';
+import { TrackDetailView } from './TrackDetailView.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 
 export const MainContent: React.FC = () => {
@@ -24,6 +26,8 @@ export const MainContent: React.FC = () => {
     selectedDrive,
     selectedAlbum,
     selectedPlaylist,
+    selectedArtist,
+    selectedTrackDetail,
     tracks,
     totalTracks,
     isLoading,
@@ -50,6 +54,11 @@ export const MainContent: React.FC = () => {
   // Render Settings View
   if (currentView === 'settings') {
     return <SettingsView />;
+  }
+
+  // Render Dedicated Track Play & Info Page
+  if (currentView === 'track_detail' && selectedTrackDetail) {
+    return <TrackDetailView track={selectedTrackDetail} />;
   }
 
   return (
@@ -208,6 +217,35 @@ export const MainContent: React.FC = () => {
                   </>
                 )}
                 <span>•</span>
+                <span>{totalTracks} songs</span>
+              </div>
+            </div>
+            {tracks.length > 0 && (
+              <button
+                onClick={handlePlayAll}
+                className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black flex items-center justify-center shadow-xl transition-all hover:scale-105"
+                title="Play All"
+              >
+                <Play className="w-6 h-6 fill-current ml-0.5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Artist Detail Header */}
+        {currentView === 'artist_detail' && selectedArtist && (
+          <div className="flex items-end gap-5">
+            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-600 via-indigo-600 to-emerald-600 border border-white/20 flex items-center justify-center text-white shadow-xl flex-shrink-0">
+              <User className="w-14 h-14" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                Artist
+              </span>
+              <h1 className="text-3xl font-extrabold text-[var(--text-primary)]">
+                {selectedArtist}
+              </h1>
+              <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
                 <span>{totalTracks} songs</span>
               </div>
             </div>

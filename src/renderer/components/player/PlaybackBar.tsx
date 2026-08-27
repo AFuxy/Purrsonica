@@ -48,7 +48,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
     setVideoModalOpen,
   } = usePlayerStore();
 
-  const { toggleLikeTrack, selectAlbumByName } = useLibraryStore();
+  const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail } = useLibraryStore();
 
   const coverUrl = currentTrack?.cover_art_path && window.api
     ? window.api.getCoverUrl(currentTrack.cover_art_path)
@@ -64,17 +64,18 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
               onClick={() => {
                 if (currentTrack.media_type === 'video') {
                   setVideoModalOpen(true);
+                } else {
+                  selectTrackDetail(currentTrack);
                 }
               }}
-              className={`relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 group shadow-md ${
-                currentTrack.media_type === 'video' ? 'cursor-pointer ring-1 ring-purple-500/30 hover:ring-purple-500/60 transition-all' : ''
-              }`}
+              className="relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 group shadow-md cursor-pointer ring-1 ring-white/5 hover:ring-emerald-500/50 transition-all"
+              title="Click to View Song Info & Play Page"
             >
               {coverUrl ? (
                 <img
                   src={coverUrl}
                   alt={currentTrack.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
@@ -94,14 +95,19 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
 
             <div className="flex flex-col min-w-0 pr-1 flex-1">
               <span
-                className="text-xs font-semibold text-[var(--text-primary)] truncate hover:underline cursor-pointer leading-tight"
-                title={currentTrack.title}
+                onClick={() => selectTrackDetail(currentTrack)}
+                className="text-xs font-semibold text-[var(--text-primary)] truncate hover:text-emerald-400 hover:underline cursor-pointer leading-tight transition-colors"
+                title={`Song: ${currentTrack.title} (Click to open song play page)`}
               >
                 {currentTrack.title}
               </span>
 
               <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] truncate leading-tight mt-0.5">
-                <span className="truncate hover:underline cursor-pointer" title={currentTrack.artist}>
+                <span
+                  onClick={() => selectArtist(currentTrack.artist)}
+                  className="truncate hover:text-emerald-400 hover:underline cursor-pointer transition-colors"
+                  title={`Artist: ${currentTrack.artist} (Click to view artist's songs)`}
+                >
                   {currentTrack.artist}
                 </span>
                 {currentTrack.album && (

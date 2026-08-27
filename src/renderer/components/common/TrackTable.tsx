@@ -12,6 +12,7 @@ import {
   ArrowUpDown,
   FileText,
   Trash2,
+  Folder,
 } from 'lucide-react';
 import { Track } from '../../../shared/types.js';
 import { usePlayerStore } from '../../store/playerStore.js';
@@ -38,6 +39,8 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
     sortBy,
     setSorting,
     selectAlbumByName,
+    selectArtist,
+    selectTrackDetail,
   } = useLibraryStore();
 
   const [activeMenuTrackId, setActiveMenuTrackId] = useState<string | null>(null);
@@ -204,7 +207,14 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
 
                   {/* Title, Artist, & Thumbnail */}
                   <div className="flex items-center gap-3 min-w-0 pr-4">
-                    <div className="w-8 h-8 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectTrackDetail(track);
+                      }}
+                      className="w-8 h-8 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm cursor-pointer hover:ring-1 hover:ring-emerald-500/50 transition-all"
+                      title="View song info & play page"
+                    >
                       {coverUrl ? (
                         <img
                           src={coverUrl}
@@ -220,10 +230,26 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
                       )}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className={`font-semibold truncate text-xs ${isCurrent ? 'text-emerald-400' : 'text-[var(--text-primary)]'}`}>
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectTrackDetail(track);
+                        }}
+                        className={`font-semibold truncate text-xs hover:underline hover:text-emerald-400 cursor-pointer transition-colors ${
+                          isCurrent ? 'text-emerald-400' : 'text-[var(--text-primary)]'
+                        }`}
+                        title={`Song: ${track.title} (Click to open song play page)`}
+                      >
                         {track.title || track.file_name}
                       </span>
-                      <span className="text-[11px] text-[var(--text-secondary)] truncate">
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectArtist(track.artist);
+                        }}
+                        className="text-[11px] text-[var(--text-secondary)] truncate hover:underline hover:text-emerald-400 cursor-pointer transition-colors"
+                        title={`Artist: ${track.artist} (Click to view artist's songs)`}
+                      >
                         {track.artist || 'Unknown Artist'}
                       </span>
                     </div>
@@ -379,6 +405,41 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
                               </div>
                             )}
                           </div>
+
+                          <button
+                            onClick={() => {
+                              selectTrackDetail(track);
+                              setActiveMenuTrackId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-emerald-400 flex items-center gap-2 font-medium"
+                          >
+                            <Music className="w-3.5 h-3.5" />
+                            <span>View Song Info & Play Page</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              selectArtist(track.artist);
+                              setActiveMenuTrackId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center gap-2"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>View Artist's Songs</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              if (window.api?.showItemInFolder) {
+                                window.api.showItemInFolder(track.file_path);
+                              }
+                              setActiveMenuTrackId(null);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center gap-2"
+                          >
+                            <Folder className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Show in Folder</span>
+                          </button>
 
                           <button
                             onClick={() => {

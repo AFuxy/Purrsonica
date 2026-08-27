@@ -60,8 +60,9 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
   }
 
   if (params.artist) {
-    conditions.push('t.artist = @artist');
+    conditions.push('(TRIM(LOWER(t.artist)) = TRIM(LOWER(@artist)) OR t.artist LIKE @artistPattern OR t.album_artist LIKE @artistPattern)');
     bindings.artist = params.artist;
+    bindings.artistPattern = `%${params.artist}%`;
   }
 
   if (params.genre) {

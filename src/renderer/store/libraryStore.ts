@@ -7,6 +7,8 @@ export type LibraryViewType =
   | 'drive'
   | 'albums'
   | 'album_detail'
+  | 'artist_detail'
+  | 'track_detail'
   | 'playlists'
   | 'playlist_detail'
   | 'videos'
@@ -18,6 +20,8 @@ export interface NavigationEntry {
   selectedDrive: string | null;
   selectedAlbum: Album | null;
   selectedPlaylist: Playlist | null;
+  selectedArtist: string | null;
+  selectedTrackDetail: Track | null;
 }
 
 interface LibraryState {
@@ -25,6 +29,8 @@ interface LibraryState {
   selectedDrive: string | null;
   selectedAlbum: Album | null;
   selectedPlaylist: Playlist | null;
+  selectedArtist: string | null;
+  selectedTrackDetail: Track | null;
 
   // Navigation History
   navHistory: NavigationEntry[];
@@ -53,6 +59,8 @@ interface LibraryState {
   selectDrive: (driveLetter: string) => void;
   selectAlbum: (album: Album) => void;
   selectAlbumByName: (albumName: string, artistName?: string) => void;
+  selectArtist: (artistName: string) => void;
+  selectTrackDetail: (track: Track) => void;
   selectPlaylist: (playlist: Playlist) => void;
   goBack: () => void;
   goForward: () => void;
@@ -88,8 +96,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   selectedDrive: null,
   selectedAlbum: null,
   selectedPlaylist: null,
+  selectedArtist: null,
+  selectedTrackDetail: null,
 
-  navHistory: [{ view: 'all', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null }],
+  navHistory: [{ view: 'all', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null }],
   navIndex: 0,
   canGoBack: false,
   canGoForward: false,
@@ -117,7 +127,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       current.view === entry.view &&
       current.selectedDrive === entry.selectedDrive &&
       current.selectedAlbum?.id === entry.selectedAlbum?.id &&
-      current.selectedPlaylist?.id === entry.selectedPlaylist?.id
+      current.selectedPlaylist?.id === entry.selectedPlaylist?.id &&
+      current.selectedArtist === entry.selectedArtist &&
+      current.selectedTrackDetail?.id === entry.selectedTrackDetail?.id
     ) {
       return;
     }
@@ -148,6 +160,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedDrive: prev.selectedDrive,
       selectedAlbum: prev.selectedAlbum,
       selectedPlaylist: prev.selectedPlaylist,
+      selectedArtist: prev.selectedArtist,
+      selectedTrackDetail: prev.selectedTrackDetail,
     });
     get().fetchTracks();
   },
@@ -167,6 +181,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedDrive: next.selectedDrive,
       selectedAlbum: next.selectedAlbum,
       selectedPlaylist: next.selectedPlaylist,
+      selectedArtist: next.selectedArtist,
+      selectedTrackDetail: next.selectedTrackDetail,
     });
     get().fetchTracks();
   },
@@ -175,15 +191,19 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const selectedDrive = view === 'drive' ? get().selectedDrive : null;
     const selectedAlbum = view === 'album_detail' ? get().selectedAlbum : null;
     const selectedPlaylist = view === 'playlist_detail' ? get().selectedPlaylist : null;
+    const selectedArtist = view === 'artist_detail' ? get().selectedArtist : null;
+    const selectedTrackDetail = view === 'track_detail' ? get().selectedTrackDetail : null;
 
     set({
       currentView: view,
       selectedDrive,
       selectedAlbum,
       selectedPlaylist,
+      selectedArtist,
+      selectedTrackDetail,
     });
 
-    get().pushNav({ view, selectedDrive, selectedAlbum, selectedPlaylist });
+    get().pushNav({ view, selectedDrive, selectedAlbum, selectedPlaylist, selectedArtist, selectedTrackDetail });
     get().fetchTracks();
   },
 
@@ -193,7 +213,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedDrive: driveLetter,
     });
 
-    get().pushNav({ view: 'drive', selectedDrive: driveLetter, selectedAlbum: null, selectedPlaylist: null });
+    get().pushNav({ view: 'drive', selectedDrive: driveLetter, selectedAlbum: null, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null });
     get().fetchTracks();
   },
 
@@ -203,7 +223,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedAlbum: album,
     });
 
-    get().pushNav({ view: 'album_detail', selectedDrive: null, selectedAlbum: album, selectedPlaylist: null });
+    get().pushNav({ view: 'album_detail', selectedDrive: null, selectedAlbum: album, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null });
     get().fetchTracks();
   },
 
@@ -230,8 +250,30 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedAlbum: found,
     });
 
-    get().pushNav({ view: 'album_detail', selectedDrive: null, selectedAlbum: found, selectedPlaylist: null });
+    get().pushNav({ view: 'album_detail', selectedDrive: null, selectedAlbum: found, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null });
     get().fetchTracks();
+  },
+
+  selectArtist: (artistName: string) => {
+    const cleanArtist = artistName ? artistName.trim() : '';
+    if (!cleanArtist || cleanArtist.toLowerCase() === 'unknown artist') return;
+
+    set({
+      currentView: 'artist_detail',
+      selectedArtist: cleanArtist,
+    });
+
+    get().pushNav({ view: 'artist_detail', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null, selectedArtist: cleanArtist, selectedTrackDetail: null });
+    get().fetchTracks();
+  },
+
+  selectTrackDetail: (track: Track) => {
+    set({
+      currentView: 'track_detail',
+      selectedTrackDetail: track,
+    });
+
+    get().pushNav({ view: 'track_detail', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: track });
   },
 
   selectPlaylist: (playlist: Playlist) => {
@@ -240,7 +282,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedPlaylist: playlist,
     });
 
-    get().pushNav({ view: 'playlist_detail', selectedDrive: null, selectedAlbum: null, selectedPlaylist: playlist });
+    get().pushNav({ view: 'playlist_detail', selectedDrive: null, selectedAlbum: null, selectedPlaylist: playlist, selectedArtist: null, selectedTrackDetail: null });
     get().fetchTracks();
   },
 
@@ -272,7 +314,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      const { currentView, selectedDrive, selectedAlbum, selectedPlaylist, searchQuery, sortBy, sortOrder } = get();
+      const { currentView, selectedDrive, selectedAlbum, selectedPlaylist, selectedArtist, searchQuery, sortBy, sortOrder } = get();
 
       const params: any = {
         sortBy,
@@ -290,7 +332,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         params.drive = selectedDrive;
       } else if (currentView === 'album_detail' && selectedAlbum) {
         params.album = selectedAlbum.name;
-        params.artist = selectedAlbum.artist;
+      } else if (currentView === 'artist_detail' && selectedArtist) {
+        params.artist = selectedArtist;
       } else if (currentView === 'playlist_detail' && selectedPlaylist) {
         params.playlistId = selectedPlaylist.id;
       } else if (currentView === 'videos') {

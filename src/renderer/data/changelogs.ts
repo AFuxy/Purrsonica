@@ -23,6 +23,8 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
           'Intelligent Album & Song Deduplication: Eliminated duplicate album cards across multi-artist tracks and eliminated duplicate songs within album tracklists (caused by duplicate files or multiple folders on disk).',
           'Verify Library & Clean Missing Files: Added a built-in maintenance tool in Settings to verify all indexed paths and prune dead records for moved or deleted files.',
           'Player Bar Album & File Location: Added active Album name (with clickable jump-to-album navigation) and physical file location path (with instant click-to-reveal in File Explorer) directly inside the bottom player bar.',
+          'Dedicated Song Play & Info Page: Clicking any song title or artwork opens a rich song hub featuring high-res artwork with ambient blur, acoustic & DJ metrics (BPM, Key, Bitrate, Sample Rate, File Size), full interactive waveform seeking, and quick metadata editing.',
+          'Artist Discography View: Clicking any artist name navigates directly to a dedicated Artist View aggregating all songs by that artist.',
         ],
       },
     ],
