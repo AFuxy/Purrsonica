@@ -112,10 +112,23 @@ export const App: React.FC = () => {
     if (window.api) {
       cleanupScan = window.api.onScanProgress((progress) => {
         setProgress(progress);
+        if (progress.status === 'completed') {
+          useLibraryStore.getState().refreshAll();
+        }
       });
 
+      let libDebounceTimer: any = null;
       cleanupLib = window.api.onLibraryUpdated(() => {
-        refreshAll();
+        if (useScanStore.getState().progress.status === 'scanning') {
+          // During active scan, update lightweight stats without reloading 50,000 tracks
+          useLibraryStore.getState().fetchStats();
+          useLibraryStore.getState().fetchDrives();
+          return;
+        }
+        clearTimeout(libDebounceTimer);
+        libDebounceTimer = setTimeout(() => {
+          refreshAll();
+        }, 300);
       });
 
       if (window.api.onUpdateStatus) {
