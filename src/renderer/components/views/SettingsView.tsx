@@ -137,6 +137,26 @@ export const SettingsView: React.FC = () => {
     checkForUpdates();
   };
 
+  const [isCleaningGhostTracks, setIsCleaningGhostTracks] = useState(false);
+
+  const handleCleanDeadTracks = async () => {
+    if (!window.api || isCleaningGhostTracks) return;
+    setIsCleaningGhostTracks(true);
+    try {
+      const result = await window.api.cleanDeadTracks();
+      await refreshAll();
+      showToast(
+        result.removedCount > 0
+          ? `Cleanup complete: Removed ${result.removedCount} missing/dead tracks`
+          : 'Library verified: No missing/dead tracks found'
+      );
+    } catch {
+      showToast('Error cleaning dead tracks');
+    } finally {
+      setIsCleaningGhostTracks(false);
+    }
+  };
+
   const handleRecacheArtwork = async () => {
     if (artworkTask.isActive) {
       await cancelArtworkRecache();
@@ -569,6 +589,29 @@ export const SettingsView: React.FC = () => {
                   Cancel
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Clean Ghost / Moved Tracks Card */}
+          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3 sm:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Verify Library & Clean Missing Files</span>
+                </div>
+                <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                  Scans all indexed file paths in the database and prunes stale records for audio/video files that were moved, deleted, or renamed outside Purrsonica.
+                </div>
+              </div>
+              <button
+                onClick={handleCleanDeadTracks}
+                disabled={isCleaningGhostTracks}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCleaningGhostTracks ? 'animate-spin text-emerald-400' : ''}`} />
+                <span>{isCleaningGhostTracks ? 'Cleaning...' : 'Clean Missing Tracks'}</span>
+              </button>
             </div>
           </div>
         </div>

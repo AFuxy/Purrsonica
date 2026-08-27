@@ -31,6 +31,7 @@ import {
   incrementPlayCount,
   wipeLibraryOnly,
   factoryResetDatabase,
+  cleanDeadTracks,
 } from './db/queries.js';
 import {
   startScan,
@@ -135,6 +136,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('system:cancelRecacheWaveforms', async () => {
     cancelWaveformsRecache();
     return true;
+  });
+
+  ipcMain.handle('system:cleanDeadTracks', async () => {
+    const result = cleanDeadTracks();
+    mainWindow?.webContents.send('library:updated');
+    return result;
   });
 
   ipcMain.handle('system:wipeLibrary', async () => {

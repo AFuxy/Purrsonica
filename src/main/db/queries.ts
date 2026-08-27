@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { getDB } from './database.js';
 import {
   Track,
@@ -81,8 +82,17 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+  const groupByClause = params.album
+    ? `GROUP BY 
+         CASE WHEN t.disc_number IS NULL OR t.disc_number = 0 THEN 1 ELSE t.disc_number END,
+         CASE WHEN t.track_number IS NOT NULL AND t.track_number > 0 THEN t.track_number ELSE LOWER(TRIM(t.title)) END,
+         LOWER(TRIM(t.title))`
+    : '';
+
   // Get total count
-  const countSql = `SELECT COUNT(*) as count FROM tracks t ${joins} ${whereClause}`;
+  const countSql = params.album
+    ? `SELECT COUNT(*) as count FROM (SELECT 1 FROM tracks t ${joins} ${whereClause} ${groupByClause})`
+    : `SELECT COUNT(*) as count FROM tracks t ${joins} ${whereClause}`;
   const total = (db.prepare(countSql).get(bindings) as { count: number }).count;
 
   // Sorting
@@ -105,7 +115,7 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
     paginationClause = `LIMIT ${params.limit} OFFSET ${params.offset || 0}`;
   }
 
-  const dataSql = `SELECT t.* FROM tracks t ${joins} ${whereClause} ${orderByClause} ${paginationClause}`;
+  const dataSql = `SELECT t.* FROM tracks t ${joins} ${whereClause} ${groupByClause} ${orderByClause} ${paginationClause}`;
   const rows = db.prepare(dataSql).all(bindings) as any[];
 
   const tracks: Track[] = rows.map((r) => ({
@@ -173,7 +183,7 @@ export function getAlbumsSummary(): Album[] {
          ) as artist, 
          MAX(cover_art_path) as cover_art_path, 
          MAX(year) as year, 
-         COUNT(*) as track_count 
+         COUNT(DISTINCT LOWER(TRIM(title))) as track_count 
        FROM tracks 
        WHERE album IS NOT NULL AND TRIM(album) != '' AND TRIM(LOWER(album)) != 'unknown album'
        GROUP BY TRIM(LOWER(album)) 
@@ -529,6 +539,28 @@ export function wipeLibraryOnly(): void {
     db.prepare('DELETE FROM albums').run();
     db.prepare('DELETE FROM playlist_tracks').run();
   })();
+}
+
+export function cleanDeadTracks(): { removedCount: number } {
+  const db = getDB();
+  const rows = db.prepare('SELECT id, file_path FROM tracks').all() as { id: string; file_path: string }[];
+  let removedCount = 0;
+
+  const deleteStmt = db.prepare('DELETE FROM tracks WHERE id = ?');
+  const deletePlaylistTracksStmt = db.prepare('DELETE FROM playlist_tracks WHERE track_id = ?');
+
+  const runCleanup = db.transaction(() => {
+    for (const r of rows) {
+      if (!fs.existsSync(r.file_path)) {
+        deletePlaylistTracksStmt.run(r.id);
+        deleteStmt.run(r.id);
+        removedCount++;
+      }
+    }
+  });
+
+  runCleanup();
+  return { removedCount };
 }
 
 export function factoryResetDatabase(): void {
