@@ -10,6 +10,7 @@ import {
   Zap,
   FolderInput,
   Trash2,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
@@ -123,6 +124,20 @@ export const Sidebar: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <Disc className="w-4 h-4" />
               <span>Albums</span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setView('settings')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all ${
+              currentView === 'settings'
+                ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <SettingsIcon className="w-4 h-4" />
+              <span>Settings</span>
             </div>
           </button>
         </div>

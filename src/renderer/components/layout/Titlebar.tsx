@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Minus, Square, Copy, X, Sun, Moon, Search } from 'lucide-react';
+import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
-  const { searchQuery, setSearchQuery } = useLibraryStore();
+  const { searchQuery, setSearchQuery, currentView, setView } = useLibraryStore();
   const [isMaximized, setIsMaximized] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
@@ -85,11 +85,24 @@ export const Titlebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Theme Switcher & Window Controls */}
+      {/* Theme Switcher, Settings & Window Controls */}
       <div
         className="titlebar-no-drag flex items-center gap-1"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
+        <button
+          onClick={() => setView(currentView === 'settings' ? 'all' : 'settings')}
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+          title="Settings"
+          className={`p-1.5 rounded-md transition-colors mr-1 cursor-pointer ${
+            currentView === 'settings'
+              ? 'text-emerald-400 bg-[var(--bg-tertiary)]'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
+          }`}
+        >
+          <SettingsIcon className="w-4 h-4" />
+        </button>
+
         <button
           onClick={toggleTheme}
           style={{ WebkitAppRegion: 'no-drag' } as any}

@@ -10,7 +10,8 @@ export type LibraryViewType =
   | 'playlists'
   | 'playlist_detail'
   | 'videos'
-  | 'search';
+  | 'search'
+  | 'settings';
 
 interface LibraryState {
   currentView: LibraryViewType;

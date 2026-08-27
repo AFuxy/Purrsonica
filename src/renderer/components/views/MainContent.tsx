@@ -15,6 +15,7 @@ import { useLibraryStore } from '../../store/libraryStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { TrackTable } from '../common/TrackTable.js';
 import { PlaylistEditModal } from '../modals/PlaylistEditModal.js';
+import { SettingsView } from './SettingsView.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 
 export const MainContent: React.FC = () => {
@@ -45,6 +46,11 @@ export const MainContent: React.FC = () => {
   const playlistCoverUrl = selectedPlaylist?.cover_art_path && window.api
     ? window.api.getCoverUrl(selectedPlaylist.cover_art_path)
     : null;
+
+  // Render Settings View
+  if (currentView === 'settings') {
+    return <SettingsView />;
+  }
 
   return (
     <main className="flex-1 bg-[var(--bg-primary)] overflow-hidden flex flex-col h-full select-none">
