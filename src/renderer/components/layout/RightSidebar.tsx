@@ -26,7 +26,7 @@ export const RightSidebar: React.FC = () => {
     playTrack,
   } = usePlayerStore();
 
-  const { setEditingTrack } = useLibraryStore();
+  const { setEditingTrack, selectAlbumByName } = useLibraryStore();
 
   if (!isRightSidebarOpen) return null;
 
@@ -92,7 +92,11 @@ export const RightSidebar: React.FC = () => {
                 {currentTrack.artist}
               </p>
               {currentTrack.album && (
-                <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">
+                <p 
+                  onClick={() => selectAlbumByName(currentTrack.album, currentTrack.artist)}
+                  className="text-[11px] text-[var(--text-muted)] truncate mt-0.5 hover:underline hover:text-emerald-400 cursor-pointer transition-colors"
+                  title={`View album: ${currentTrack.album}`}
+                >
                   {currentTrack.album} {currentTrack.year ? `(${currentTrack.year})` : ''}
                 </p>
               )}

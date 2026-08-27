@@ -37,6 +37,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
     addTrackToPlaylist,
     sortBy,
     setSorting,
+    selectAlbumByName,
   } = useLibraryStore();
 
   const [activeMenuTrackId, setActiveMenuTrackId] = useState<string | null>(null);
@@ -230,7 +231,20 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
 
                   {/* Album */}
                   <div className="truncate text-[var(--text-secondary)] text-xs pr-4">
-                    {track.album || '—'}
+                    {track.album ? (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectAlbumByName(track.album, track.artist);
+                        }}
+                        className="hover:underline hover:text-emerald-400 cursor-pointer transition-colors"
+                        title={`View album: ${track.album}`}
+                      >
+                        {track.album}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </div>
 
                   {/* BPM */}

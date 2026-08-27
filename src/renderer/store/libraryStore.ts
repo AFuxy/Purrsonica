@@ -39,6 +39,7 @@ interface LibraryState {
   setView: (view: LibraryViewType) => void;
   selectDrive: (driveLetter: string) => void;
   selectAlbum: (album: Album) => void;
+  selectAlbumByName: (albumName: string, artistName?: string) => void;
   selectPlaylist: (playlist: Playlist) => void;
   setSearchQuery: (query: string) => void;
   setSorting: (sortBy: any, sortOrder?: 'ASC' | 'DESC') => void;
@@ -107,6 +108,30 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     set({
       currentView: 'album_detail',
       selectedAlbum: album,
+    });
+    get().fetchTracks();
+  },
+
+  selectAlbumByName: (albumName: string, artistName?: string) => {
+    if (!albumName || albumName === 'Unknown Album') return;
+
+    let found = get().albums.find(
+      (a) => a.name.toLowerCase() === albumName.toLowerCase()
+    );
+
+    if (!found) {
+      found = {
+        id: `virtual-${albumName}`,
+        name: albumName,
+        artist: artistName || 'Unknown Artist',
+        track_count: 0,
+        is_custom: false,
+      };
+    }
+
+    set({
+      currentView: 'album_detail',
+      selectedAlbum: found,
     });
     get().fetchTracks();
   },
