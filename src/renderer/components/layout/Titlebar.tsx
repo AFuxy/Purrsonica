@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw, Activity, Image as ImageIcon } from 'lucide-react';
+import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
@@ -7,11 +7,43 @@ import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
-  const { searchQuery, setSearchQuery, currentView, setView } = useLibraryStore();
+  const { searchQuery, setSearchQuery, currentView, setView, goBack, goForward, canGoBack, canGoForward } = useLibraryStore();
   const { status: updateStatus } = useUpdateStore();
   const { artworkTask, waveformTask, cancelArtworkRecache, cancelWaveformRecache } = useMaintenanceStore();
   const [isMaximized, setIsMaximized] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Global Navigation Shortcuts (Alt + Left/Right, Mouse 4 & 5)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+
+      if ((e.altKey && e.key === 'ArrowLeft') || e.key === 'BrowserBack') {
+        e.preventDefault();
+        goBack();
+      } else if ((e.altKey && e.key === 'ArrowRight') || e.key === 'BrowserForward') {
+        e.preventDefault();
+        goForward();
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        goBack();
+      } else if (e.button === 4) {
+        e.preventDefault();
+        goForward();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [canGoBack, canGoForward, goBack, goForward]);
 
   useEffect(() => {
     setLocalSearch(searchQuery);
@@ -50,9 +82,9 @@ export const Titlebar: React.FC = () => {
 
   return (
     <header className="titlebar-drag-region h-12 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center justify-between px-4 z-50 select-none">
-      {/* Brand & Logo + Compact Navbar Status Indicators */}
+      {/* Brand, Logo & Navigation History Controls */}
       <div
-        className="titlebar-no-drag flex items-center gap-2.5"
+        className="titlebar-no-drag flex items-center gap-2"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
         <img
@@ -62,6 +94,26 @@ export const Titlebar: React.FC = () => {
           onClick={() => setView('all')}
           title="Purrsonica"
         />
+
+        {/* Back and Forward Navigation History Buttons */}
+        <div className="flex items-center gap-0.5 ml-1">
+          <button
+            onClick={goBack}
+            disabled={!canGoBack}
+            className="p-1.5 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-25 disabled:hover:bg-transparent disabled:pointer-events-none transition-all cursor-pointer"
+            title="Go Back (Alt + Left Arrow)"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={goForward}
+            disabled={!canGoForward}
+            className="p-1.5 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-25 disabled:hover:bg-transparent disabled:pointer-events-none transition-all cursor-pointer"
+            title="Go Forward (Alt + Right Arrow)"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Artwork Caching Live Progress Pill */}
         {artworkTask.isActive && (
