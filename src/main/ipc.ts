@@ -28,6 +28,8 @@ import {
   upsertTracksBatch,
   saveTrackWaveform,
   incrementPlayCount,
+  wipeLibraryOnly,
+  factoryResetDatabase,
 } from './db/queries.js';
 import {
   startScan,
@@ -35,7 +37,7 @@ import {
   getScanProgress,
   detectSystemDrives,
 } from './scanner/scanner-controller.js';
-import { getCoversCacheDir } from './db/database.js';
+import { getCoversCacheDir, clearCoversCache } from './db/database.js';
 import { extractWaveformPeaks } from './scanner/waveform.js';
 import { getMediaType } from './scanner/exclusions.js';
 import { parseKey } from '../shared/camelot.js';
@@ -91,6 +93,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('updater:getStatus', async () => {
     return getCurrentUpdateStatus();
+  });
+
+  // --- Danger Zone / System Maintenance ---
+  ipcMain.handle('system:clearCache', async () => {
+    return clearCoversCache();
+  });
+
+  ipcMain.handle('system:wipeLibrary', async () => {
+    wipeLibraryOnly();
+    mainWindow?.webContents.send('library:updated');
+    return true;
+  });
+
+  ipcMain.handle('system:factoryReset', async () => {
+    factoryResetDatabase();
+    clearCoversCache();
+    mainWindow?.webContents.send('library:updated');
+    return true;
   });
 
   // --- Track Queries ---

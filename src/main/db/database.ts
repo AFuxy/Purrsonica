@@ -36,6 +36,22 @@ export function getCoversCacheDir(): string {
   return coversCacheDir;
 }
 
+export function clearCoversCache(): boolean {
+  try {
+    const dir = getCoversCacheDir();
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir);
+      for (const f of files) {
+        fs.unlinkSync(path.join(dir, f));
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to clear covers cache:', err);
+    return false;
+  }
+}
+
 export function initDatabase(customPath?: string): Database.Database {
   if (dbInstance) return dbInstance;
 

@@ -503,3 +503,23 @@ export function saveScanSettings(settings: ScanSettings): void {
      ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json`
   ).run(JSON.stringify(settings));
 }
+
+export function wipeLibraryOnly(): void {
+  const db = getDB();
+  db.transaction(() => {
+    db.prepare('DELETE FROM tracks').run();
+    db.prepare('DELETE FROM albums').run();
+    db.prepare('DELETE FROM playlist_tracks').run();
+  })();
+}
+
+export function factoryResetDatabase(): void {
+  const db = getDB();
+  db.transaction(() => {
+    db.prepare('DELETE FROM playlist_tracks').run();
+    db.prepare('DELETE FROM playlists').run();
+    db.prepare('DELETE FROM tracks').run();
+    db.prepare('DELETE FROM albums').run();
+    db.prepare('DELETE FROM app_settings').run();
+  })();
+}

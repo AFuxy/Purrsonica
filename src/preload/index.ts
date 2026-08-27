@@ -79,6 +79,11 @@ export const electronAPI = {
     return () => ipcRenderer.removeListener('updater:status', handler);
   },
 
+  // Danger Zone / Maintenance
+  clearCache: (): Promise<boolean> => ipcRenderer.invoke('system:clearCache'),
+  wipeLibrary: (): Promise<boolean> => ipcRenderer.invoke('system:wipeLibrary'),
+  factoryReset: (): Promise<boolean> => ipcRenderer.invoke('system:factoryReset'),
+
   // Dialogs & Drag-and-Drop Import
   pickFiles: (): Promise<Track[]> => ipcRenderer.invoke('dialog:pickFiles'),
   pickFolders: (): Promise<ScanProgress> => ipcRenderer.invoke('dialog:pickFolders'),
