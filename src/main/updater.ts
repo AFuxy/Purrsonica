@@ -1,6 +1,8 @@
 import { BrowserWindow, app } from 'electron';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
+import path from 'node:path';
+import fs from 'node:fs';
 import { UpdateStatus } from '../shared/types.js';
 
 let currentStatus: UpdateStatus = {
@@ -18,6 +20,15 @@ function sendStatus(status: UpdateStatus) {
 
 export function getCurrentUpdateStatus(): UpdateStatus {
   return currentStatus;
+}
+
+function hasUpdateConfig(): boolean {
+  try {
+    const updateConfigPath = path.join(process.resourcesPath, 'app-update.yml');
+    return fs.existsSync(updateConfigPath);
+  } catch {
+    return false;
+  }
 }
 
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
@@ -43,7 +54,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log('[Purrsonica Updater] Update not available. Current version is latest.');
+    console.log('[Purrsonica Updater] App is up to date.');
     sendStatus({
       state: 'not-available',
       version: info.version,
@@ -67,26 +78,33 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   });
 
   autoUpdater.on('error', (err) => {
-    console.warn('[Purrsonica Updater] Update error:', err?.message || err);
+    const msg = err?.message || String(err);
+    console.warn('[Purrsonica Updater] Update notice:', msg);
+
+    // If app-update.yml is missing (e.g. portable/dev), don't show user a noisy error
+    if (msg.includes('app-update.yml') || msg.includes('ENOENT')) {
+      sendStatus({ state: 'idle' });
+      return;
+    }
+
     sendStatus({
       state: 'error',
-      errorMessage: err?.message || 'Update check failed',
+      errorMessage: 'Could not connect to update server',
     });
   });
 
-  // Automatically check for updates on startup in production
-  if (app.isPackaged) {
+  // Automatically check for updates on startup only if packaged with update config
+  if (app.isPackaged && hasUpdateConfig()) {
     setTimeout(() => {
       autoUpdater.checkForUpdates().catch((err) => {
-        console.warn('[Purrsonica Updater] Initial check error:', err.message);
+        console.warn('[Purrsonica Updater] Startup check bypassed:', err?.message || err);
       });
-    }, 5000);
+    }, 4000);
   }
 }
 
 export async function checkForUpdates(): Promise<UpdateStatus> {
-  if (!app.isPackaged) {
-    // In dev mode, return mock or notify
+  if (!app.isPackaged || !hasUpdateConfig()) {
     sendStatus({
       state: 'not-available',
       version: app.getVersion(),
@@ -98,9 +116,10 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
     await autoUpdater.checkForUpdates();
     return currentStatus;
   } catch (err: any) {
+    console.warn('[Purrsonica Updater] Check error:', err?.message || err);
     sendStatus({
-      state: 'error',
-      errorMessage: err?.message || 'Failed to check for updates',
+      state: 'not-available',
+      version: app.getVersion(),
     });
     return currentStatus;
   }
