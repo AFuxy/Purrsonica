@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Flame,
   Image as ImageIcon,
+  AudioWaveform,
 } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -47,6 +48,10 @@ export const SettingsView: React.FC = () => {
   const [isRecaching, setIsRecaching] = useState(false);
   const [recacheProgress, setRecacheProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // Waveform recache state
+  const [isRecachingWaveforms, setIsRecachingWaveforms] = useState(false);
+  const [waveformProgress, setWaveformProgress] = useState<{ current: number; total: number } | null>(null);
+
   // Danger Zone Confirmation States
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [confirmFactoryReset, setConfirmFactoryReset] = useState(false);
@@ -62,6 +67,17 @@ export const SettingsView: React.FC = () => {
     if (window.api?.onRecacheProgress) {
       const unsub = window.api.onRecacheProgress((p) => {
         setRecacheProgress(p);
+      });
+      return () => {
+        unsub();
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (window.api?.onRecacheWaveformsProgress) {
+      const unsub = window.api.onRecacheWaveformsProgress((p) => {
+        setWaveformProgress(p);
       });
       return () => {
         unsub();
@@ -120,6 +136,22 @@ export const SettingsView: React.FC = () => {
     } finally {
       setIsRecaching(false);
       setRecacheProgress(null);
+    }
+  };
+
+  const handleRecacheWaveforms = async () => {
+    if (!window.api || isRecachingWaveforms) return;
+    setIsRecachingWaveforms(true);
+    setWaveformProgress(null);
+    try {
+      const result = await window.api.recacheWaveforms();
+      await refreshAll();
+      showToast(`Waveforms generated: ${result.generatedCount} tracks computed`);
+    } catch (err) {
+      showToast('Error generating waveforms');
+    } finally {
+      setIsRecachingWaveforms(false);
+      setWaveformProgress(null);
     }
   };
 
@@ -396,7 +428,7 @@ export const SettingsView: React.FC = () => {
       <section className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
           <Database className="w-4 h-4 text-emerald-400" />
-          <span>Storage & Database Stats</span>
+          <span>Storage & Maintenance</span>
         </h2>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -429,32 +461,63 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Artwork Re-Caching Card */}
-        <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex items-center justify-between">
-          <div className="pr-4">
-            <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-emerald-400" />
-              <span>Re-extract & Cache All Artwork</span>
+        {/* Maintenance Action Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Artwork Re-Caching Card */}
+          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3">
+            <div>
+              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-emerald-400" />
+                <span>Re-extract & Cache Artwork</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                Re-scans embedded ID3 picture tags and local folder cover files (folder.jpg, cover.jpg) without wiping your library.
+              </div>
             </div>
-            <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-              Re-scans embedded ID3 picture tags and local folder cover files (folder.jpg, cover.jpg) without deleting your library.
-            </div>
+
+            <button
+              onClick={handleRecacheArtwork}
+              disabled={isRecaching || isRecachingWaveforms}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRecaching ? 'animate-spin text-emerald-400' : ''}`} />
+              <span>
+                {isRecaching
+                  ? recacheProgress
+                    ? `Re-caching (${recacheProgress.current}/${recacheProgress.total})...`
+                    : 'Re-caching...'
+                  : 'Re-cache Artwork'}
+              </span>
+            </button>
           </div>
 
-          <button
-            onClick={handleRecacheArtwork}
-            disabled={isRecaching}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all flex-shrink-0 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRecaching ? 'animate-spin text-emerald-400' : ''}`} />
-            <span>
-              {isRecaching
-                ? recacheProgress
-                  ? `Re-caching (${recacheProgress.current}/${recacheProgress.total})...`
-                  : 'Re-caching...'
-                : 'Re-cache Artwork'}
-            </span>
-          </button>
+          {/* Waveforms Re-Generation Card */}
+          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3">
+            <div>
+              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                <Activity className="w-4 h-4 text-cyan-400" />
+                <span>Re-generate All Waveforms</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                Pre-computes 128-bar energy amplitude curves for all audio tracks for instant playback rendering.
+              </div>
+            </div>
+
+            <button
+              onClick={handleRecacheWaveforms}
+              disabled={isRecaching || isRecachingWaveforms}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRecachingWaveforms ? 'animate-spin text-cyan-400' : ''}`} />
+              <span>
+                {isRecachingWaveforms
+                  ? waveformProgress
+                    ? `Generating (${waveformProgress.current}/${waveformProgress.total})...`
+                    : 'Generating...'
+                  : 'Re-generate Waveforms'}
+              </span>
+            </button>
+          </div>
         </div>
       </section>
 

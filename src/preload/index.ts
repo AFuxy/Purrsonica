@@ -88,6 +88,15 @@ export const electronAPI = {
     ipcRenderer.on('artwork:recacheProgress', handler);
     return () => ipcRenderer.removeListener('artwork:recacheProgress', handler);
   },
+  recacheWaveforms: (): Promise<{ generatedCount: number; total: number }> =>
+    ipcRenderer.invoke('system:recacheWaveforms'),
+  onRecacheWaveformsProgress: (callback: (progress: { current: number; total: number }) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('waveforms:recacheProgress', handler);
+    return () => {
+      ipcRenderer.removeListener('waveforms:recacheProgress', handler);
+    };
+  },
   wipeLibrary: (): Promise<boolean> => ipcRenderer.invoke('system:wipeLibrary'),
   factoryReset: (): Promise<boolean> => ipcRenderer.invoke('system:factoryReset'),
 
