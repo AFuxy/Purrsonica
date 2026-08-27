@@ -152,8 +152,20 @@ function registerStreamingProtocols() {
     try {
       const filePath = resolveProtocolFilePath(request.url, 'cover');
 
+      // Transparent 1x1 fallback GIF for missing/deleted cache files
+      const TRANSPARENT_FALLBACK = Buffer.from(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        'base64'
+      );
+
       if (!filePath || !fs.existsSync(filePath)) {
-        return new Response('Cover Not Found', { status: 404 });
+        return new Response(TRANSPARENT_FALLBACK, {
+          headers: {
+            'Content-Type': 'image/gif',
+            'Content-Length': String(TRANSPARENT_FALLBACK.length),
+            'Cache-Control': 'no-cache',
+          },
+        });
       }
 
       const ext = path.extname(filePath).toLowerCase().replace('.', '');

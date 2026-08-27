@@ -42,8 +42,14 @@ export function clearCoversCache(): boolean {
     if (fs.existsSync(dir)) {
       const files = fs.readdirSync(dir);
       for (const f of files) {
-        fs.unlinkSync(path.join(dir, f));
+        try {
+          fs.unlinkSync(path.join(dir, f));
+        } catch {}
       }
+    }
+    if (dbInstance) {
+      dbInstance.prepare("UPDATE tracks SET cover_art_path = NULL WHERE cover_art_path LIKE '%cache%'").run();
+      dbInstance.prepare("UPDATE albums SET cover_art_path = NULL WHERE cover_art_path LIKE '%cache%'").run();
     }
     return true;
   } catch (err) {
