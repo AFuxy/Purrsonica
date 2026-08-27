@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { Readable } from 'node:stream';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { initDatabase, closeDatabase } from './db/database.js';
+import { initDatabase, closeDatabase, getDB } from './db/database.js';
 import { registerIpcHandlers } from './ipc.js';
 import { initAutoUpdater } from './updater.js';
 import { initDiscordRpc, destroyDiscordRpc } from './discord.js';
@@ -179,7 +179,59 @@ function registerStreamingProtocols() {
         });
       }
 
-      // 2. Audio File with Embedded Artwork
+      // 2. Missing Cache File: Recover & Regenerate from DB audio source on the fly
+      if (!fs.existsSync(filePath)) {
+        try {
+          const db = getDB();
+          const track = db
+            .prepare('SELECT file_path FROM tracks WHERE cover_art_path = ? LIMIT 1')
+            .get(filePath) as { file_path: string } | undefined;
+
+          if (track && track.file_path && fs.existsSync(track.file_path)) {
+            const metadata = await parseFile(track.file_path, { skipCovers: false });
+            if (metadata.common.picture && metadata.common.picture.length > 0) {
+              const pic = metadata.common.picture[0];
+              const buffer = Buffer.from(pic.data);
+
+              // Save to cache path so future requests are instantaneous
+              try {
+                await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+                await fs.promises.writeFile(filePath, buffer);
+              } catch {}
+
+              return new Response(buffer, {
+                headers: {
+                  'Content-Type': pic.format || 'image/jpeg',
+                  'Content-Length': String(buffer.length),
+                  'Access-Control-Allow-Origin': '*',
+                  'Cache-Control': 'public, max-age=86400',
+                },
+              });
+            }
+
+            // Fallback: Check audio file's folder for cover images
+            const parentDir = path.dirname(track.file_path);
+            const commonNames = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'front.jpg', 'albumart.jpg'];
+            for (const name of commonNames) {
+              const candidate = path.join(parentDir, name);
+              if (fs.existsSync(candidate)) {
+                const candExt = path.extname(candidate).toLowerCase().replace('.', '');
+                const fileBuffer = await fs.promises.readFile(candidate);
+                return new Response(fileBuffer, {
+                  headers: {
+                    'Content-Type': IMAGE_MIME_TYPES[candExt] || 'image/jpeg',
+                    'Content-Length': String(fileBuffer.length),
+                    'Access-Control-Allow-Origin': '*',
+                    'Cache-Control': 'public, max-age=86400',
+                  },
+                });
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 3. Audio File with Embedded Artwork
       const audioExts = ['mp3', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wav', 'wma'];
       if (audioExts.includes(ext) && fs.existsSync(filePath)) {
         try {
