@@ -20,6 +20,7 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
           'Pre-release & Beta Channel: Added an opt-in toggle in Settings to check for and install pre-release (Beta / Alpha / Canary) builds directly from GitHub Releases.',
           'Pre-release Watermarks: Displays a sleek, animated pill badge in the titlebar and a subtle bottom-right corner watermark whenever running on a pre-release version.',
           'Custom Beta Update Badges: Distinct purple badges and alerts notify users when experimental pre-release builds are downloaded and ready to install.',
+          'Intelligent Album Deduplication: Fixed multi-artist and compilation albums splitting into duplicate album cards. Consolidated all tracks under a unified album card with automatic Various Artists / Album Artist detection and case-insensitive matching.',
         ],
       },
     ],

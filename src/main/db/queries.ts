@@ -54,7 +54,7 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
   }
 
   if (params.album) {
-    conditions.push('t.album = @album');
+    conditions.push('TRIM(LOWER(t.album)) = TRIM(LOWER(@album))');
     bindings.album = params.album;
   }
 
@@ -88,9 +88,17 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
   // Sorting
   const sortBy = params.sortBy || 'title';
   const sortOrder = params.sortOrder || 'ASC';
-  const orderByClause = params.playlistId
-    ? `ORDER BY pt.position ASC`
-    : `ORDER BY t.${sortBy} COLLATE NOCASE ${sortOrder}`;
+  let orderByClause = '';
+  if (params.playlistId) {
+    orderByClause = 'ORDER BY pt.position ASC';
+  } else if (params.album && (!params.sortBy || params.sortBy === 'track_number' || params.sortBy === 'title')) {
+    orderByClause = `ORDER BY 
+      CASE WHEN t.disc_number IS NULL OR t.disc_number = 0 THEN 1 ELSE t.disc_number END ASC,
+      CASE WHEN t.track_number IS NULL OR t.track_number = 0 THEN 9999 ELSE t.track_number END ASC,
+      t.title COLLATE NOCASE ${sortOrder}`;
+  } else {
+    orderByClause = `ORDER BY t.${sortBy} COLLATE NOCASE ${sortOrder}`;
+  }
 
   let paginationClause = '';
   if (params.limit) {
@@ -156,16 +164,25 @@ export function getAlbumsSummary(): Album[] {
   const db = getDB();
   const rows = db
     .prepare(
-      `SELECT album as name, artist, cover_art_path, year, COUNT(*) as track_count 
+      `SELECT 
+         MAX(album) as name, 
+         COALESCE(
+           NULLIF(MAX(album_artist), ''), 
+           NULLIF(MIN(album_artist), ''), 
+           CASE WHEN COUNT(DISTINCT artist) > 1 THEN 'Various Artists' ELSE MAX(artist) END
+         ) as artist, 
+         MAX(cover_art_path) as cover_art_path, 
+         MAX(year) as year, 
+         COUNT(*) as track_count 
        FROM tracks 
-       WHERE album IS NOT NULL AND album != '' 
-       GROUP BY album, artist 
-       ORDER BY album COLLATE NOCASE ASC`
+       WHERE album IS NOT NULL AND TRIM(album) != '' AND TRIM(LOWER(album)) != 'unknown album'
+       GROUP BY TRIM(LOWER(album)) 
+       ORDER BY MAX(album) COLLATE NOCASE ASC`
     )
     .all() as any[];
 
   return rows.map((r, i) => ({
-    id: `album_${i}_${r.name}_${r.artist}`,
+    id: `album_${i}_${encodeURIComponent(r.name)}`,
     name: r.name,
     artist: r.artist,
     cover_art_path: r.cover_art_path,

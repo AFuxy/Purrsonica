@@ -208,17 +208,18 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
 
   selectAlbumByName: (albumName: string, artistName?: string) => {
-    if (!albumName || albumName === 'Unknown Album') return;
+    const cleanName = albumName ? albumName.trim() : '';
+    if (!cleanName || cleanName.toLowerCase() === 'unknown album') return;
 
     let found = get().albums.find(
-      (a) => a.name.toLowerCase() === albumName.toLowerCase()
+      (a) => a.name.trim().toLowerCase() === cleanName.toLowerCase()
     );
 
     if (!found) {
       found = {
-        id: `virtual-${albumName}`,
-        name: albumName,
-        artist: artistName || 'Unknown Artist',
+        id: `virtual-${cleanName}`,
+        name: cleanName,
+        artist: artistName || 'Various Artists',
         track_count: 0,
         is_custom: false,
       };
