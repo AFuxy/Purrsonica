@@ -374,17 +374,17 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
                               className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-between"
                             >
                               <div className="flex items-center gap-2">
-                                <FileText className="w-3.5 h-3.5" />
+                                <ListPlus className="w-3.5 h-3.5 text-indigo-400" />
                                 <span>Add to Playlist</span>
                               </div>
-                              <span className="text-[10px]">▶</span>
+                              <span className="text-[10px] text-[var(--text-muted)]">◀</span>
                             </button>
 
-                            {/* Playlist Submenu */}
+                            {/* Playlist Submenu - Opens to the left to prevent horizontal overflow */}
                             {playlistSubmenuTrackId === track.id && (
-                              <div className="absolute left-full top-0 w-44 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50 ml-1">
+                              <div className="absolute right-full top-0 w-48 max-h-60 overflow-y-auto bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg shadow-2xl py-1 z-50 mr-1.5">
                                 {playlists.length === 0 ? (
-                                  <div className="px-3 py-1.5 text-[11px] text-[var(--text-muted)]">
+                                  <div className="px-3 py-2 text-[11px] text-[var(--text-muted)] italic text-center">
                                     No playlists created
                                   </div>
                                 ) : (
