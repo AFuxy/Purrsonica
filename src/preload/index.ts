@@ -81,6 +81,13 @@ export const electronAPI = {
 
   // Danger Zone / Maintenance
   clearCache: (): Promise<boolean> => ipcRenderer.invoke('system:clearCache'),
+  recacheArtwork: (): Promise<{ updatedCount: number; total: number }> =>
+    ipcRenderer.invoke('system:recacheArtwork'),
+  onRecacheProgress: (callback: (progress: { current: number; total: number }) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('artwork:recacheProgress', handler);
+    return () => ipcRenderer.removeListener('artwork:recacheProgress', handler);
+  },
   wipeLibrary: (): Promise<boolean> => ipcRenderer.invoke('system:wipeLibrary'),
   factoryReset: (): Promise<boolean> => ipcRenderer.invoke('system:factoryReset'),
 

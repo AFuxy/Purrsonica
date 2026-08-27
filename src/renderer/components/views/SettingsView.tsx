@@ -19,6 +19,7 @@ import {
   Info,
   AlertTriangle,
   Flame,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -42,6 +43,10 @@ export const SettingsView: React.FC = () => {
   const [newExclusion, setNewExclusion] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Artwork recache state
+  const [isRecaching, setIsRecaching] = useState(false);
+  const [recacheProgress, setRecacheProgress] = useState<{ current: number; total: number } | null>(null);
+
   // Danger Zone Confirmation States
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [confirmFactoryReset, setConfirmFactoryReset] = useState(false);
@@ -52,6 +57,17 @@ export const SettingsView: React.FC = () => {
       fetchSettings();
     }
   }, [settings, fetchSettings]);
+
+  useEffect(() => {
+    if (window.api?.onRecacheProgress) {
+      const unsub = window.api.onRecacheProgress((p) => {
+        setRecacheProgress(p);
+      });
+      return () => {
+        unsub();
+      };
+    }
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -89,6 +105,22 @@ export const SettingsView: React.FC = () => {
 
   const handleToggleKeyBpm = async () => {
     await saveSettings({ ...currentSettings, autoDetectKeyBpm: !currentSettings.autoDetectKeyBpm });
+  };
+
+  const handleRecacheArtwork = async () => {
+    if (!window.api || isRecaching) return;
+    setIsRecaching(true);
+    setRecacheProgress(null);
+    try {
+      const result = await window.api.recacheArtwork();
+      await refreshAll();
+      showToast(`Artwork re-cached: ${result.updatedCount} tracks updated`);
+    } catch (err) {
+      showToast('Error re-caching artwork');
+    } finally {
+      setIsRecaching(false);
+      setRecacheProgress(null);
+    }
   };
 
   const handleClearCache = async () => {
@@ -395,6 +427,34 @@ export const SettingsView: React.FC = () => {
               {stats ? formatFileSize(stats.totalSize) : '0 B'}
             </div>
           </div>
+        </div>
+
+        {/* Artwork Re-Caching Card */}
+        <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex items-center justify-between">
+          <div className="pr-4">
+            <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-emerald-400" />
+              <span>Re-extract & Cache All Artwork</span>
+            </div>
+            <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+              Re-scans embedded ID3 picture tags and local folder cover files (folder.jpg, cover.jpg) without deleting your library.
+            </div>
+          </div>
+
+          <button
+            onClick={handleRecacheArtwork}
+            disabled={isRecaching}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all flex-shrink-0 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRecaching ? 'animate-spin text-emerald-400' : ''}`} />
+            <span>
+              {isRecaching
+                ? recacheProgress
+                  ? `Re-caching (${recacheProgress.current}/${recacheProgress.total})...`
+                  : 'Re-caching...'
+                : 'Re-cache Artwork'}
+            </span>
+          </button>
         </div>
       </section>
 

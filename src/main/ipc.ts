@@ -40,6 +40,7 @@ import {
 import { getCoversCacheDir, clearCoversCache } from './db/database.js';
 import { extractWaveformPeaks } from './scanner/waveform.js';
 import { getMediaType } from './scanner/exclusions.js';
+import { recacheAllArtwork } from './scanner/artwork-recacher.js';
 import { parseKey } from '../shared/camelot.js';
 import { Track, UpdateTrackMetadataPayload, ScanSettings } from '../shared/types.js';
 
@@ -98,6 +99,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // --- Danger Zone / System Maintenance ---
   ipcMain.handle('system:clearCache', async () => {
     return clearCoversCache();
+  });
+
+  ipcMain.handle('system:recacheArtwork', async (event) => {
+    const result = await recacheAllArtwork((current, total) => {
+      event.sender.send('artwork:recacheProgress', { current, total });
+    });
+    mainWindow?.webContents.send('library:updated');
+    return result;
   });
 
   ipcMain.handle('system:wipeLibrary', async () => {
