@@ -10,7 +10,7 @@ export function cancelWaveformsRecache(): void {
 
 export async function recacheAllWaveforms(
   onProgress?: (current: number, total: number, status?: 'running' | 'completed' | 'cancelled') => void,
-  force: boolean = false
+  force: boolean = true
 ): Promise<{ generatedCount: number; alreadyCachedCount: number; total: number; cancelled: boolean }> {
   isWaveformsCancelled = false;
   const db = getDB();
@@ -37,7 +37,7 @@ export async function recacheAllWaveforms(
 
     const row = rows[i];
 
-    // Smart Resume: If the track already has waveform data, skip re-computation
+    // If not forcing, skip already generated tracks
     if (!force && row.waveform_data && row.waveform_data.length > 10) {
       alreadyCachedCount++;
       if (onProgress && (i % 20 === 0 || i === total - 1)) {
@@ -54,9 +54,11 @@ export async function recacheAllWaveforms(
         updateStmt.run(JSON.stringify(peaks), row.id);
         generatedCount++;
       }
-    } catch {}
+    } catch (err) {
+      console.warn(`Failed to generate waveform for ${row.file_path}:`, err);
+    }
 
-    if (onProgress && (i % 10 === 0 || i === total - 1)) {
+    if (onProgress && (i % 5 === 0 || i === total - 1)) {
       onProgress(i + 1, total, 'running');
     }
   }
