@@ -58,10 +58,21 @@ export const SettingsView: React.FC = () => {
   // Patch Notes Expansion
   const [showPatchNotes, setShowPatchNotes] = useState(true);
 
+  // Dynamic App Version
+  const [appVersion, setAppVersion] = useState('1.1.1');
+
   // Danger Zone Confirmation States
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [confirmFactoryReset, setConfirmFactoryReset] = useState(false);
   const [isProcessingDangerAction, setIsProcessingDangerAction] = useState(false);
+
+  useEffect(() => {
+    if (window.api?.getVersion) {
+      window.api.getVersion().then((v) => {
+        if (v) setAppVersion(v);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!settings) {
@@ -229,7 +240,7 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
         <div className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
-          v1.1.1
+          v{appVersion}
         </div>
       </div>
 
@@ -538,7 +549,7 @@ export const SettingsView: React.FC = () => {
         <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-bold text-sm text-[var(--text-primary)]">Purrsonica v1.1.1</div>
+              <div className="font-bold text-sm text-[var(--text-primary)]">Purrsonica v{appVersion}</div>
               <div className="text-xs text-[var(--text-muted)] mt-0.5">
                 {updateStatus.state === 'downloaded' ? (
                   <span className="text-emerald-400 font-semibold">
@@ -604,14 +615,14 @@ export const SettingsView: React.FC = () => {
               >
                 <span className="flex items-center gap-1.5 font-semibold">
                   <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                  v1.1.0 Release Highlights & Changelog
+                  v{appVersion} Release Highlights & Changelog
                 </span>
                 {showPatchNotes ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
 
               {showPatchNotes && (
                 <div className="mt-2.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg p-3 text-xs text-[var(--text-secondary)] space-y-2">
-                  <div className="font-bold text-[var(--text-primary)] text-xs">v1.1.0 — Settings & Maintenance Hub</div>
+                  <div className="font-bold text-[var(--text-primary)] text-xs">v{appVersion} — Settings Hub & Audio Streaming Fixes</div>
                   <ul className="list-disc list-inside space-y-1 text-[11px] text-[var(--text-muted)]">
                     <li><strong className="text-[var(--text-primary)]">Settings Hub</strong>: Preferences, scanner toggles, exclusions, and storage stats.</li>
                     <li><strong className="text-[var(--text-primary)]">Maintenance Suite</strong>: Re-extract ID3 & folder artwork, re-generate 128-bar waveforms.</li>

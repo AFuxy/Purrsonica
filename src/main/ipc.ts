@@ -71,6 +71,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return win ? win.isMaximized() : false;
   });
 
+  ipcMain.handle('app:getVersion', () => {
+    return app.getVersion();
+  });
+
   ipcMain.handle('theme:setIcon', (_event, themeMode: 'dark' | 'light') => {
     const iconFile = themeMode === 'dark' ? 'PurrSonica-White-logo.png' : 'PurrSonica-Black-logo.png';
     const iconPath = resolveIconPath(iconFile);

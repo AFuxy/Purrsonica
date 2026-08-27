@@ -12,12 +12,13 @@ import {
 } from '../shared/types.js';
 
 export const electronAPI = {
-  // Window controls
+  // Window controls & App Info
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   setThemeIcon: (theme: 'dark' | 'light') => ipcRenderer.invoke('theme:setIcon', theme),
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
 
   // Tracks
   queryTracks: (params?: any): Promise<{ tracks: Track[]; total: number }> =>
