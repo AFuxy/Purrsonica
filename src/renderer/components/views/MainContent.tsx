@@ -302,43 +302,55 @@ export const MainContent: React.FC = () => {
 
       {/* Albums Grid View */}
       {currentView === 'albums' ? (
-        <div className="p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {albums.map((album) => {
-              const coverUrl = album.cover_art_path && window.api
-                ? window.api.getCoverUrl(album.cover_art_path)
-                : null;
+        <div className="flex-1 overflow-y-auto min-h-0 p-6">
+          {albums.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
+              <Disc className="w-12 h-12 mb-3 opacity-30" />
+              <p className="text-sm font-semibold">No albums found in your library</p>
+              <p className="text-xs mt-1 opacity-70">
+                Scan your music folders or drag and drop files to index albums.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-12">
+              {albums.map((album) => {
+                const coverUrl = album.cover_art_path && window.api
+                  ? window.api.getCoverUrl(album.cover_art_path)
+                  : null;
 
-              return (
-                <div
-                  key={album.id}
-                  onClick={() => selectAlbum(album)}
-                  className="group bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] p-3 rounded-xl border border-[var(--border-color)] cursor-pointer transition-all hover:shadow-xl"
-                >
-                  <div className="w-full aspect-square rounded-lg overflow-hidden bg-[var(--bg-primary)] mb-2.5 relative flex items-center justify-center shadow-sm">
-                    {coverUrl ? (
-                      <img
-                        src={coverUrl}
-                        alt={album.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <Disc className="w-12 h-12 text-[var(--text-muted)] opacity-50" />
-                    )}
+                return (
+                  <div
+                    key={album.id}
+                    onClick={() => selectAlbum(album)}
+                    className="group bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] p-3 rounded-xl border border-[var(--border-color)] cursor-pointer transition-all hover:shadow-xl"
+                  >
+                    <div className="w-full aspect-square rounded-lg overflow-hidden bg-[var(--bg-primary)] mb-2.5 relative flex items-center justify-center shadow-sm">
+                      {coverUrl ? (
+                        <img
+                          src={coverUrl}
+                          alt={album.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <Disc className="w-12 h-12 text-[var(--text-muted)] opacity-50" />
+                      )}
+                    </div>
+                    <div className="font-bold text-xs text-[var(--text-primary)] truncate">
+                      {album.name}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-secondary)] truncate">
+                      {album.artist}
+                    </div>
+                    <div className="text-[10px] text-[var(--text-muted)] mt-1 font-mono">
+                      {album.track_count} tracks {album.year ? `• ${album.year}` : ''}
+                    </div>
                   </div>
-                  <div className="font-bold text-xs text-[var(--text-primary)] truncate">
-                    {album.name}
-                  </div>
-                  <div className="text-[11px] text-[var(--text-secondary)] truncate">
-                    {album.artist}
-                  </div>
-                  <div className="text-[10px] text-[var(--text-muted)] mt-1 font-mono">
-                    {album.track_count} tracks {album.year ? `• ${album.year}` : ''}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : (
         /* Standard Track Table List (Virtualized) */
