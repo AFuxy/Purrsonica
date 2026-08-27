@@ -229,7 +229,7 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
         <div className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
-          v1.1.0
+          v1.1.1
         </div>
       </div>
 
@@ -538,7 +538,7 @@ export const SettingsView: React.FC = () => {
         <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-bold text-sm text-[var(--text-primary)]">Purrsonica v1.1.0</div>
+              <div className="font-bold text-sm text-[var(--text-primary)]">Purrsonica v1.1.1</div>
               <div className="text-xs text-[var(--text-muted)] mt-0.5">
                 {updateStatus.state === 'downloaded' ? (
                   <span className="text-emerald-400 font-semibold">
