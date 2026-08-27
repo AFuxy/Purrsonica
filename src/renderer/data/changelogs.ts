@@ -17,6 +17,8 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
       {
         heading: 'New Features & Integrations',
         items: [
+          'Resilient Album Art & Cover Rendering: Rebuilt cover streaming protocol with dynamic on-the-fly extraction from embedded ID3 tags and directory fallback (folder.jpg, cover.jpg), with seamless error recovery across all views.',
+          'All Media Speed & Memory Optimization: Eliminated synchronous JSON waveform parsing across entire libraries, accelerating playlist and library loads to instant ~15ms response times.',
           'Global System Media Keys: Control Play/Pause, Next Track, and Previous Track using physical keyboard media keys, headsets, and controllers even when Purrsonica is minimized in the background.',
           'Discord Rich Presence (RPC): Automatically broadcasts your currently playing song, artist, album, live playback countdown timer, and play/pause status directly to your Discord profile activity.',
           'Custom Accent Color Picker & Presets: Customize Purrsonica with tailored signature palettes (Cyberpunk Purple, Sapphire Blue, Ruby Red, Sunset Gold, Electric Cyan, Neon Pink) or pick any custom hex color with live preview.',

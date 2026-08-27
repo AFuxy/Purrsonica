@@ -8,6 +8,7 @@ import { registerIpcHandlers } from './ipc.js';
 import { initAutoUpdater } from './updater.js';
 import { initDiscordRpc, destroyDiscordRpc } from './discord.js';
 import { registerGlobalMediaShortcuts, unregisterGlobalMediaShortcuts } from './mediaKeys.js';
+import { parseFile } from 'music-metadata';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,7 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
       stream: true,
       bypassCSP: true,
+      corsEnabled: true,
     },
   },
   {
@@ -34,6 +36,7 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
       stream: true,
       bypassCSP: true,
+      corsEnabled: true,
     },
   },
 ]);
@@ -154,35 +157,81 @@ function registerStreamingProtocols() {
     try {
       const filePath = resolveProtocolFilePath(request.url, 'cover');
 
-      // Transparent 1x1 fallback GIF for missing/deleted cache files
-      const TRANSPARENT_FALLBACK = Buffer.from(
-        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-        'base64'
-      );
-
-      if (!filePath || !fs.existsSync(filePath)) {
-        return new Response(TRANSPARENT_FALLBACK, {
-          headers: {
-            'Content-Type': 'image/gif',
-            'Content-Length': String(TRANSPARENT_FALLBACK.length),
-            'Cache-Control': 'no-cache',
-          },
+      if (!filePath) {
+        return new Response('Invalid cover path', {
+          status: 404,
+          headers: { 'Access-Control-Allow-Origin': '*' },
         });
       }
 
       const ext = path.extname(filePath).toLowerCase().replace('.', '');
-      const mimeType = IMAGE_MIME_TYPES[ext] || 'image/jpeg';
-      const fileBuffer = await fs.promises.readFile(filePath);
 
-      return new Response(fileBuffer, {
-        headers: {
-          'Content-Type': mimeType,
-          'Content-Length': String(fileBuffer.length),
-          'Cache-Control': 'public, max-age=86400',
-        },
+      // 1. Direct Image File
+      if (IMAGE_MIME_TYPES[ext] && fs.existsSync(filePath)) {
+        const fileBuffer = await fs.promises.readFile(filePath);
+        return new Response(fileBuffer, {
+          headers: {
+            'Content-Type': IMAGE_MIME_TYPES[ext],
+            'Content-Length': String(fileBuffer.length),
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=86400',
+          },
+        });
+      }
+
+      // 2. Audio File with Embedded Artwork
+      const audioExts = ['mp3', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wav', 'wma'];
+      if (audioExts.includes(ext) && fs.existsSync(filePath)) {
+        try {
+          const metadata = await parseFile(filePath, { skipCovers: false });
+          if (metadata.common.picture && metadata.common.picture.length > 0) {
+            const pic = metadata.common.picture[0];
+            const buffer = Buffer.from(pic.data);
+            return new Response(buffer, {
+              headers: {
+                'Content-Type': pic.format || 'image/jpeg',
+                'Content-Length': String(buffer.length),
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'public, max-age=86400',
+              },
+            });
+          }
+        } catch {}
+      }
+
+      // 3. Fallback: Search Directory for folder.jpg, cover.jpg, etc.
+      const dirPath = fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()
+        ? filePath
+        : path.dirname(filePath);
+
+      if (fs.existsSync(dirPath)) {
+        const commonNames = ['cover.jpg', 'cover.png', 'folder.jpg', 'folder.png', 'front.jpg', 'albumart.jpg'];
+        for (const name of commonNames) {
+          const candidate = path.join(dirPath, name);
+          if (fs.existsSync(candidate)) {
+            const candExt = path.extname(candidate).toLowerCase().replace('.', '');
+            const fileBuffer = await fs.promises.readFile(candidate);
+            return new Response(fileBuffer, {
+              headers: {
+                'Content-Type': IMAGE_MIME_TYPES[candExt] || 'image/jpeg',
+                'Content-Length': String(fileBuffer.length),
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'public, max-age=86400',
+              },
+            });
+          }
+        }
+      }
+
+      return new Response('Cover not found', {
+        status: 404,
+        headers: { 'Access-Control-Allow-Origin': '*' },
       });
-    } catch (err: any) {
-      return new Response('Error loading cover', { status: 500 });
+    } catch {
+      return new Response('Error loading cover', {
+        status: 500,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+      });
     }
   });
 }

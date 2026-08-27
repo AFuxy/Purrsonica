@@ -21,6 +21,7 @@ import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { seekAudioTo } from '../../hooks/useAudioPlayer.js';
 import { WaveformBar } from '../player/WaveformBar.js';
+import { TrackCover } from '../common/TrackCover.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 
 interface TrackDetailViewProps {
@@ -96,17 +97,13 @@ export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
               track.media_type === 'video' ? 'cursor-pointer' : ''
             }`}
           >
-            {coverUrl ? (
-              <img
-                src={coverUrl}
-                alt={track.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            ) : track.media_type === 'video' ? (
-              <Tv className="w-20 h-20 text-purple-400 opacity-60" />
-            ) : (
-              <Music className="w-20 h-20 text-[var(--text-muted)] opacity-40" />
-            )}
+            <TrackCover
+              coverPath={track.cover_art_path}
+              mediaType={track.media_type}
+              alt={track.title}
+              fallbackIconClassName="w-20 h-20 text-[var(--text-muted)] opacity-40"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
 
             {track.media_type === 'video' && (
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">

@@ -18,6 +18,7 @@ import { Track } from '../../../shared/types.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { formatDuration } from '../../../shared/formatters.js';
+import { TrackCover } from './TrackCover.js';
 
 interface TrackTableProps {
   tracks: Track[];
@@ -215,19 +216,12 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
                       className="w-8 h-8 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm cursor-pointer hover:ring-1 hover:ring-emerald-500/50 transition-all"
                       title="View song info & play page"
                     >
-                      {coverUrl ? (
-                        <img
-                          src={coverUrl}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : track.media_type === 'video' ? (
-                        <Tv className="w-4 h-4 text-purple-400" />
-                      ) : (
-                        <Music className="w-4 h-4 text-[var(--text-muted)]" />
-                      )}
+                      <TrackCover
+                        coverPath={track.cover_art_path}
+                        mediaType={track.media_type}
+                        alt={track.title}
+                        fallbackIconClassName="w-4 h-4 text-[var(--text-muted)]"
+                      />
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span

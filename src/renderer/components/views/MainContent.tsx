@@ -15,6 +15,7 @@ import {
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { TrackTable } from '../common/TrackTable.js';
+import { TrackCover } from '../common/TrackCover.js';
 import { PlaylistEditModal } from '../modals/PlaylistEditModal.js';
 import { SettingsView } from './SettingsView.js';
 import { TrackDetailView } from './TrackDetailView.js';
@@ -189,15 +190,12 @@ export const MainContent: React.FC = () => {
         {currentView === 'album_detail' && selectedAlbum && (
           <div className="flex items-end gap-5">
             <div className="w-28 h-28 rounded-xl bg-[var(--bg-tertiary)] overflow-hidden border border-[var(--border-color)] shadow-xl flex items-center justify-center">
-              {selectedAlbum.cover_art_path && window.api ? (
-                <img
-                  src={window.api.getCoverUrl(selectedAlbum.cover_art_path) || ''}
-                  alt={selectedAlbum.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Disc className="w-14 h-14 text-[var(--text-muted)]" />
-              )}
+              <TrackCover
+                coverPath={selectedAlbum.cover_art_path}
+                alt={selectedAlbum.name}
+                fallbackType="disc"
+                fallbackIconClassName="w-14 h-14 text-[var(--text-muted)]"
+              />
             </div>
             <div className="flex-1 space-y-1">
               <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
@@ -270,11 +268,12 @@ export const MainContent: React.FC = () => {
                 !selectedPlaylist.is_system ? 'cursor-pointer' : ''
               } bg-gradient-to-br from-indigo-600 to-purple-800 text-white`}
             >
-              {playlistCoverUrl ? (
-                <img src={playlistCoverUrl} alt={selectedPlaylist.name} className="w-full h-full object-cover" />
-              ) : (
-                <ListPlus className="w-14 h-14" />
-              )}
+              <TrackCover
+                coverPath={selectedPlaylist.cover_art_path}
+                alt={selectedPlaylist.name}
+                fallbackType="music"
+                fallbackIconClassName="w-14 h-14 text-white"
+              />
 
               {!selectedPlaylist.is_system && (
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold transition-opacity">
@@ -363,17 +362,13 @@ export const MainContent: React.FC = () => {
                     className="group bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] p-3 rounded-xl border border-[var(--border-color)] cursor-pointer transition-all hover:shadow-xl"
                   >
                     <div className="w-full aspect-square rounded-lg overflow-hidden bg-[var(--bg-primary)] mb-2.5 relative flex items-center justify-center shadow-sm">
-                      {coverUrl ? (
-                        <img
-                          src={coverUrl}
-                          alt={album.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <Disc className="w-12 h-12 text-[var(--text-muted)] opacity-50" />
-                      )}
+                      <TrackCover
+                        coverPath={album.cover_art_path}
+                        alt={album.name}
+                        fallbackType="disc"
+                        fallbackIconClassName="w-12 h-12 text-[var(--text-muted)] opacity-50"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
                     <div className="font-bold text-xs text-[var(--text-primary)] truncate">
                       {album.name}

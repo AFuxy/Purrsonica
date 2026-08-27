@@ -20,6 +20,7 @@ import {
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { WaveformBar } from './WaveformBar.js';
+import { TrackCover } from '../common/TrackCover.js';
 import { formatDuration } from '../../../shared/formatters.js';
 
 interface PlaybackBarProps {
@@ -71,17 +72,13 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
               className="relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 group shadow-md cursor-pointer ring-1 ring-white/5 hover:ring-emerald-500/50 transition-all"
               title="Click to View Song Info & Play Page"
             >
-              {coverUrl ? (
-                <img
-                  src={coverUrl}
-                  alt={currentTrack.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                  {currentTrack.media_type === 'video' ? <Tv className="w-6 h-6 text-purple-400" /> : <Music className="w-6 h-6" />}
-                </div>
-              )}
+              <TrackCover
+                coverPath={currentTrack.cover_art_path}
+                mediaType={currentTrack.media_type}
+                alt={currentTrack.title}
+                fallbackIconClassName="w-6 h-6 text-[var(--text-muted)]"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
 
               {currentTrack.media_type === 'video' && (
                 <div

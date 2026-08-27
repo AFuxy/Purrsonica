@@ -150,6 +150,9 @@ export const electronAPI = {
   },
   getCoverUrl: (coverPath?: string) => {
     if (!coverPath) return null;
+    if (coverPath.startsWith('data:') || coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
+      return coverPath;
+    }
     return `cover://app/image?path=${encodeURIComponent(coverPath)}`;
   },
 };

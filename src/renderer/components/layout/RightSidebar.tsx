@@ -14,6 +14,7 @@ import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { getHarmonicCompatibleKeys } from '../../../shared/camelot.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
+import { TrackCover } from '../common/TrackCover.js';
 
 export const RightSidebar: React.FC = () => {
   const {
@@ -60,21 +61,13 @@ export const RightSidebar: React.FC = () => {
         {currentTrack ? (
           <div className="space-y-3">
             <div className="w-full aspect-square rounded-xl overflow-hidden bg-[var(--bg-tertiary)] border border-[var(--border-color)] shadow-xl relative group">
-              {coverUrl ? (
-                <img
-                  src={coverUrl}
-                  alt={currentTrack.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-muted)]">
-                  {currentTrack.media_type === 'video' ? (
-                    <Tv className="w-12 h-12 text-purple-400" />
-                  ) : (
-                    <Music className="w-12 h-12 opacity-40" />
-                  )}
-                </div>
-              )}
+              <TrackCover
+                coverPath={currentTrack.cover_art_path}
+                mediaType={currentTrack.media_type}
+                alt={currentTrack.title}
+                fallbackIconClassName="w-12 h-12 text-[var(--text-muted)] opacity-40"
+                className="w-full h-full object-cover"
+              />
 
               {currentTrack.media_type === 'video' && (
                 <button
