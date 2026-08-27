@@ -11,17 +11,19 @@ export interface ChangelogRelease {
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
     version: '1.1.5',
-    title: 'DJ Tag Recognition, Waveform Regeneration & Video Player Scrubber',
+    title: 'Audio Engine Singleton, Video Auto-Play, All Media Ingestion & Session Resume',
     isLatest: true,
     sections: [
       {
-        heading: 'Improvements & Enhancements',
+        heading: 'Fixes & Enhancements',
         items: [
-          'DJ Tags & Camelot Key Recognition: Clarified the scan setting to accurately reflect that Purrsonica extracts embedded BPM and Key tags and maps them to the standardized 1A–12B Camelot Wheel harmonic mixing system.',
-          'Full Waveform Regeneration: Enabled complete on-demand re-calculation of 128-bar energy amplitude waveforms for all audio tracks in Storage & Maintenance.',
-          'Interactive Video Player Scrubber & Controls: Added interactive timeline click & drag seeking with hover timestamp tooltips, skip ±10s buttons, volume slider, and smart auto-hiding overlay.',
-          'Hardware Media Key & Player Synchronization: Fixed play/pause state synchronization when using keyboard multimedia keys, headsets, or Windows System Media Transport Controls.',
-          'Submenu Positioning: Repositioned playlist context submenus inward to prevent off-screen horizontal stretching on narrow windows.',
+          'Audio Engine Singleton & Stable Seeking: Rebuilt the audio player as a global singleton service, eliminating dual-instance conflicts that caused waveform scrubbers to flash or reset to 0 in track info view.',
+          'Seamless Navigation Playback: Resolved an issue where opening track info or navigating between views reloaded the audio source and paused playback.',
+          'Session Timestamp Resume on Launch: Ensured exact playback timestamps are restored when opening Purrsonica, preventing audio initialization from resetting position to 0:00.',
+          'Video Player Auto-Play & Controls: Fixed video auto-play on track selection and added interactive timeline scrubbing, hover tooltips, ±10s skipping, and auto-hiding controls overlay.',
+          'Full Library Loading in All Media: Removed the 1,000-track query limit so large libraries display all items with smooth virtual scrolling; automatically clears search filters when navigating.',
+          'DJ Tags & Camelot Key Recognition: Clarified the scan setting to accurately reflect that Purrsonica extracts embedded BPM/Key tags and maps them to the 1A–12B Camelot Wheel.',
+          'Hardware Media Key & MediaSession Sync: Fixed play/pause UI synchronization for keyboard media keys, headsets, and Windows SMTC with valid artwork URL scheme validation.',
         ],
       },
     ],
