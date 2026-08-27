@@ -14,6 +14,8 @@ dist-electron
 dist-ssr
 release
 release.md
+workflow.md
+prerelease_guide.md
 *.local
 .purrsonica_data
 
