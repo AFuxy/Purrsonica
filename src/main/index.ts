@@ -59,6 +59,9 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
   webp: 'image/webp',
   gif: 'image/gif',
   svg: 'image/svg+xml',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  avif: 'image/avif',
 };
 
 function resolveProtocolFilePath(requestUrl: string, scheme: string): string | null {
