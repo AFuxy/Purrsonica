@@ -38,8 +38,9 @@ async function findFolderCoverArt(dir: string): Promise<string | undefined> {
 }
 
 export async function recacheAllArtwork(
-  onProgress?: (current: number, total: number, status?: 'running' | 'completed' | 'cancelled') => void
-): Promise<{ updatedCount: number; total: number; cancelled: boolean }> {
+  onProgress?: (current: number, total: number, status?: 'running' | 'completed' | 'cancelled') => void,
+  force: boolean = false
+): Promise<{ updatedCount: number; alreadyCachedCount: number; total: number; cancelled: boolean }> {
   isArtworkCancelled = false;
   const db = getDB();
   const cacheDir = getCoversCacheDir();
@@ -57,19 +58,21 @@ export async function recacheAllArtwork(
 
   const total = rows.length;
   let updatedCount = 0;
+  let alreadyCachedCount = 0;
 
   const updateStmt = db.prepare('UPDATE tracks SET cover_art_path = ? WHERE id = ?');
 
   for (let i = 0; i < total; i++) {
     if (isArtworkCancelled) {
       if (onProgress) onProgress(i, total, 'cancelled');
-      return { updatedCount, total, cancelled: true };
+      return { updatedCount, alreadyCachedCount, total, cancelled: true };
     }
 
     const row = rows[i];
 
     // Smart Resume: If the track already has a valid cover on disk, skip expensive ID3 parsing
-    if (row.cover_art_path && fs.existsSync(row.cover_art_path)) {
+    if (!force && row.cover_art_path && fs.existsSync(row.cover_art_path)) {
+      alreadyCachedCount++;
       if (onProgress && (i % 25 === 0 || i === total - 1)) {
         onProgress(i + 1, total, 'running');
       }
@@ -128,5 +131,5 @@ export async function recacheAllArtwork(
   } catch {}
 
   if (onProgress) onProgress(total, total, 'completed');
-  return { updatedCount, total, cancelled: false };
+  return { updatedCount, alreadyCachedCount, total, cancelled: false };
 }

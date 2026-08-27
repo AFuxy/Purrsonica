@@ -9,8 +9,9 @@ export function cancelWaveformsRecache(): void {
 }
 
 export async function recacheAllWaveforms(
-  onProgress?: (current: number, total: number, status?: 'running' | 'completed' | 'cancelled') => void
-): Promise<{ generatedCount: number; total: number; cancelled: boolean }> {
+  onProgress?: (current: number, total: number, status?: 'running' | 'completed' | 'cancelled') => void,
+  force: boolean = false
+): Promise<{ generatedCount: number; alreadyCachedCount: number; total: number; cancelled: boolean }> {
   isWaveformsCancelled = false;
   const db = getDB();
 
@@ -24,19 +25,21 @@ export async function recacheAllWaveforms(
 
   const total = rows.length;
   let generatedCount = 0;
+  let alreadyCachedCount = 0;
 
   const updateStmt = db.prepare('UPDATE tracks SET waveform_data = ? WHERE id = ?');
 
   for (let i = 0; i < total; i++) {
     if (isWaveformsCancelled) {
       if (onProgress) onProgress(i, total, 'cancelled');
-      return { generatedCount, total, cancelled: true };
+      return { generatedCount, alreadyCachedCount, total, cancelled: true };
     }
 
     const row = rows[i];
 
     // Smart Resume: If the track already has waveform data, skip re-computation
-    if (row.waveform_data && row.waveform_data.length > 10) {
+    if (!force && row.waveform_data && row.waveform_data.length > 10) {
+      alreadyCachedCount++;
       if (onProgress && (i % 20 === 0 || i === total - 1)) {
         onProgress(i + 1, total, 'running');
       }
@@ -59,5 +62,5 @@ export async function recacheAllWaveforms(
   }
 
   if (onProgress) onProgress(total, total, 'completed');
-  return { generatedCount, total, cancelled: false };
+  return { generatedCount, alreadyCachedCount, total, cancelled: false };
 }

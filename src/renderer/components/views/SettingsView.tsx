@@ -168,8 +168,10 @@ export const SettingsView: React.FC = () => {
       await refreshAll();
       if (result.cancelled) {
         showToast('Artwork caching stopped');
+      } else if (result.updatedCount > 0) {
+        showToast(`Artwork updated: ${result.updatedCount} new covers cached (${result.total} total ready)`);
       } else {
-        showToast(`Artwork re-cached: ${result.updatedCount} tracks updated`);
+        showToast(`Artwork is up to date: All ${result.total} tracks already have cover art cached!`);
       }
     } catch (err) {
       showToast('Error re-caching artwork');
@@ -187,8 +189,10 @@ export const SettingsView: React.FC = () => {
       await refreshAll();
       if (result.cancelled) {
         showToast('Waveform generation stopped');
+      } else if (result.generatedCount > 0) {
+        showToast(`Waveforms generated: ${result.generatedCount} new tracks computed (${result.total} total ready)`);
       } else {
-        showToast(`Waveforms generated: ${result.generatedCount} tracks computed`);
+        showToast(`Waveforms are up to date: All ${result.total} audio tracks already have waveforms ready!`);
       }
     } catch (err) {
       showToast('Error generating waveforms');
