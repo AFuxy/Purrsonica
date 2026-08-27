@@ -86,6 +86,18 @@ export const usePlayerStore = create<PlayerState>()(
 
     if (window.api) {
       window.api.incrementPlayCount(track.id);
+      if (!track.waveform_data) {
+        window.api.getTrackById(track.id).then((fullTrack) => {
+          if (fullTrack && fullTrack.waveform_data && get().currentTrack?.id === track.id) {
+            set({
+              currentTrack: {
+                ...get().currentTrack!,
+                waveform_data: fullTrack.waveform_data,
+              },
+            });
+          }
+        }).catch(() => {});
+      }
     }
   },
 

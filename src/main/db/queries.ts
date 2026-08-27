@@ -119,14 +119,21 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
     paginationClause = `LIMIT ${params.limit} OFFSET ${params.offset || 0}`;
   }
 
-  const dataSql = `SELECT t.* FROM tracks t ${joins} ${whereClause} ${groupByClause} ${orderByClause} ${paginationClause}`;
+  const dataSql = `
+    SELECT 
+      t.id, t.file_path, t.drive_letter, t.file_name, t.title, t.artist, t.album, t.album_artist,
+      t.genre, t.year, t.track_number, t.disc_number, t.duration, t.bitrate, t.sample_rate,
+      t.format, t.file_size, t.mtime, t.cover_art_path, t.bpm, t.musical_key, t.camelot_key,
+      t.is_liked, t.play_count, t.last_played_at, t.media_type, t.is_custom_metadata,
+      t.created_at, t.updated_at
+    FROM tracks t ${joins} ${whereClause} ${groupByClause} ${orderByClause} ${paginationClause}
+  `;
   const rows = db.prepare(dataSql).all(bindings) as any[];
 
   const tracks: Track[] = rows.map((r) => ({
     ...r,
     is_liked: Boolean(r.is_liked),
     is_custom_metadata: Boolean(r.is_custom_metadata),
-    waveform_data: r.waveform_data ? JSON.parse(r.waveform_data) : undefined,
   }));
 
   return { tracks, total };

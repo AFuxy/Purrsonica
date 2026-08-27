@@ -31,6 +31,18 @@ export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
   const { currentTrack, isPlaying, currentTime, setTrack, togglePlay, setVideoModalOpen } = usePlayerStore();
   const { toggleLikeTrack, setEditingTrack, selectArtist, selectAlbumByName } = useLibraryStore();
   const [copied, setCopied] = React.useState(false);
+  const [loadedWaveform, setLoadedWaveform] = React.useState<number[] | undefined>(track.waveform_data);
+
+  React.useEffect(() => {
+    setLoadedWaveform(track.waveform_data);
+    if (!track.waveform_data && window.api?.getTrackById) {
+      window.api.getTrackById(track.id).then((fullTrack) => {
+        if (fullTrack?.waveform_data) {
+          setLoadedWaveform(fullTrack.waveform_data);
+        }
+      }).catch(() => {});
+    }
+  }, [track.id, track.waveform_data]);
 
   const isCurrent = currentTrack?.id === track.id;
   const isThisPlaying = isCurrent && isPlaying;
@@ -218,7 +230,7 @@ export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
 
         <div className="py-2">
           <WaveformBar
-            waveformData={track.waveform_data}
+            waveformData={loadedWaveform || track.waveform_data}
             currentTime={isCurrent ? currentTime : 0}
             duration={track.duration}
             onSeek={(t) => {
