@@ -1,6 +1,7 @@
 import { app, BrowserWindow, protocol, net, nativeImage } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { Readable } from 'node:stream';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { initDatabase, closeDatabase } from './db/database.js';
 import { registerIpcHandlers } from './ipc.js';
@@ -29,58 +30,140 @@ protocol.registerSchemesAsPrivileged([
       standard: true,
       secure: true,
       supportFetchAPI: true,
+      stream: true,
       bypassCSP: true,
     },
   },
 ]);
 
-function parseProtocolPath(requestUrl: string, scheme: string): string {
-  const prefix = `${scheme}://`;
-  let raw = requestUrl.startsWith(prefix) ? requestUrl.slice(prefix.length) : requestUrl;
-  let decoded = decodeURIComponent(raw);
+const MEDIA_MIME_TYPES: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  flac: 'audio/flac',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  ogg: 'audio/ogg',
+  opus: 'audio/ogg',
+  wma: 'audio/x-ms-wma',
+  mp4: 'video/mp4',
+  mkv: 'video/x-matroska',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  avi: 'video/x-msvideo',
+};
 
-  // Clean leading slashes on Windows (e.g. /D:/... or /D:\...)
-  if (process.platform === 'win32') {
-    if (/^\/[a-zA-Z]:/.test(decoded)) {
-      decoded = decoded.substring(1);
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+};
+
+function resolveProtocolFilePath(requestUrl: string, scheme: string): string | null {
+  try {
+    const parsed = new URL(requestUrl);
+    // Check search params first: media://app/stream?path=...
+    const queryPath = parsed.searchParams.get('path');
+    if (queryPath) {
+      return path.normalize(queryPath);
     }
-  }
 
-  return path.normalize(decoded);
+    // Fallback: media://<raw-path>
+    const prefix = `${scheme}://`;
+    let raw = requestUrl.startsWith(prefix) ? requestUrl.slice(prefix.length) : requestUrl;
+    let decoded = decodeURIComponent(raw);
+
+    if (process.platform === 'win32') {
+      if (/^\/[a-zA-Z]:/.test(decoded)) {
+        decoded = decoded.substring(1);
+      }
+    }
+
+    return path.normalize(decoded);
+  } catch {
+    return null;
+  }
 }
 
 function registerStreamingProtocols() {
-  // Protocol: media://<encoded-file-path>
+  // Protocol: media://app/stream?path=<path>
   protocol.handle('media', async (request) => {
     try {
-      const decodedPath = parseProtocolPath(request.url, 'media');
+      const filePath = resolveProtocolFilePath(request.url, 'media');
 
-      if (!fs.existsSync(decodedPath)) {
-        console.warn('[media://] File Not Found:', decodedPath);
+      if (!filePath || !fs.existsSync(filePath)) {
+        console.warn('[media://] File Not Found:', filePath);
         return new Response('File Not Found', { status: 404 });
       }
 
-      const fileUrl = pathToFileURL(decodedPath).toString();
-      return net.fetch(fileUrl, {
-        headers: request.headers,
-      });
+      const stat = await fs.promises.stat(filePath);
+      const fileSize = stat.size;
+      const ext = path.extname(filePath).toLowerCase().replace('.', '');
+      const mimeType = MEDIA_MIME_TYPES[ext] || 'audio/mpeg';
+
+      const rangeHeader = request.headers.get('range');
+
+      if (rangeHeader) {
+        // e.g. "bytes=0-" or "bytes=100-500"
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10) || 0;
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+
+        const nodeStream = fs.createReadStream(filePath, { start, end });
+        const webStream = Readable.toWeb(nodeStream) as any;
+
+        return new Response(webStream, {
+          status: 206,
+          statusText: 'Partial Content',
+          headers: {
+            'Content-Type': mimeType,
+            'Content-Length': String(chunkSize),
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+          },
+        });
+      } else {
+        const nodeStream = fs.createReadStream(filePath);
+        const webStream = Readable.toWeb(nodeStream) as any;
+
+        return new Response(webStream, {
+          status: 200,
+          headers: {
+            'Content-Type': mimeType,
+            'Content-Length': String(fileSize),
+            'Accept-Ranges': 'bytes',
+          },
+        });
+      }
     } catch (err: any) {
-      console.error('[media://] Protocol error:', err);
-      return new Response('Internal Server Error: ' + err.message, { status: 500 });
+      console.error('[media://] Stream error:', err);
+      return new Response('Error streaming file: ' + err.message, { status: 500 });
     }
   });
 
-  // Protocol: cover://<encoded-file-path>
+  // Protocol: cover://app/image?path=<path>
   protocol.handle('cover', async (request) => {
     try {
-      const decodedPath = parseProtocolPath(request.url, 'cover');
+      const filePath = resolveProtocolFilePath(request.url, 'cover');
 
-      if (!fs.existsSync(decodedPath)) {
+      if (!filePath || !fs.existsSync(filePath)) {
         return new Response('Cover Not Found', { status: 404 });
       }
 
-      const fileUrl = pathToFileURL(decodedPath).toString();
-      return net.fetch(fileUrl);
+      const ext = path.extname(filePath).toLowerCase().replace('.', '');
+      const mimeType = IMAGE_MIME_TYPES[ext] || 'image/jpeg';
+      const fileBuffer = await fs.promises.readFile(filePath);
+
+      return new Response(fileBuffer, {
+        headers: {
+          'Content-Type': mimeType,
+          'Content-Length': String(fileBuffer.length),
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
     } catch (err: any) {
       return new Response('Error loading cover', { status: 500 });
     }

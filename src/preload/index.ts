@@ -128,14 +128,11 @@ export const electronAPI = {
 
   // Protocol URL helpers
   getMediaUrl: (filePath: string) => {
-    // Encode the filePath for custom protocol
-    const normalized = filePath.replace(/\\/g, '/');
-    return `media://${encodeURIComponent(normalized)}`;
+    return `media://app/stream?path=${encodeURIComponent(filePath)}`;
   },
   getCoverUrl: (coverPath?: string) => {
     if (!coverPath) return null;
-    const normalized = coverPath.replace(/\\/g, '/');
-    return `cover://${encodeURIComponent(normalized)}`;
+    return `cover://app/image?path=${encodeURIComponent(coverPath)}`;
   },
 };
 
