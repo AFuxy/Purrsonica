@@ -10,11 +10,13 @@ export function useAudioPlayer() {
     volume,
     isMuted,
     currentTime,
+    duration,
     repeatMode,
     setIsPlaying,
     setCurrentTime,
     setDuration,
     playNext,
+    playPrevious,
   } = usePlayerStore();
 
   // Initialize audio element
@@ -26,6 +28,14 @@ export function useAudioPlayer() {
 
       audio.addEventListener('timeupdate', () => {
         setCurrentTime(audio.currentTime);
+      });
+
+      audio.addEventListener('play', () => {
+        setIsPlaying(true);
+      });
+
+      audio.addEventListener('pause', () => {
+        setIsPlaying(false);
       });
 
       audio.addEventListener('loadedmetadata', () => {
@@ -102,6 +112,64 @@ export function useAudioPlayer() {
     if (!audio) return;
     audio.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
+
+  // Media Session API integration (Windows SMTC & Keyboard Media Keys)
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !currentTrack) return;
+
+    const coverUrl = currentTrack.cover_art_path && window.api
+      ? window.api.getCoverUrl(currentTrack.cover_art_path)
+      : undefined;
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title || currentTrack.file_name,
+        artist: currentTrack.artist || 'Unknown Artist',
+        album: currentTrack.album || '',
+        artwork: coverUrl
+          ? [
+              { src: coverUrl, sizes: '96x96', type: 'image/jpeg' },
+              { src: coverUrl, sizes: '256x256', type: 'image/jpeg' },
+              { src: coverUrl, sizes: '512x512', type: 'image/jpeg' },
+            ]
+          : [],
+      });
+
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        setIsPlaying(true);
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        setIsPlaying(false);
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        playPrevious();
+      });
+
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        playNext();
+      });
+
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          seekTo(details.seekTime);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const skipTime = details.seekOffset || 10;
+        seekTo(Math.max(0, currentTime - skipTime));
+      });
+
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const skipTime = details.seekOffset || 10;
+        seekTo(Math.min(duration || 1, currentTime + skipTime));
+      });
+    } catch {}
+  }, [currentTrack, isPlaying, duration]);
 
   // External seek sync (if difference > 1.5s)
   const seekTo = (newTime: number) => {

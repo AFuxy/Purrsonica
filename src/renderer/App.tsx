@@ -13,16 +13,61 @@ import { useLibraryStore } from './store/libraryStore.js';
 import { useScanStore } from './store/scanStore.js';
 import { useUpdateStore } from './store/updateStore.js';
 import { useMaintenanceStore } from './store/maintenanceStore.js';
+import { usePlayerStore } from './store/playerStore.js';
 
 export const App: React.FC = () => {
   const { seekTo } = useAudioPlayer();
   const { refreshAll, editingTrack, setEditingTrack } = useLibraryStore();
+  const { currentTrack, togglePlay, playNext, playPrevious, isVideoModalOpen } = usePlayerStore();
   const { setProgress } = useScanStore();
   const { setStatus } = useUpdateStore();
   const { setArtworkProgress, setWaveformProgress } = useMaintenanceStore();
   const [appVersion, setAppVersion] = React.useState('');
 
   const isPrerelease = /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(appVersion);
+
+  // Global Media & Playback Keyboard Listener
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      const isInputFocused =
+        ['input', 'textarea'].includes(activeTag) ||
+        (document.activeElement as HTMLElement)?.isContentEditable;
+
+      if (isInputFocused) return;
+
+      // Handle Hardware Media Keys
+      if (e.code === 'MediaPlayPause' || e.key === 'MediaPlayPause') {
+        e.preventDefault();
+        togglePlay();
+        return;
+      }
+      if (e.code === 'MediaTrackNext' || e.key === 'MediaTrackNext') {
+        e.preventDefault();
+        playNext();
+        return;
+      }
+      if (e.code === 'MediaTrackPrevious' || e.key === 'MediaTrackPrevious') {
+        e.preventDefault();
+        playPrevious();
+        return;
+      }
+      if (e.code === 'MediaStop' || e.key === 'MediaStop') {
+        e.preventDefault();
+        usePlayerStore.getState().setIsPlaying(false);
+        return;
+      }
+
+      // Handle Spacebar when not typing and video modal isn't open
+      if (e.code === 'Space' && !isVideoModalOpen && currentTrack) {
+        e.preventDefault();
+        togglePlay();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [currentTrack, isVideoModalOpen]);
 
   useEffect(() => {
     if (window.api?.getVersion) {
