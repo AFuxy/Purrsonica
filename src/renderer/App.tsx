@@ -7,7 +7,6 @@ import { PlaybackBar } from './components/player/PlaybackBar.js';
 import { ScanModal } from './components/modals/ScanModal.js';
 import { MetadataEditorModal } from './components/modals/MetadataEditorModal.js';
 import { VideoModal } from './components/player/VideoModal.js';
-import { UpdateBanner } from './components/common/UpdateBanner.js';
 import { DropZoneOverlay } from './components/common/DropZoneOverlay.js';
 import { useAudioPlayer } from './hooks/useAudioPlayer.js';
 import { useLibraryStore } from './store/libraryStore.js';
@@ -54,11 +53,8 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[var(--bg-primary)] text-[var(--text-primary)] select-none overflow-hidden relative">
-      {/* Frameless Titlebar */}
+      {/* Frameless Titlebar with Compact Navbar Update Indicator */}
       <Titlebar />
-
-      {/* Auto-Update Notification Banner */}
-      <UpdateBanner />
 
       {/* Main App Workspace */}
       <div className="flex flex-1 overflow-hidden relative">

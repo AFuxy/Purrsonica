@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon } from 'lucide-react';
+import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
+import { useUpdateStore } from '../../store/updateStore.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
   const { searchQuery, setSearchQuery, currentView, setView } = useLibraryStore();
+  const { status: updateStatus } = useUpdateStore();
   const [isMaximized, setIsMaximized] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
@@ -46,18 +48,53 @@ export const Titlebar: React.FC = () => {
 
   return (
     <header className="titlebar-drag-region h-12 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center justify-between px-4 z-50 select-none">
-      {/* Brand & Logo (Image Only, Enlarged & Clean) */}
+      {/* Brand & Logo + Compact Navbar Update Indicator */}
       <div
-        className="titlebar-no-drag flex items-center"
+        className="titlebar-no-drag flex items-center gap-2.5"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
         <img
           src={logoPath}
           alt="Purrsonica"
           className="h-7 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity"
-          onClick={() => window.location.reload()}
+          onClick={() => setView('all')}
           title="Purrsonica"
         />
+
+        {/* Compact Navbar Update Pill Notification */}
+        {updateStatus.state === 'downloaded' && (
+          <button
+            onClick={() => setView('settings')}
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-bold shadow-sm hover:bg-emerald-500/30 transition-all cursor-pointer animate-pulse"
+            title="Update downloaded and ready to install! Click to open Settings."
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <Sparkles className="w-3 h-3 text-emerald-300" />
+            <span>v{updateStatus.version} Ready</span>
+          </button>
+        )}
+
+        {updateStatus.state === 'downloading' && (
+          <button
+            onClick={() => setView('settings')}
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[11px] font-semibold transition-all cursor-pointer"
+            title={`Downloading update (${updateStatus.percent || 0}%)... Click to view.`}
+          >
+            <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" />
+            <span>Updating ({updateStatus.percent || 0}%)</span>
+          </button>
+        )}
+
+        {updateStatus.state === 'available' && (
+          <button
+            onClick={() => setView('settings')}
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[11px] font-semibold transition-all cursor-pointer"
+            title="New update available! Click to view in Settings."
+          >
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>New Update</span>
+          </button>
+        )}
       </div>
 
       {/* Global Search Bar */}
