@@ -10,9 +10,23 @@ export interface ChangelogRelease {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.3.1',
+    title: 'Dynamic Accent Color Engine & Theme Synchronizer',
+    isLatest: true,
+    sections: [
+      {
+        heading: 'UI & Theme Fixes',
+        items: [
+          'Dynamic Accent Engine: Mapped global CSS accent variables across Tailwind color tokens, enabling instantaneous real-time color updates across buttons, waveforms, active tabs, and highlights.',
+          'Custom Color Picker Enhancements: Added dedicated Apply Color and Reset buttons for custom hex codes, alongside real-time live preview.',
+          'Interactive Waveform Sync: Synchronized playback waveform bars directly with the active accent theme.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.3.0',
     title: 'Cross-Platform macOS & Linux Support',
-    isLatest: true,
     sections: [
       {
         heading: 'Multi-Platform Features',

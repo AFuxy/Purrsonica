@@ -1,5 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { formatDuration } from '../../../shared/formatters.js';
+import { useThemeStore } from '../../store/themeStore.js';
 
 interface WaveformBarProps {
   waveformData?: number[];
@@ -14,8 +15,10 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
   currentTime,
   duration,
   onSeek,
-  accentColor = '#1db954',
+  accentColor: propAccentColor,
 }) => {
+  const storeAccent = useThemeStore((s) => s.accentColor);
+  const accentColor = propAccentColor || storeAccent || '#10b981';
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
   const [hoverTime, setHoverTime] = useState<number | null>(null);

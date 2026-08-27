@@ -58,6 +58,14 @@ export function applyAccentColorToDoc(color: string) {
   document.documentElement.style.setProperty('--accent-glow', glow);
   document.documentElement.style.setProperty('--accent-subtle', subtle);
   document.documentElement.style.setProperty('--accent-border', border);
+
+  // Directly override Tailwind emerald color tokens at runtime
+  document.documentElement.style.setProperty('--color-emerald-400', color);
+  document.documentElement.style.setProperty('--color-emerald-500', color);
+  document.documentElement.style.setProperty('--color-emerald-600', hover);
+  document.documentElement.style.setProperty('--color-emerald-300', hover);
+  document.documentElement.style.setProperty('--color-emerald-200', hover);
+  document.documentElement.style.setProperty('--color-emerald-950', glow);
 }
 
 interface ThemeState {

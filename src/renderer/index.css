@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+@theme {
+  --color-emerald-50: var(--accent);
+  --color-emerald-100: var(--accent);
+  --color-emerald-200: var(--accent-hover);
+  --color-emerald-300: var(--accent-hover);
+  --color-emerald-400: var(--accent);
+  --color-emerald-500: var(--accent);
+  --color-emerald-600: var(--accent-hover);
+  --color-emerald-700: var(--accent-hover);
+  --color-emerald-800: var(--accent-hover);
+  --color-emerald-900: var(--accent-hover);
+  --color-emerald-950: var(--accent-glow);
+}
+
 @layer base {
   :root {
     --bg-primary: #f8f9fa;
@@ -27,9 +41,6 @@
     --text-primary: #ffffff;
     --text-secondary: #b3b3b3;
     --text-muted: #6e6e6e;
-    --accent: #1db954;
-    --accent-hover: #1ed760;
-    --accent-glow: rgba(29, 185, 84, 0.25);
     --app-titlebar: #0c0c0c;
   }
 }
