@@ -10,9 +10,23 @@ export interface ChangelogRelease {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.1.4',
+    title: 'Pre-release Channel, Watermark Badge & Beta Updates',
+    isLatest: true,
+    sections: [
+      {
+        heading: 'New Features & Enhancements',
+        items: [
+          'Pre-release & Beta Channel: Added an opt-in toggle in Settings to check for and install pre-release (Beta / Alpha / Canary) builds directly from GitHub Releases.',
+          'Pre-release Watermarks: Displays a sleek, animated pill badge in the titlebar and a subtle bottom-right corner watermark whenever running on a pre-release version.',
+          'Custom Beta Update Badges: Distinct purple badges and alerts notify users when experimental pre-release builds are downloaded and ready to install.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.1.3',
     title: 'Navigation History, Session Resume & Video Engine',
-    isLatest: true,
     sections: [
       {
         heading: 'Improvements & Enhancements',

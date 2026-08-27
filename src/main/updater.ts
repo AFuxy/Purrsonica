@@ -4,12 +4,24 @@ const { autoUpdater } = pkg;
 import path from 'node:path';
 import fs from 'node:fs';
 import { UpdateStatus } from '../shared/types.js';
+import { getScanSettings } from './db/queries.js';
 
 let currentStatus: UpdateStatus = {
   state: 'idle',
 };
 
 let targetWindow: BrowserWindow | null = null;
+
+export function isPrereleaseVersion(versionStr?: string): boolean {
+  if (!versionStr) return false;
+  return /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(versionStr);
+}
+
+export function syncPrereleaseSetting(allow?: boolean): void {
+  const allowPrerelease = allow !== undefined ? !!allow : !!getScanSettings().allowPrerelease;
+  autoUpdater.allowPrerelease = allowPrerelease;
+  console.log('[Purrsonica Updater] allowPrerelease set to:', autoUpdater.allowPrerelease);
+}
 
 function sendStatus(status: UpdateStatus) {
   currentStatus = status;
@@ -56,20 +68,25 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   // Configure autoUpdater
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = false;
+  syncPrereleaseSetting();
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[Purrsonica Updater] Checking for updates...');
-    sendStatus({ state: 'checking' });
+    console.log('[Purrsonica Updater] Checking for updates (allowPrerelease:', autoUpdater.allowPrerelease, ')...');
+    sendStatus({
+      state: 'checking',
+      isPrerelease: isPrereleaseVersion(app.getVersion()),
+    });
   });
 
   autoUpdater.on('update-available', (info) => {
     console.log('[Purrsonica Updater] Update available:', info.version);
     const notes = extractReleaseNotes(info.releaseNotes);
+    const isPrerelease = isPrereleaseVersion(info.version);
     sendStatus({
       state: 'available',
       version: info.version,
       releaseNotes: notes,
+      isPrerelease,
     });
   });
 
@@ -78,6 +95,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     sendStatus({
       state: 'not-available',
       version: info.version,
+      isPrerelease: isPrereleaseVersion(info.version || app.getVersion()),
     });
   });
 
@@ -88,16 +106,19 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
       version: currentStatus.version,
       percent: Math.round(progress.percent),
       releaseNotes: currentStatus.releaseNotes,
+      isPrerelease: currentStatus.isPrerelease,
     });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[Purrsonica Updater] Update downloaded successfully:', info.version);
     const notes = extractReleaseNotes(info.releaseNotes) || currentStatus.releaseNotes;
+    const isPrerelease = isPrereleaseVersion(info.version);
     sendStatus({
       state: 'downloaded',
       version: info.version,
       releaseNotes: notes,
+      isPrerelease,
     });
   });
 
@@ -107,13 +128,17 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
     // If app-update.yml is missing (e.g. portable/dev), don't show user a noisy error
     if (msg.includes('app-update.yml') || msg.includes('ENOENT')) {
-      sendStatus({ state: 'idle' });
+      sendStatus({
+        state: 'idle',
+        isPrerelease: isPrereleaseVersion(app.getVersion()),
+      });
       return;
     }
 
     sendStatus({
       state: 'error',
       errorMessage: 'Could not connect to update server',
+      isPrerelease: isPrereleaseVersion(app.getVersion()),
     });
   });
 
@@ -136,10 +161,12 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 }
 
 export async function checkForUpdates(): Promise<UpdateStatus> {
+  syncPrereleaseSetting();
   if (!app.isPackaged || !hasUpdateConfig()) {
     sendStatus({
       state: 'not-available',
       version: app.getVersion(),
+      isPrerelease: isPrereleaseVersion(app.getVersion()),
     });
     return currentStatus;
   }
@@ -152,6 +179,7 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
     sendStatus({
       state: 'not-available',
       version: app.getVersion(),
+      isPrerelease: isPrereleaseVersion(app.getVersion()),
     });
     return currentStatus;
   }

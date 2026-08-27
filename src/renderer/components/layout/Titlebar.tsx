@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw, Activity, ChevronLeft, ChevronRight, Flame } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
@@ -12,6 +12,17 @@ export const Titlebar: React.FC = () => {
   const { artworkTask, waveformTask, cancelArtworkRecache, cancelWaveformRecache } = useMaintenanceStore();
   const [isMaximized, setIsMaximized] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [appVersion, setAppVersion] = useState('');
+
+  const isPrerelease = /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(appVersion);
+
+  useEffect(() => {
+    if (window.api?.getVersion) {
+      window.api.getVersion().then((v) => {
+        if (v) setAppVersion(v);
+      });
+    }
+  }, []);
 
   // Global Navigation Shortcuts (Alt + Left/Right, Mouse 4 & 5)
   useEffect(() => {
@@ -115,6 +126,17 @@ export const Titlebar: React.FC = () => {
           </button>
         </div>
 
+        {/* Pre-Release Watermark Pill */}
+        {isPrerelease && (
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold tracking-wider uppercase select-none shadow-sm"
+            title={`Purrsonica Pre-Release Build (v${appVersion})`}
+          >
+            <Flame className="w-3 h-3 text-purple-400" />
+            <span>Pre-Release</span>
+          </div>
+        )}
+
         {/* Artwork Caching Live Progress Pill */}
         {artworkTask.isActive && (
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] shadow-sm">
@@ -167,12 +189,16 @@ export const Titlebar: React.FC = () => {
         {updateStatus.state === 'downloaded' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
             onClick={() => setView('settings')}
-            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-bold shadow-sm hover:bg-emerald-500/30 transition-all cursor-pointer animate-pulse"
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer animate-pulse ${
+              updateStatus.isPrerelease
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30'
+                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30'
+            }`}
             title="Update downloaded and ready to install! Click to open Settings."
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <Sparkles className="w-3 h-3 text-emerald-300" />
-            <span>v{updateStatus.version} Ready</span>
+            <span className={`w-1.5 h-1.5 rounded-full animate-ping ${updateStatus.isPrerelease ? 'bg-purple-400' : 'bg-emerald-400'}`} />
+            <Sparkles className={`w-3 h-3 ${updateStatus.isPrerelease ? 'text-purple-300' : 'text-emerald-300'}`} />
+            <span>{updateStatus.isPrerelease ? `v${updateStatus.version} (Beta) Ready` : `v${updateStatus.version} Ready`}</span>
           </button>
         )}
 
@@ -190,11 +216,15 @@ export const Titlebar: React.FC = () => {
         {updateStatus.state === 'available' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
             onClick={() => setView('settings')}
-            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[11px] font-semibold transition-all cursor-pointer"
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
+              updateStatus.isPrerelease
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30'
+                : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+            }`}
             title="New update available! Click to view in Settings."
           >
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>New Update</span>
+            <Sparkles className={`w-3 h-3 ${updateStatus.isPrerelease ? 'text-purple-300' : 'text-amber-400'}`} />
+            <span>{updateStatus.isPrerelease ? 'New Beta Update' : 'New Update'}</span>
           </button>
         )}
       </div>

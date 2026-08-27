@@ -479,6 +479,7 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   scanVideo: true,
   generateWaveforms: true,
   autoDetectKeyBpm: true,
+  allowPrerelease: false,
 };
 
 export function getScanSettings(): ScanSettings {

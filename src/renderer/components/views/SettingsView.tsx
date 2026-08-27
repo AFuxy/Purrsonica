@@ -104,6 +104,7 @@ export const SettingsView: React.FC = () => {
     scanVideo: true,
     generateWaveforms: true,
     autoDetectKeyBpm: true,
+    allowPrerelease: false,
   };
 
   const handleAddExclusion = async (e: React.FormEvent) => {
@@ -127,6 +128,13 @@ export const SettingsView: React.FC = () => {
 
   const handleToggleKeyBpm = async () => {
     await saveSettings({ ...currentSettings, autoDetectKeyBpm: !currentSettings.autoDetectKeyBpm });
+  };
+
+  const handleTogglePrerelease = async () => {
+    const nextVal = !currentSettings.allowPrerelease;
+    await saveSettings({ ...currentSettings, allowPrerelease: nextVal });
+    showToast(nextVal ? 'Pre-release channel enabled: Checking for beta builds' : 'Pre-release channel disabled');
+    checkForUpdates();
   };
 
   const handleRecacheArtwork = async () => {
@@ -598,9 +606,13 @@ export const SettingsView: React.FC = () => {
               {updateStatus.state === 'downloaded' ? (
                 <button
                   onClick={installUpdate}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-md shadow-md transition-all animate-pulse"
+                  className={`px-4 py-2 font-bold text-xs rounded-md shadow-md transition-all animate-pulse ${
+                    updateStatus.isPrerelease
+                      ? 'bg-purple-500 hover:bg-purple-400 text-white'
+                      : 'bg-emerald-500 hover:bg-emerald-400 text-black'
+                  }`}
                 >
-                  Restart & Install
+                  {updateStatus.isPrerelease ? 'Restart & Install Beta' : 'Restart & Install'}
                 </button>
               ) : (
                 <button
@@ -615,13 +627,45 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
+          {/* Pre-release & Beta Channel Switch */}
+          <div className="flex items-center justify-between p-3.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl">
+            <div>
+              <div className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                <Flame className="w-4 h-4 text-purple-400" />
+                <span>Include Pre-release & Beta Updates</span>
+                {currentSettings.allowPrerelease && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 uppercase tracking-wider">
+                    Beta Channel
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                Opt in to experimental builds and preview upcoming features directly from GitHub Releases before general release.
+              </div>
+            </div>
+
+            <button
+              onClick={handleTogglePrerelease}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                currentSettings.allowPrerelease ? 'bg-purple-600' : 'bg-neutral-600'
+              }`}
+              title="Toggle Pre-release / Beta Channel"
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                  currentSettings.allowPrerelease ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Dynamic Release Patch Notes Box (When update is available or downloaded) */}
           {updateStatus.releaseNotes && (
             <div className="pt-3 border-t border-[var(--border-color)] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                <span className={`text-xs font-bold flex items-center gap-1.5 ${updateStatus.isPrerelease ? 'text-purple-400' : 'text-emerald-400'}`}>
                   <FileText className="w-3.5 h-3.5" />
-                  What's New in v{updateStatus.version}
+                  {updateStatus.isPrerelease ? `What's New in Pre-release v${updateStatus.version}` : `What's New in v${updateStatus.version}`}
                 </span>
                 <span className="text-[10px] text-[var(--text-muted)] font-mono">
                   Release Notes

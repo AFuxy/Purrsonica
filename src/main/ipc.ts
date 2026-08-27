@@ -8,6 +8,7 @@ import {
   checkForUpdates,
   quitAndInstallUpdate,
   getCurrentUpdateStatus,
+  syncPrereleaseSetting,
 } from './updater.js';
 import {
   queryTracks,
@@ -296,6 +297,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('scanner:saveSettings', async (_event, settings: ScanSettings) => {
     saveScanSettings(settings);
+    syncPrereleaseSetting(settings.allowPrerelease);
     return settings;
   });
 

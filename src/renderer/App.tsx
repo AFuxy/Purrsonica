@@ -20,6 +20,17 @@ export const App: React.FC = () => {
   const { setProgress } = useScanStore();
   const { setStatus } = useUpdateStore();
   const { setArtworkProgress, setWaveformProgress } = useMaintenanceStore();
+  const [appVersion, setAppVersion] = React.useState('');
+
+  const isPrerelease = /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(appVersion);
+
+  useEffect(() => {
+    if (window.api?.getVersion) {
+      window.api.getVersion().then((v) => {
+        if (v) setAppVersion(v);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     // Initial fetch of library data
@@ -86,6 +97,15 @@ export const App: React.FC = () => {
 
       {/* Global Drag & Drop Ingestion Overlay */}
       <DropZoneOverlay />
+
+      {/* Pre-release Watermark Overlay */}
+      {isPrerelease && (
+        <div className="fixed bottom-24 right-4 pointer-events-none select-none z-30 opacity-30 hover:opacity-75 transition-opacity">
+          <div className="text-[10px] font-mono tracking-widest text-purple-300 bg-neutral-950/70 backdrop-blur-sm px-2.5 py-1 rounded border border-purple-500/20 shadow-md">
+            PURRSONICA v{appVersion} • PRE-RELEASE
+          </div>
+        </div>
+      )}
 
       {/* Modals & Overlays */}
       <ScanModal />

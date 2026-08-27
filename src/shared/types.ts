@@ -90,6 +90,7 @@ export interface ScanSettings {
   scanVideo: boolean;
   generateWaveforms: boolean;
   autoDetectKeyBpm: boolean;
+  allowPrerelease?: boolean;
 }
 
 export interface CamelotKeyInfo {
@@ -142,5 +143,6 @@ export interface UpdateStatus {
   version?: string;
   releaseNotes?: string;
   percent?: number;
+  isPrerelease?: boolean;
   errorMessage?: string;
 }
