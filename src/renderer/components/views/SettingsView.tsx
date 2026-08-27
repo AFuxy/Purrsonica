@@ -26,8 +26,10 @@ import {
   ChevronUp,
   Share2,
   Radio,
+  Palette,
+  Check,
 } from 'lucide-react';
-import { useThemeStore } from '../../store/themeStore.js';
+import { useThemeStore, ACCENT_PRESETS } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
@@ -37,7 +39,12 @@ import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 import { ScanSettings } from '../../../shared/types.js';
 
 export const SettingsView: React.FC = () => {
-  const { theme, setTheme } = useThemeStore();
+  const { theme, setTheme, accentColor, accentPreset, setAccentColor } = useThemeStore();
+  const [customHexInput, setCustomHexInput] = useState(accentColor);
+
+  useEffect(() => {
+    setCustomHexInput(accentColor);
+  }, [accentColor]);
   const { drives, stats, refreshAll } = useLibraryStore();
   const {
     settings,
@@ -338,6 +345,124 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
             {theme === 'light' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+          </div>
+        </div>
+
+        {/* Accent Color Palette & Custom Hex Picker */}
+        <div className="p-5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center border shadow-sm transition-all"
+                style={{
+                  backgroundColor: `${accentColor}20`,
+                  borderColor: `${accentColor}50`,
+                  color: accentColor,
+                }}
+              >
+                <Palette className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                  <span>Custom Accent Color</span>
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: `${accentColor}20`,
+                      color: accentColor,
+                      border: `1px solid ${accentColor}40`,
+                    }}
+                  >
+                    {accentColor.toUpperCase()}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                  Choose a signature accent palette or input any custom hex color for player buttons, waveforms, and highlights.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Preset Color Swatches */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 pt-1">
+            {ACCENT_PRESETS.map((preset) => {
+              const isSelected = accentPreset === preset.id || accentColor.toLowerCase() === preset.color.toLowerCase();
+              return (
+                <button
+                  key={preset.id}
+                  onClick={() => setAccentColor(preset.color, preset.id)}
+                  className={`flex flex-col items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[var(--bg-tertiary)] shadow-md ring-1'
+                      : 'bg-[var(--bg-tertiary)]/50 border-[var(--border-color)] hover:border-neutral-500/50 hover:bg-[var(--bg-hover)]'
+                  }`}
+                  style={{
+                    borderColor: isSelected ? preset.color : undefined,
+                    boxShadow: isSelected ? `0 0 12px ${preset.color}30` : undefined,
+                  }}
+                >
+                  <div
+                    className="w-7 h-7 rounded-full shadow-inner flex items-center justify-center transition-transform hover:scale-110"
+                    style={{ backgroundColor: preset.color }}
+                  >
+                    {isSelected && <Check className="w-4 h-4 text-white drop-shadow" />}
+                  </div>
+                  <span className="text-[11px] font-semibold text-[var(--text-secondary)] text-center leading-tight truncate w-full">
+                    {preset.name.replace(/^[A-Za-z]+ /, '')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom Hex Color Input Row */}
+          <div className="pt-3 border-t border-[var(--border-color)] flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[var(--text-primary)]">Custom Hex Color:</span>
+              <div className="flex items-center gap-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1.5 focus-within:border-[var(--accent)] transition-colors">
+                <input
+                  type="color"
+                  value={accentColor.startsWith('#') && accentColor.length === 7 ? accentColor : '#10b981'}
+                  onChange={(e) => setAccentColor(e.target.value, 'custom')}
+                  className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                  title="Pick a color from wheel"
+                />
+                <input
+                  type="text"
+                  value={customHexInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCustomHexInput(val);
+                    if (/^#?([0-9A-F]{3}){1,2}$/i.test(val)) {
+                      setAccentColor(val.startsWith('#') ? val : `#${val}`, 'custom');
+                    }
+                  }}
+                  placeholder="#10B981"
+                  className="bg-transparent text-xs font-mono text-[var(--text-primary)] outline-none w-20 uppercase"
+                  maxLength={7}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-[11px] text-[var(--text-muted)]">Live Preview:</span>
+              <button
+                className="px-3 py-1 text-xs font-bold text-black rounded-md shadow transition-transform hover:scale-105"
+                style={{ backgroundColor: accentColor }}
+              >
+                Sample Button
+              </button>
+              <div
+                className="px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+                style={{
+                  backgroundColor: `${accentColor}20`,
+                  color: accentColor,
+                  border: `1px solid ${accentColor}40`,
+                }}
+              >
+                Active Badge
+              </div>
+            </div>
           </div>
         </div>
       </section>
