@@ -138,6 +138,11 @@ export const electronAPI = {
     ipcRenderer.on('library:updated', handler);
     return () => ipcRenderer.removeListener('library:updated', handler);
   },
+  onGlobalMediaKey: (callback: (action: 'play-pause' | 'next' | 'previous' | 'stop') => void) => {
+    const handler = (_event: any, action: 'play-pause' | 'next' | 'previous' | 'stop') => callback(action);
+    ipcRenderer.on('media:global-key', handler);
+    return () => ipcRenderer.removeListener('media:global-key', handler);
+  },
 
   // Protocol URL helpers
   getMediaUrl: (filePath: string) => {

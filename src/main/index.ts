@@ -7,6 +7,7 @@ import { initDatabase, closeDatabase } from './db/database.js';
 import { registerIpcHandlers } from './ipc.js';
 import { initAutoUpdater } from './updater.js';
 import { initDiscordRpc, destroyDiscordRpc } from './discord.js';
+import { registerGlobalMediaShortcuts, unregisterGlobalMediaShortcuts } from './mediaKeys.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -244,6 +245,9 @@ function createWindow(): void {
   // Register all IPC events
   registerIpcHandlers(mainWindow);
 
+  // Register Global System Media Keys
+  registerGlobalMediaShortcuts(mainWindow);
+
   // Initialize Auto Updater
   initAutoUpdater(mainWindow);
 
@@ -255,6 +259,7 @@ function createWindow(): void {
   }
 
   mainWindow.on('closed', () => {
+    unregisterGlobalMediaShortcuts();
     mainWindow = null;
   });
 }
@@ -273,6 +278,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  unregisterGlobalMediaShortcuts();
   destroyDiscordRpc();
   closeDatabase();
   if (process.platform !== 'darwin') {

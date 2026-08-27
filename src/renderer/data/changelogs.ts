@@ -11,12 +11,13 @@ export interface ChangelogRelease {
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
     version: '1.2.0',
-    title: 'Discord Rich Presence (RPC) & Custom Accent Color Themes',
+    title: 'Discord Rich Presence, Accent Themes & Global Media Keys',
     isLatest: true,
     sections: [
       {
         heading: 'New Features & Integrations',
         items: [
+          'Global System Media Keys: Control Play/Pause, Next Track, and Previous Track using physical keyboard media keys, headsets, and controllers even when Purrsonica is minimized in the background.',
           'Discord Rich Presence (RPC): Automatically broadcasts your currently playing song, artist, album, live playback countdown timer, and play/pause status directly to your Discord profile activity.',
           'Custom Accent Color Picker & Presets: Customize Purrsonica with tailored signature palettes (Cyberpunk Purple, Sapphire Blue, Ruby Red, Sunset Gold, Electric Cyan, Neon Pink) or pick any custom hex color with live preview.',
           'Custom Action Button: Includes an optional link button on your Discord status connecting friends to the Purrsonica repository.',

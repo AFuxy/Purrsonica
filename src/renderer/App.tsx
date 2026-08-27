@@ -71,6 +71,25 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [currentTrack, isVideoModalOpen]);
 
+  // OS-level Background & Minimized Global Hardware Media Keys Listener
+  useEffect(() => {
+    if (!window.api?.onGlobalMediaKey) return;
+    const unsubscribe = window.api.onGlobalMediaKey((action) => {
+      if (action === 'play-pause') {
+        togglePlay();
+      } else if (action === 'next') {
+        playNext();
+      } else if (action === 'previous') {
+        playPrevious();
+      } else if (action === 'stop') {
+        usePlayerStore.getState().setIsPlaying(false);
+      }
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     if (window.api?.getVersion) {
       window.api.getVersion().then((v) => {
