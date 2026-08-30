@@ -56,6 +56,26 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.5.0-beta.2',
+    title: 'Duplicate Scanner Performance Optimization, Lazy Windowing & Mini-Player Refinements',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Duplicate Cleaner Performance & Windowing: Implemented component-level memoization, instant O(1) file size lookups, and progressive lazy windowing for fluid 60fps scrolling and instantaneous Select All / Deselect All response.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Single-Pass SQL Duplicate Scanner: Rebuilt duplicate cluster scanner into an atomic single-pass SQL query, eliminating main-thread application freeze on large music libraries.',
+          'Mini-Player Header Logo & Full-Width Seekbar: Fixed broken header logo image path in pop-out widget and restructured the mini-player layout with a dedicated full-width seekbar scrubber.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.5.0-beta.1',
     title: 'Duplicate File Detector, Global Playlist Drag-and-Drop & Async Library Verification',
     isPrerelease: true,
@@ -79,7 +99,6 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
         heading: 'Bug Fixes',
         items: [
           'Zero-Freeze Library Verification: Rebuilt Verify Library & Clean Missing Files with asynchronous chunking and live progress counters, eliminating application freezes and crashes during deep library maintenance.',
-          'Mini-Player Logo & Seekbar Rendering: Fixed broken header logo image path and redesigned the mini-player layout with a dedicated full-width seekbar scrubber and duration counters.',
         ],
       },
     ],

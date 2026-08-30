@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import {
   X,
   Trash2,
   HardDrive,
   CheckCircle2,
-  AlertTriangle,
   Folder,
   RefreshCw,
   Search,
-  Check,
   Music,
   ShieldAlert,
 } from 'lucide-react';
@@ -20,6 +18,128 @@ interface DuplicateCleanerModalProps {
   onClose: () => void;
   onRefreshLibrary: () => Promise<void>;
 }
+
+interface ClusterCardProps {
+  cluster: DuplicateCluster;
+  selectedDeleteIds: Set<string>;
+  onToggleTrack: (trackId: string) => void;
+  onKeepTrack: (cluster: DuplicateCluster, keepTrackId: string) => void;
+  onRevealFolder: (filePath: string) => void;
+}
+
+const ClusterCard = memo<ClusterCardProps>(({
+  cluster,
+  selectedDeleteIds,
+  onToggleTrack,
+  onKeepTrack,
+  onRevealFolder,
+}) => {
+  return (
+    <div className="border border-[var(--border-color)] bg-[var(--bg-primary)] rounded-xl overflow-hidden shadow-sm">
+      {/* Cluster Header */}
+      <div className="px-4 py-2.5 bg-[var(--bg-tertiary)] border-b border-[var(--border-color)] flex items-center justify-between">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Music className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <span className="font-bold text-xs text-white truncate">
+              {cluster.title}
+            </span>
+            <span className="text-xs text-[var(--text-muted)] ml-2">
+              by {cluster.artist}
+            </span>
+            {cluster.album && (
+              <span className="text-[11px] text-[var(--text-muted)] ml-2 opacity-75">
+                • {cluster.album}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="text-[11px] font-mono text-[var(--text-muted)] flex-shrink-0 ml-2">
+          {formatDuration(cluster.duration)} •{' '}
+          <span className="text-amber-400 font-semibold">
+            {cluster.tracks.length} Copies ({formatFileSize(cluster.totalWastedBytes)} redundant)
+          </span>
+        </div>
+      </div>
+
+      {/* Tracks in Cluster */}
+      <div className="divide-y divide-[var(--border-color)] text-xs">
+        {cluster.tracks.map((track) => {
+          const isMarkedDelete = selectedDeleteIds.has(track.id);
+          const isKeep = !isMarkedDelete;
+
+          return (
+            <div
+              key={track.id}
+              className={`px-4 py-2 flex items-center justify-between gap-4 transition-colors ${
+                isKeep
+                  ? 'bg-emerald-950/15 hover:bg-emerald-950/25'
+                  : 'bg-rose-950/10 hover:bg-rose-950/20'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <input
+                  type="checkbox"
+                  checked={isMarkedDelete}
+                  onChange={() => onToggleTrack(track.id)}
+                  className="accent-rose-500 w-4 h-4 cursor-pointer flex-shrink-0"
+                  title={isMarkedDelete ? 'Marked for Deletion' : 'Marked to Keep'}
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-[var(--text-primary)] truncate">
+                      {track.file_name}
+                    </span>
+                    {isKeep ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex-shrink-0">
+                        Keep (Active)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30 flex-shrink-0">
+                        Redundant (Delete)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate flex items-center gap-1.5 mt-0.5">
+                    <span className="font-mono">{track.file_path}</span>
+                    <button
+                      onClick={() => onRevealFolder(track.file_path)}
+                      className="text-[var(--text-muted)] hover:text-white p-0.5 rounded hover:bg-white/10 cursor-pointer"
+                      title="Reveal in File Explorer / Finder"
+                    >
+                      <Folder className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Audio Specs */}
+              <div className="flex items-center gap-4 text-[11px] font-mono text-[var(--text-secondary)] flex-shrink-0">
+                <span className="uppercase px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)]">
+                  {track.format}
+                </span>
+                <span>{track.bitrate ? `${Math.round(track.bitrate / 1000)} kbps` : 'N/A'}</span>
+                <span className="font-bold text-[var(--text-primary)] w-16 text-right">
+                  {formatFileSize(track.file_size)}
+                </span>
+                {!isKeep && (
+                  <button
+                    onClick={() => onKeepTrack(cluster, track.id)}
+                    className="px-2 py-1 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded cursor-pointer"
+                    title="Keep this copy instead"
+                  >
+                    Keep This
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
 
 export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
   isOpen,
@@ -33,6 +153,7 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
   const [confirmDeleteModal, setConfirmDeleteModal] = useState(false);
+  const [displayCount, setDisplayCount] = useState(50); // Progressive render window
 
   const fetchDuplicates = async () => {
     if (!window.api?.findDuplicates) return;
@@ -53,6 +174,7 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
         }
       }
       setSelectedDeleteIds(toDelete);
+      setDisplayCount(50);
     } catch (err) {
       console.error('Failed to scan for duplicate tracks:', err);
     } finally {
@@ -65,6 +187,28 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
       fetchDuplicates();
     }
   }, [isOpen]);
+
+  // Fast O(1) track size lookup map
+  const trackSizeMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!scanResult?.clusters) return map;
+    for (const c of scanResult.clusters) {
+      for (const t of c.tracks) {
+        map.set(t.id, t.file_size);
+      }
+    }
+    return map;
+  }, [scanResult]);
+
+  // Instant calculation of selected recoverable bytes: O(K) where K is selected size
+  const selectedWastedBytes = useMemo(() => {
+    if (selectedDeleteIds.size === 0) return 0;
+    let bytes = 0;
+    for (const id of selectedDeleteIds) {
+      bytes += trackSizeMap.get(id) || 0;
+    }
+    return bytes;
+  }, [selectedDeleteIds, trackSizeMap]);
 
   // Filter clusters by search
   const filteredClusters = useMemo(() => {
@@ -80,21 +224,18 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
     );
   }, [scanResult, filterQuery]);
 
-  // Calculate selected recoverable space
-  const selectedWastedBytes = useMemo(() => {
-    if (!scanResult) return 0;
-    let bytes = 0;
-    for (const cluster of scanResult.clusters) {
-      for (const track of cluster.tracks) {
-        if (selectedDeleteIds.has(track.id)) {
-          bytes += track.file_size;
-        }
-      }
-    }
-    return bytes;
-  }, [scanResult, selectedDeleteIds]);
+  const visibleClusters = useMemo(() => {
+    return filteredClusters.slice(0, displayCount);
+  }, [filteredClusters, displayCount]);
 
-  const toggleSelectTrack = (trackId: string) => {
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 300) {
+      setDisplayCount((prev) => Math.min(prev + 50, filteredClusters.length));
+    }
+  };
+
+  const toggleSelectTrack = useCallback((trackId: string) => {
     setSelectedDeleteIds((prev) => {
       const next = new Set(prev);
       if (next.has(trackId)) {
@@ -104,9 +245,9 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
       }
       return next;
     });
-  };
+  }, []);
 
-  const setKeepTrack = (cluster: DuplicateCluster, keepTrackId: string) => {
+  const setKeepTrack = useCallback((cluster: DuplicateCluster, keepTrackId: string) => {
     setSelectedDeleteIds((prev) => {
       const next = new Set(prev);
       for (const t of cluster.tracks) {
@@ -118,13 +259,12 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
       }
       return next;
     });
-  };
+  }, []);
 
-  const handleSelectAll = () => {
-    if (!scanResult) return;
+  const handleSelectAll = useCallback(() => {
+    if (!scanResult?.clusters) return;
     const toDelete = new Set<string>();
     for (const cluster of scanResult.clusters) {
-      // Keep best quality, select rest
       const keepId = cluster.tracks.find((t) => t.isRecommendedKeep)?.id || cluster.tracks[0]?.id;
       for (const track of cluster.tracks) {
         if (track.id !== keepId) {
@@ -133,18 +273,18 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
       }
     }
     setSelectedDeleteIds(toDelete);
-  };
+  }, [scanResult]);
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     setSelectedDeleteIds(new Set());
-  };
+  }, []);
 
   const handleExecuteDelete = async () => {
     if (!window.api?.deleteDuplicates || selectedDeleteIds.size === 0) return;
     setIsDeleting(true);
     try {
       const idsArray = Array.from(selectedDeleteIds);
-      const res = await window.api.deleteDuplicates(idsArray, sendToTrash);
+      await window.api.deleteDuplicates(idsArray, sendToTrash);
       setConfirmDeleteModal(false);
       await onRefreshLibrary();
       await fetchDuplicates();
@@ -155,11 +295,11 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
     }
   };
 
-  const handleRevealInFolder = (filePath: string) => {
+  const handleRevealInFolder = useCallback((filePath: string) => {
     if (window.api?.showItemInFolder) {
       window.api.showItemInFolder(filePath);
     }
-  };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -250,7 +390,10 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
             <input
               type="text"
               value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
+              onChange={(e) => {
+                setFilterQuery(e.target.value);
+                setDisplayCount(50);
+              }}
               placeholder="Filter duplicate results by title, artist, album, or folder path..."
               className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] placeholder-[var(--text-muted)] text-xs rounded-md pl-9 pr-4 py-1.5 border border-transparent focus:border-[var(--accent)] outline-none"
             />
@@ -266,7 +409,10 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
         </div>
 
         {/* Main Duplicate Clusters List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[55vh]">
+        <div
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[55vh]"
+        >
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)] space-y-3">
               <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
@@ -281,119 +427,23 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
               </p>
             </div>
           ) : (
-            filteredClusters.map((cluster) => {
-              const keepTrack = cluster.tracks.find((t) => !selectedDeleteIds.has(t.id)) || cluster.tracks[0];
-
-              return (
-                <div
+            <>
+              {visibleClusters.map((cluster) => (
+                <ClusterCard
                   key={cluster.key}
-                  className="border border-[var(--border-color)] bg-[var(--bg-primary)] rounded-xl overflow-hidden shadow-sm"
-                >
-                  {/* Cluster Header */}
-                  <div className="px-4 py-2.5 bg-[var(--bg-tertiary)] border-b border-[var(--border-color)] flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Music className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <span className="font-bold text-xs text-white truncate">
-                          {cluster.title}
-                        </span>
-                        <span className="text-xs text-[var(--text-muted)] ml-2">
-                          by {cluster.artist}
-                        </span>
-                        {cluster.album && (
-                          <span className="text-[11px] text-[var(--text-muted)] ml-2 opacity-75">
-                            • {cluster.album}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-[11px] font-mono text-[var(--text-muted)] flex-shrink-0 ml-2">
-                      {formatDuration(cluster.duration)} •{' '}
-                      <span className="text-amber-400 font-semibold">
-                        {cluster.tracks.length} Copies ({formatFileSize(cluster.totalWastedBytes)} redundant)
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Tracks in Cluster */}
-                  <div className="divide-y divide-[var(--border-color)] text-xs">
-                    {cluster.tracks.map((track) => {
-                      const isMarkedDelete = selectedDeleteIds.has(track.id);
-                      const isKeep = !isMarkedDelete;
-
-                      return (
-                        <div
-                          key={track.id}
-                          className={`px-4 py-2.5 flex items-center justify-between gap-4 transition-colors ${
-                            isKeep
-                              ? 'bg-emerald-950/15 hover:bg-emerald-950/25'
-                              : 'bg-rose-950/10 hover:bg-rose-950/20'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            {/* Radio / Checkbox indicator */}
-                            <input
-                              type="checkbox"
-                              checked={isMarkedDelete}
-                              onChange={() => toggleSelectTrack(track.id)}
-                              className="accent-rose-500 w-4 h-4 cursor-pointer flex-shrink-0"
-                              title={isMarkedDelete ? 'Marked for Deletion' : 'Marked to Keep'}
-                            />
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs text-[var(--text-primary)] truncate">
-                                  {track.file_name}
-                                </span>
-                                {isKeep ? (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex-shrink-0">
-                                    Keep (Active)
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30 flex-shrink-0">
-                                    Redundant (Delete)
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-[var(--text-muted)] truncate flex items-center gap-1.5 mt-0.5">
-                                <span className="font-mono">{track.file_path}</span>
-                                <button
-                                  onClick={() => handleRevealInFolder(track.file_path)}
-                                  className="text-[var(--text-muted)] hover:text-white p-0.5 rounded hover:bg-white/10"
-                                  title="Reveal in File Explorer / Finder"
-                                >
-                                  <Folder className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Audio Specs */}
-                          <div className="flex items-center gap-4 text-[11px] font-mono text-[var(--text-secondary)] flex-shrink-0">
-                            <span className="uppercase px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)]">
-                              {track.format}
-                            </span>
-                            <span>{track.bitrate ? `${Math.round(track.bitrate / 1000)} kbps` : 'N/A'}</span>
-                            <span className="font-bold text-[var(--text-primary)] w-16 text-right">
-                              {formatFileSize(track.file_size)}
-                            </span>
-                            {!isKeep && (
-                              <button
-                                onClick={() => setKeepTrack(cluster, track.id)}
-                                className="px-2 py-1 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded cursor-pointer"
-                                title="Keep this copy instead"
-                              >
-                                Keep This
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  cluster={cluster}
+                  selectedDeleteIds={selectedDeleteIds}
+                  onToggleTrack={toggleSelectTrack}
+                  onKeepTrack={setKeepTrack}
+                  onRevealFolder={handleRevealInFolder}
+                />
+              ))}
+              {visibleClusters.length < filteredClusters.length && (
+                <div className="text-center py-2 text-xs text-[var(--text-muted)]">
+                  Showing {visibleClusters.length} of {filteredClusters.length} groups (Scroll down to load more)
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
 
