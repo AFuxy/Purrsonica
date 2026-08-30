@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw, Activity, ChevronLeft, ChevronRight, Flame } from 'lucide-react';
+import { Minus, Square, Copy, X, Sun, Moon, Search, Settings as SettingsIcon, Sparkles, RefreshCw, Activity, ChevronLeft, ChevronRight, Flame, PictureInPicture } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
+import { usePlayerStore } from '../../store/playerStore.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
   const { searchQuery, setSearchQuery, currentView, setView, goBack, goForward, canGoBack, canGoForward } = useLibraryStore();
+  const toggleMiniPlayer = usePlayerStore((s) => s.toggleMiniPlayer);
   const { status: updateStatus } = useUpdateStore();
   const { artworkTask, waveformTask, cancelArtworkRecache, cancelWaveformRecache } = useMaintenanceStore();
   const [isMaximized, setIsMaximized] = useState(false);
@@ -261,6 +263,15 @@ export const Titlebar: React.FC = () => {
         className="titlebar-no-drag flex items-center gap-1"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
+        <button
+          onClick={() => toggleMiniPlayer(true)}
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+          title="Switch to Floating Mini Player (Ctrl+M)"
+          className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-tertiary)] transition-colors cursor-pointer"
+        >
+          <PictureInPicture className="w-4 h-4" />
+        </button>
+
         <button
           onClick={() => setView(currentView === 'settings' ? 'all' : 'settings')}
           style={{ WebkitAppRegion: 'no-drag' } as any}

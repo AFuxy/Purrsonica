@@ -10,9 +10,30 @@ export interface ChangelogRelease {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.4.0-beta.1',
+    title: 'Always-on-Top Floating Mini-Player & Gapless Audio Loop Engine',
+    isLatest: true,
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'Floating Always-on-Top Mini-Player: A sleek, compact floating widget for multitasking, gaming, and working with live scrubbable waveform, DJ key badges, volume flyout, and playback controls.',
+          'Instant Window Morphing: Seamlessly transition between full desktop view and floating widget with zero audio interruption.',
+          'Global Mini-Player Shortcut: Press Ctrl+M (or Cmd+M on macOS) anywhere inside the app to toggle mini-player mode.',
+        ],
+      },
+      {
+        heading: 'Audio Engine Fixes',
+        items: [
+          'Gapless Single-Track Looping: Fixed Repeat One (🔂) by linking browser-level native loop decoders for seamless repeat playback without stopping.',
+          'Full-Queue Looping: Fixed Repeat All (🔁) to accurately preserve the complete track history and replay single-track libraries seamlessly.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.3.1',
     title: 'Dynamic Accent Color Engine & Theme Synchronizer',
-    isLatest: true,
     sections: [
       {
         heading: 'UI & Theme Fixes',

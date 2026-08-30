@@ -32,6 +32,7 @@ export const VideoModal: React.FC = () => {
     setVolume,
     isMuted,
     toggleMute,
+    repeatMode,
     playNext,
     playPrevious,
   } = usePlayerStore();
@@ -300,6 +301,7 @@ export const VideoModal: React.FC = () => {
             ref={videoRef}
             className="w-full h-full object-contain"
             playsInline
+            loop={repeatMode === 'one'}
             onTimeUpdate={() => {
               if (videoRef.current && !isScrubbing) {
                 setCurrentTime(videoRef.current.currentTime);

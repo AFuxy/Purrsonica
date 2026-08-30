@@ -16,6 +16,7 @@ import {
   Music,
   Disc,
   Folder,
+  PictureInPicture,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -46,6 +47,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
     toggleShuffle,
     cycleRepeat,
     toggleRightSidebar,
+    toggleMiniPlayer,
     setVideoModalOpen,
   } = usePlayerStore();
 
@@ -210,10 +212,10 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
             onClick={cycleRepeat}
             className={`p-1.5 transition-colors ${
               repeatMode !== 'off'
-                ? 'text-emerald-400'
+                ? 'text-[var(--accent)] font-bold'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
-            title={`Repeat: ${repeatMode}`}
+            title={`Repeat: ${repeatMode === 'off' ? 'Off' : repeatMode === 'all' ? 'Repeat All (Loop Playlist)' : 'Repeat One (Loop Song)'}`}
           >
             {repeatMode === 'one' ? (
               <Repeat1 className="w-4 h-4" />
@@ -265,6 +267,15 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
             <Tv className="w-4 h-4 text-purple-400" />
           </button>
         )}
+
+        {/* Mini Player Toggle */}
+        <button
+          onClick={() => toggleMiniPlayer(true)}
+          className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors cursor-pointer"
+          title="Switch to Floating Mini Player (Ctrl+M)"
+        >
+          <PictureInPicture className="w-4 h-4" />
+        </button>
 
         {/* Up Next Queue Toggle */}
         <button

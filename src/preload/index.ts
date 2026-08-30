@@ -26,6 +26,10 @@ export const electronAPI = {
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  setMiniPlayer: (enable: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('window:setMiniPlayer', enable),
+  isMiniPlayer: (): Promise<boolean> =>
+    ipcRenderer.invoke('window:isMiniPlayer'),
   setThemeIcon: (theme: 'dark' | 'light') => ipcRenderer.invoke('theme:setIcon', theme),
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
 

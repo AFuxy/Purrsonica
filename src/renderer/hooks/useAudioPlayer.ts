@@ -45,6 +45,7 @@ export function useAudioPlayer() {
     isMuted,
     currentTime,
     duration,
+    repeatMode,
     setIsPlaying,
     setCurrentTime,
     setDuration,
@@ -90,6 +91,16 @@ export function useAudioPlayer() {
 
     globalAudio.addEventListener('ended', () => {
       pendingRestoreTime = null;
+      const { repeatMode, currentTrack } = usePlayerStore.getState();
+      if (repeatMode === 'one' && currentTrack) {
+        if (globalAudio) {
+          globalAudio.currentTime = 0;
+          globalAudio.play().catch(() => {});
+        }
+        usePlayerStore.getState().setCurrentTime(0);
+        usePlayerStore.getState().setIsPlaying(true);
+        return;
+      }
       usePlayerStore.getState().playNext();
     });
 
@@ -105,6 +116,12 @@ export function useAudioPlayer() {
       }
     });
   }, []);
+
+  // Sync native HTMLAudioElement loop mode
+  useEffect(() => {
+    if (!audio) return;
+    audio.loop = repeatMode === 'one';
+  }, [repeatMode, audio]);
 
   // Update track source
   useEffect(() => {
@@ -125,6 +142,16 @@ export function useAudioPlayer() {
             console.warn('Auto-play blocked or media unsupported:', err);
           });
         }
+      } else {
+        // Same track re-triggered (e.g. repeat mode all on single track or manual replay)
+        if (isPlaying) {
+          if (usePlayerStore.getState().currentTime === 0 && audio.currentTime > 0) {
+            audio.currentTime = 0;
+          }
+          if (audio.paused || audio.ended) {
+            audio.play().catch(() => {});
+          }
+        }
       }
     } else {
       if (currentPlayingTrackId !== null) {
@@ -133,7 +160,7 @@ export function useAudioPlayer() {
         audio.src = '';
       }
     }
-  }, [currentTrack]);
+  }, [currentTrack, isPlaying]);
 
   // Handle Play/Pause
   useEffect(() => {

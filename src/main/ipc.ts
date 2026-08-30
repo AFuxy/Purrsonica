@@ -86,6 +86,61 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return win ? win.isMaximized() : false;
   });
 
+  let isMiniPlayerActive = false;
+  let savedFullBounds: { x: number; y: number; width: number; height: number } | null = null;
+  let wasMaximized = false;
+
+  ipcMain.handle('window:setMiniPlayer', (event, enable: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (!win) return false;
+
+    if (enable) {
+      if (!isMiniPlayerActive) {
+        wasMaximized = win.isMaximized();
+        if (wasMaximized) {
+          win.unmaximize();
+        }
+        savedFullBounds = win.getBounds();
+      }
+      isMiniPlayerActive = true;
+
+      // Unrestrict minimum size and set always on top
+      win.setMinimumSize(320, 120);
+      win.setAlwaysOnTop(true, 'floating');
+
+      const width = 380;
+      const height = 135;
+      const currentBounds = win.getBounds();
+
+      win.setBounds({
+        x: currentBounds.x,
+        y: currentBounds.y,
+        width,
+        height,
+      });
+    } else {
+      isMiniPlayerActive = false;
+      win.setAlwaysOnTop(false);
+      win.setMinimumSize(960, 640);
+
+      if (savedFullBounds) {
+        win.setBounds(savedFullBounds);
+        if (wasMaximized) {
+          win.maximize();
+        }
+      } else {
+        win.setSize(1280, 840);
+        win.center();
+      }
+    }
+
+    return isMiniPlayerActive;
+  });
+
+  ipcMain.handle('window:isMiniPlayer', () => {
+    return isMiniPlayerActive;
+  });
+
   ipcMain.handle('app:getVersion', () => {
     return app.getVersion();
   });

@@ -4,6 +4,7 @@ import { Sidebar } from './components/layout/Sidebar.js';
 import { RightSidebar } from './components/layout/RightSidebar.js';
 import { MainContent } from './components/views/MainContent.js';
 import { PlaybackBar } from './components/player/PlaybackBar.js';
+import { MiniPlayerView } from './components/player/MiniPlayerView.js';
 import { ScanModal } from './components/modals/ScanModal.js';
 import { MetadataEditorModal } from './components/modals/MetadataEditorModal.js';
 import { VideoModal } from './components/player/VideoModal.js';
@@ -20,7 +21,15 @@ export const App: React.FC = () => {
   const { seekTo } = useAudioPlayer();
   useDiscordRpc();
   const { refreshAll, editingTrack, setEditingTrack } = useLibraryStore();
-  const { currentTrack, togglePlay, playNext, playPrevious, isVideoModalOpen } = usePlayerStore();
+  const {
+    currentTrack,
+    togglePlay,
+    playNext,
+    playPrevious,
+    isVideoModalOpen,
+    isMiniPlayer,
+    toggleMiniPlayer,
+  } = usePlayerStore();
   const { setProgress } = useScanStore();
   const { setStatus } = useUpdateStore();
   const { setArtworkProgress, setWaveformProgress } = useMaintenanceStore();
@@ -37,6 +46,13 @@ export const App: React.FC = () => {
         (document.activeElement as HTMLElement)?.isContentEditable;
 
       if (isInputFocused) return;
+
+      // Toggle Mini Player (Ctrl + M / Cmd + M)
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyM') {
+        e.preventDefault();
+        toggleMiniPlayer();
+        return;
+      }
 
       // Handle Hardware Media Keys
       if (e.code === 'MediaPlayPause' || e.key === 'MediaPlayPause') {
@@ -158,6 +174,14 @@ export const App: React.FC = () => {
       cleanupWaveforms?.();
     };
   }, []);
+
+  if (isMiniPlayer) {
+    return (
+      <div className="w-screen h-screen bg-[#121212] select-none overflow-hidden p-0.5">
+        <MiniPlayerView onSeek={seekTo} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[var(--bg-primary)] text-[var(--text-primary)] select-none overflow-hidden relative">

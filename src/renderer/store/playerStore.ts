@@ -17,6 +17,7 @@ interface PlayerState {
   history: Track[];
   isVideoModalOpen: boolean;
   isRightSidebarOpen: boolean;
+  isMiniPlayer: boolean;
 
   // Actions
   setTrack: (track: Track, newQueue?: Track[]) => void;
@@ -37,6 +38,7 @@ interface PlayerState {
   reorderQueue: (startIndex: number, endIndex: number) => void;
   setVideoModalOpen: (open: boolean) => void;
   toggleRightSidebar: () => void;
+  toggleMiniPlayer: (enable?: boolean) => Promise<void>;
   updateCurrentTrackMetadata: (updated: Partial<Track>) => void;
   updateTrackLikeState: (trackId: string, isLiked: boolean) => void;
 }
@@ -56,6 +58,16 @@ export const usePlayerStore = create<PlayerState>()(
   history: [],
   isVideoModalOpen: false,
   isRightSidebarOpen: false,
+  isMiniPlayer: false,
+
+  toggleMiniPlayer: async (enable?: boolean) => {
+    const currentState = get().isMiniPlayer;
+    const nextState = enable !== undefined ? enable : !currentState;
+    if (window.api?.setMiniPlayer) {
+      await window.api.setMiniPlayer(nextState);
+    }
+    set({ isMiniPlayer: nextState });
+  },
 
   setTrack: (track: Track, newQueue?: Track[]) => {
     const state = get();
@@ -150,11 +162,6 @@ export const usePlayerStore = create<PlayerState>()(
   playNext: () => {
     const { queue, repeatMode, currentTrack, history } = get();
 
-    if (repeatMode === 'one' && currentTrack) {
-      set({ currentTime: 0, isPlaying: true });
-      return;
-    }
-
     if (queue.length > 0) {
       const nextTrack = queue[0];
       const nextQueue = queue.slice(1);
@@ -172,28 +179,40 @@ export const usePlayerStore = create<PlayerState>()(
       if (window.api) {
         window.api.incrementPlayCount(nextTrack.id);
       }
-    } else if (repeatMode === 'all' && history.length > 0) {
-      // Loop back history as queue
-      const reversedHistory = [...history].reverse();
-      const first = reversedHistory[0];
-      const rest = reversedHistory.slice(1);
+    } else if (repeatMode === 'all') {
+      // Loop back entire playback history plus the current track
+      const fullHistory = currentTrack ? [currentTrack, ...history] : history;
+      if (fullHistory.length > 0) {
+        const reversedHistory = [...fullHistory].reverse();
+        const first = reversedHistory[0];
+        const rest = reversedHistory.slice(1);
 
-      set({
-        currentTrack: first,
-        queue: rest,
-        history: [],
-        currentTime: 0,
-        isPlaying: true,
-      });
+        set({
+          currentTrack: first,
+          queue: rest,
+          history: [],
+          currentTime: 0,
+          isPlaying: true,
+          isVideoModalOpen: first.media_type === 'video',
+        });
+
+        if (window.api) {
+          window.api.incrementPlayCount(first.id);
+        }
+      } else {
+        set({ isPlaying: false, currentTime: 0 });
+      }
+    } else if (repeatMode === 'one' && currentTrack) {
+      set({ currentTime: 0, isPlaying: true });
     } else {
-      set({ isPlaying: false });
+      set({ isPlaying: false, currentTime: 0 });
     }
   },
 
   playPrevious: () => {
     const { currentTime, history, currentTrack, queue } = get();
 
-    // If played more than 3 seconds, replay from start of track
+    // If played more than 3 seconds, replay from start of current track
     if (currentTime > 3 || history.length === 0) {
       set({ currentTime: 0 });
       return;
