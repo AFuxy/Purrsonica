@@ -575,6 +575,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (!window.api) return;
     try {
       await window.api.addTrackToPlaylist(playlistId, trackId);
+      if (get().currentView === 'playlist_detail' && get().selectedPlaylist?.id === playlistId) {
+        await get().fetchTracks();
+      }
       await get().fetchPlaylists();
     } catch (err) {
       console.error('Error adding track to playlist:', err);

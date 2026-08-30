@@ -57,12 +57,13 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
     version: '1.5.0-beta.1',
-    title: 'Duplicate File Detector, Disk Space Cleaner & Async Library Verification',
+    title: 'Duplicate File Detector, Global Playlist Drag-and-Drop & Async Library Verification',
     isPrerelease: true,
     sections: [
       {
         heading: 'New Features & Enhancements',
         items: [
+          'Global Drag-and-Drop to Playlists: Drag any song from track tables, the bottom playback bar, or the song info page directly onto custom playlists or Liked Songs in the sidebar to add it instantly.',
           'Duplicate File Detector: Scans your entire library across drives to identify identical audio tracks stored in different folders (matching title, artist, and duration).',
           'Disk Space Reclaim Engine: Computes total wasted storage per duplicate cluster with side-by-side comparisons of file paths, bitrates, audio formats, and sizes.',
           'Smart Best-Quality Retention: Automatically recommends keeping the highest audio quality/bitrate copy while marking redundant files for removal.',

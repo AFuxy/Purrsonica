@@ -28,12 +28,37 @@ export const Sidebar: React.FC = () => {
     selectPlaylist,
     createPlaylist,
     deletePlaylist,
+    addTrackToPlaylist,
+    toggleLikeTrack,
     refreshAll,
   } = useLibraryStore();
 
   const { setModalOpen } = useScanStore();
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+  const [draggedOverPlaylistId, setDraggedOverPlaylistId] = useState<string | null>(null);
+  const [draggedOverLiked, setDraggedOverLiked] = useState(false);
+  const [dropToast, setDropToast] = useState<string | null>(null);
+
+  const triggerToast = (msg: string) => {
+    setDropToast(msg);
+    setTimeout(() => {
+      setDropToast(null);
+    }, 2500);
+  };
+
+  const extractTrackId = (e: React.DragEvent): string | null => {
+    const text = e.dataTransfer.getData('text/plain');
+    if (text) return text;
+    try {
+      const json = e.dataTransfer.getData('application/json');
+      if (json) {
+        const parsed = JSON.parse(json);
+        return parsed.trackId || null;
+      }
+    } catch {}
+    return null;
+  };
 
   const handleCreatePlaylistSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,8 +102,25 @@ export const Sidebar: React.FC = () => {
 
           <button
             onClick={() => setView('liked')}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+              setDraggedOverLiked(true);
+            }}
+            onDragLeave={() => setDraggedOverLiked(false)}
+            onDrop={async (e) => {
+              e.preventDefault();
+              setDraggedOverLiked(false);
+              const trackId = extractTrackId(e);
+              if (trackId) {
+                await toggleLikeTrack(trackId);
+                triggerToast('Added to Liked Songs');
+              }
+            }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all ${
-              currentView === 'liked'
+              draggedOverLiked
+                ? 'bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-500 scale-[1.02]'
+                : currentView === 'liked'
                 ? 'bg-emerald-500 text-black font-bold shadow-sm'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
             }`}
@@ -224,12 +266,31 @@ export const Sidebar: React.FC = () => {
           <div className="space-y-0.5">
             {playlists.map((pl) => {
               const isSelected = currentView === 'playlist_detail' && selectedPlaylist?.id === pl.id;
+              const isDraggedOver = draggedOverPlaylistId === pl.id;
+
               return (
                 <div
                   key={pl.id}
                   onClick={() => selectPlaylist(pl)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                    setDraggedOverPlaylistId(pl.id);
+                  }}
+                  onDragLeave={() => setDraggedOverPlaylistId(null)}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    setDraggedOverPlaylistId(null);
+                    const trackId = extractTrackId(e);
+                    if (trackId) {
+                      await addTrackToPlaylist(pl.id, trackId);
+                      triggerToast(`Added to "${pl.name}"`);
+                    }
+                  }}
                   className={`group flex items-center justify-between px-3 py-1.5 rounded-md cursor-pointer transition-all ${
-                    isSelected
+                    isDraggedOver
+                      ? 'bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-500 scale-[1.02]'
+                      : isSelected
                       ? 'bg-[var(--bg-tertiary)] text-emerald-400 font-bold'
                       : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
                   }`}
@@ -257,6 +318,13 @@ export const Sidebar: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating Drop Feedback Toast */}
+      {dropToast && (
+        <div className="mx-3 mb-2 bg-emerald-500 text-black px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg animate-in fade-in slide-in-from-bottom-2 text-center pointer-events-none truncate">
+          {dropToast}
+        </div>
+      )}
 
       {/* Bottom Action Footer */}
       <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-secondary)] space-y-2">

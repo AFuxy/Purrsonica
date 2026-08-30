@@ -60,7 +60,17 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
   return (
     <footer className="h-20 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] px-4 flex items-center justify-between z-40 select-none">
       {/* Left: Track Info, Album & File Location */}
-      <div className="flex items-center gap-3 w-1/3 max-w-sm min-w-[220px]">
+      <div
+        draggable={!!currentTrack}
+        onDragStart={(e) => {
+          if (!currentTrack) return;
+          e.dataTransfer.setData('application/json', JSON.stringify({ trackId: currentTrack.id, track: currentTrack }));
+          e.dataTransfer.setData('text/plain', currentTrack.id);
+          e.dataTransfer.effectAllowed = 'copyMove';
+        }}
+        className={`flex items-center gap-3 w-1/3 max-w-sm min-w-[220px] ${currentTrack ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        title={currentTrack ? 'Drag track to a playlist' : undefined}
+      >
         {currentTrack ? (
           <>
             <div
