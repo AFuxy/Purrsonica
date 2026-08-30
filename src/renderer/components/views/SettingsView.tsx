@@ -872,15 +872,19 @@ export const SettingsView: React.FC = () => {
               <div className="font-bold text-sm text-[var(--text-primary)]">Purrsonica v{appVersion}</div>
               <div className="text-xs text-[var(--text-muted)] mt-0.5">
                 {updateStatus.state === 'downloaded' ? (
-                  <span className="text-emerald-400 font-semibold">
-                    New version v{updateStatus.version} is downloaded and ready to install!
+                  <span className={updateStatus.isDowngrade ? 'text-amber-400 font-semibold' : 'text-emerald-400 font-semibold'}>
+                    {updateStatus.isDowngrade
+                      ? `Stable release v${updateStatus.version} is downloaded and ready to downgrade!`
+                      : `New version v${updateStatus.version} is downloaded and ready to install!`}
                   </span>
                 ) : updateStatus.state === 'downloading' ? (
                   <span className="text-cyan-400">
-                    Downloading update ({updateStatus.percent || 0}%)...
+                    {updateStatus.isDowngrade
+                      ? `Downloading stable release for downgrade (${updateStatus.percent || 0}%)...`
+                      : `Downloading update (${updateStatus.percent || 0}%)...`}
                   </span>
                 ) : updateStatus.state === 'checking' ? (
-                  <span>Checking GitHub Releases for new updates...</span>
+                  <span>Checking GitHub Releases for updates...</span>
                 ) : (
                   <span>Automatic background updates check every 1 hour</span>
                 )}
@@ -892,12 +896,18 @@ export const SettingsView: React.FC = () => {
                 <button
                   onClick={installUpdate}
                   className={`px-4 py-2 font-bold text-xs rounded-md shadow-md transition-all animate-pulse ${
-                    updateStatus.isPrerelease
+                    updateStatus.isDowngrade
+                      ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                      : updateStatus.isPrerelease
                       ? 'bg-purple-500 hover:bg-purple-400 text-white'
                       : 'bg-emerald-500 hover:bg-emerald-400 text-black'
                   }`}
                 >
-                  {updateStatus.isPrerelease ? 'Restart & Install Beta' : 'Restart & Install'}
+                  {updateStatus.isDowngrade
+                    ? `Restart & Downgrade to v${updateStatus.version}`
+                    : updateStatus.isPrerelease
+                    ? 'Restart & Install Beta'
+                    : 'Restart & Install'}
                 </button>
               ) : (
                 <button

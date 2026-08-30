@@ -19,8 +19,13 @@ export function isPrereleaseVersion(versionStr?: string): boolean {
 
 export function syncPrereleaseSetting(allow?: boolean): void {
   const allowPrerelease = allow !== undefined ? !!allow : !!getScanSettings().allowPrerelease;
+  const isCurrentPrerelease = isPrereleaseVersion(app.getVersion());
+
   autoUpdater.allowPrerelease = allowPrerelease;
-  console.log('[Purrsonica Updater] allowPrerelease set to:', autoUpdater.allowPrerelease);
+  // Allow downgrade if current version is a pre-release and user turned pre-releases OFF
+  autoUpdater.allowDowngrade = !allowPrerelease && isCurrentPrerelease;
+
+  console.log('[Purrsonica Updater] allowPrerelease set to:', autoUpdater.allowPrerelease, 'allowDowngrade:', autoUpdater.allowDowngrade);
 }
 
 function sendStatus(status: UpdateStatus) {
@@ -112,7 +117,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   syncPrereleaseSetting();
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[Purrsonica Updater] Checking for updates (allowPrerelease:', autoUpdater.allowPrerelease, ')...');
+    console.log('[Purrsonica Updater] Checking for updates (allowPrerelease:', autoUpdater.allowPrerelease, 'allowDowngrade:', autoUpdater.allowDowngrade, ')...');
     sendStatus({
       state: 'checking',
       isPrerelease: isPrereleaseVersion(app.getVersion()),
@@ -120,17 +125,20 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log('[Purrsonica Updater] Update available:', info.version);
-    const isPrerelease = isPrereleaseVersion(info.version);
+    console.log('[Purrsonica Updater] Update candidate found:', info.version);
+    const isTargetPrerelease = isPrereleaseVersion(info.version);
     const allowPrerelease = !!getScanSettings().allowPrerelease;
+    const currentVer = app.getVersion();
+    const isCurrentPrerelease = isPrereleaseVersion(currentVer);
+    const isDowngrade = isCurrentPrerelease && !isTargetPrerelease;
 
     // Safety Gate: Skip prerelease builds if user has not opted in
-    if (isPrerelease && !allowPrerelease) {
+    if (isTargetPrerelease && !allowPrerelease) {
       console.log('[Purrsonica Updater] Prerelease update skipped (allowPrerelease is false):', info.version);
       sendStatus({
         state: 'not-available',
         version: app.getVersion(),
-        isPrerelease: isPrereleaseVersion(app.getVersion()),
+        isPrerelease: isCurrentPrerelease,
       });
       return;
     }
@@ -140,7 +148,8 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
       state: 'available',
       version: info.version,
       releaseNotes: notes,
-      isPrerelease,
+      isPrerelease: isTargetPrerelease,
+      isDowngrade,
     });
 
     // Start download only if allowed
@@ -166,18 +175,24 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
       percent: Math.round(progress.percent),
       releaseNotes: currentStatus.releaseNotes,
       isPrerelease: currentStatus.isPrerelease,
+      isDowngrade: currentStatus.isDowngrade,
     });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[Purrsonica Updater] Update downloaded successfully:', info.version);
     const notes = extractReleaseNotes(info.releaseNotes) || currentStatus.releaseNotes;
-    const isPrerelease = isPrereleaseVersion(info.version);
+    const isTargetPrerelease = isPrereleaseVersion(info.version);
+    const currentVer = app.getVersion();
+    const isCurrentPrerelease = isPrereleaseVersion(currentVer);
+    const isDowngrade = isCurrentPrerelease && !isTargetPrerelease;
+
     sendStatus({
       state: 'downloaded',
       version: info.version,
       releaseNotes: notes,
-      isPrerelease,
+      isPrerelease: isTargetPrerelease,
+      isDowngrade,
     });
   });
 

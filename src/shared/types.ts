@@ -161,5 +161,6 @@ export interface UpdateStatus {
   releaseNotes?: string;
   percent?: number;
   isPrerelease?: boolean;
+  isDowngrade?: boolean;
   errorMessage?: string;
 }
