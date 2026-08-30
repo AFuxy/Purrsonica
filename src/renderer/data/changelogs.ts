@@ -61,14 +61,24 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
     isPrerelease: true,
     sections: [
       {
-        heading: 'New Features & Enhancements',
+        heading: 'New Features',
         items: [
-          'Global Drag-and-Drop to Playlists: Drag any song from track tables, the bottom playback bar, or the song info page directly onto custom playlists or Liked Songs in the sidebar to add it instantly.',
           'Duplicate File Detector: Scans your entire library across drives to identify identical audio tracks stored in different folders (matching title, artist, and duration).',
+          'Global Drag-and-Drop to Playlists: Drag any song from track tables, the bottom playback bar, or the song info page directly onto custom playlists or Liked Songs in the sidebar to add it instantly.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
           'Disk Space Reclaim Engine: Computes total wasted storage per duplicate cluster with side-by-side comparisons of file paths, bitrates, audio formats, and sizes.',
           'Smart Best-Quality Retention: Automatically recommends keeping the highest audio quality/bitrate copy while marking redundant files for removal.',
           'Safe Trash / Recycle Bin Removal: Move redundant files directly to your OS Trash / Recycle Bin with full undo safety.',
-          'Zero-Freeze Library Verification: Completely rebuilt Verify Library & Clean Missing Files with asynchronous chunking and live progress counters, eliminating application freezes.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Zero-Freeze Library Verification: Rebuilt Verify Library & Clean Missing Files with asynchronous chunking and live progress counters, eliminating application freezes and crashes during deep library maintenance.',
         ],
       },
     ],
@@ -78,16 +88,26 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
     title: 'Floating Mini-Player Widget, Gapless Looping & Channel-Aware Changelogs',
     sections: [
       {
-        heading: 'New Features & Enhancements',
+        heading: 'New Features',
         items: [
           'Floating Always-on-Top Mini-Player: A sleek, compact floating widget (380×135px) engineered for gaming, multitasking, and distraction-free daily listening.',
           'Interactive Waveform Scrubber: Live seekable waveform bar with duration timers and glowing accent playback head.',
           'Global Mini-Player Shortcut: Press Ctrl+M (or Cmd+M on macOS) anywhere inside the app to toggle mini-player mode.',
-          'Gapless Audio Loop Engine: Native browser-level loop decoders for seamless single-track Repeat One (🔂) and full-queue Repeat All (🔁).',
           'Dynamic Channel-Aware Changelogs: Automatically hides experimental beta and pre-release changelogs on live production builds.',
-          'Visual Channel Badges: Color-coded visual badges for Latest Stable and Pre-Release / Beta channels.',
           'One-Click Pre-Release Downgrade System: Seamlessly toggle pre-releases OFF to download and downgrade to the latest stable release.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Visual Channel Badges: Color-coded visual badges for Latest Stable (Emerald) and Pre-Release / Beta (Purple Flame) channels.',
           'Automated CI/CD Pre-Release Detection: Automatic tagging and release categorization across Windows, macOS, and Linux.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Gapless Audio Loop Engine: Native browser-level loop decoders for seamless single-track Repeat One (🔂) and full-queue Repeat All (🔁).',
         ],
       },
     ],
@@ -98,14 +118,17 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
     isPrerelease: true,
     sections: [
       {
-        heading: 'New Features & Enhancements',
+        heading: 'New Features',
         items: [
           'Dynamic Channel-Aware Changelogs: Automatically hides pre-release changelogs on live production builds so standard users only see official releases.',
-          'Color-Coded Release Identity: Distinct glowing badges for Latest Stable (Emerald) and Pre-Release / Beta (Purple Flame).',
           'One-Click Pre-Release Downgrade System: Toggle pre-releases OFF to seamlessly download and downgrade back to the latest stable release.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Color-Coded Release Identity: Distinct glowing badges for Latest Stable (Emerald) and Pre-Release / Beta (Purple Flame).',
           'Automated CI/CD Pre-Release Detection: GitHub Actions workflow automatically flags pre-release tags without manual configuration.',
-          'Always-on-Top Floating Mini-Player: Compact widget with scrubbable waveform, DJ key badges, volume flyout, and Ctrl+M toggle.',
-          'Gapless Audio Loop Engine: Native loop decoders for seamless Repeat One (🔂) and full-queue Repeat All (🔁).',
         ],
       },
     ],
