@@ -64,9 +64,10 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
         draggable={!!currentTrack}
         onDragStart={(e) => {
           if (!currentTrack) return;
+          e.dataTransfer.setData('application/purrsonica-track', currentTrack.id);
           e.dataTransfer.setData('application/json', JSON.stringify({ trackId: currentTrack.id, track: currentTrack }));
           e.dataTransfer.setData('text/plain', currentTrack.id);
-          e.dataTransfer.effectAllowed = 'copyMove';
+          e.dataTransfer.effectAllowed = 'copy';
         }}
         className={`flex items-center gap-3 w-1/3 max-w-sm min-w-[220px] ${currentTrack ? 'cursor-grab active:cursor-grabbing' : ''}`}
         title={currentTrack ? 'Drag track to a playlist' : undefined}

@@ -36,8 +36,9 @@ export const TrackCover: React.FC<TrackCoverProps> = ({
         alt={alt}
         loading={loading}
         decoding="async"
+        draggable={false}
         onError={() => setHasError(true)}
-        className={className}
+        className={`${className} select-none`}
       />
     );
   }

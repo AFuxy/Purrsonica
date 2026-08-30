@@ -88,21 +88,14 @@ export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
         <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-8">
           {/* Large Artwork */}
           <div
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('application/json', JSON.stringify({ trackId: track.id, track }));
-              e.dataTransfer.setData('text/plain', track.id);
-              e.dataTransfer.effectAllowed = 'copyMove';
-            }}
             onClick={() => {
               if (track.media_type === 'video') {
                 setVideoModalOpen(true);
               }
             }}
-            className={`w-44 h-44 md:w-52 md:h-52 rounded-2xl overflow-hidden bg-[var(--bg-tertiary)] border border-[var(--border-color)] shadow-2xl flex-shrink-0 relative group flex items-center justify-center cursor-grab active:cursor-grabbing ${
+            className={`w-44 h-44 md:w-52 md:h-52 rounded-2xl overflow-hidden bg-[var(--bg-tertiary)] border border-[var(--border-color)] shadow-2xl flex-shrink-0 relative group flex items-center justify-center ${
               track.media_type === 'video' ? 'cursor-pointer' : ''
             }`}
-            title="Drag track to a playlist"
           >
             <TrackCover
               coverPath={track.cover_art_path}

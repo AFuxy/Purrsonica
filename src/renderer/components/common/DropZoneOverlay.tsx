@@ -14,8 +14,15 @@ export const DropZoneOverlay: React.FC = () => {
     const handleDragEnter = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // Ignore internal Purrsonica track dragging
+      const types = Array.from(e.dataTransfer?.types || []);
+      if (types.includes('application/purrsonica-track') || types.includes('application/json')) {
+        return;
+      }
+
       dragCounter++;
-      if (e.dataTransfer?.types?.includes('Files')) {
+      if (types.includes('Files')) {
         setIsDraggingOver(true);
       }
     };
@@ -33,6 +40,12 @@ export const DropZoneOverlay: React.FC = () => {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
+      const types = Array.from(e.dataTransfer?.types || []);
+      if (types.includes('application/purrsonica-track') || types.includes('application/json')) {
+        return;
+      }
+
       if (e.dataTransfer) {
         e.dataTransfer.dropEffect = 'copy';
       }
@@ -43,6 +56,11 @@ export const DropZoneOverlay: React.FC = () => {
       e.stopPropagation();
       dragCounter = 0;
       setIsDraggingOver(false);
+
+      const types = Array.from(e.dataTransfer?.types || []);
+      if (types.includes('application/purrsonica-track') || types.includes('application/json')) {
+        return;
+      }
 
       const files = e.dataTransfer?.files;
       if (!files || files.length === 0 || !window.api) return;

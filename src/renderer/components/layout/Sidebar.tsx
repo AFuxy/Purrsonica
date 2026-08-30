@@ -48,15 +48,17 @@ export const Sidebar: React.FC = () => {
   };
 
   const extractTrackId = (e: React.DragEvent): string | null => {
-    const text = e.dataTransfer.getData('text/plain');
-    if (text) return text;
+    const custom = e.dataTransfer.getData('application/purrsonica-track');
+    if (custom) return custom;
     try {
       const json = e.dataTransfer.getData('application/json');
       if (json) {
         const parsed = JSON.parse(json);
-        return parsed.trackId || null;
+        if (parsed.trackId) return parsed.trackId;
       }
     } catch {}
+    const text = e.dataTransfer.getData('text/plain');
+    if (text && !text.startsWith('http') && !text.startsWith('file://')) return text;
     return null;
   };
 

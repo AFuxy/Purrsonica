@@ -82,9 +82,10 @@ const TrackTableRow = memo<TrackTableRowProps>(
         style={{ height: `${ROW_HEIGHT}px` }}
         draggable
         onDragStart={(e) => {
+          e.dataTransfer.setData('application/purrsonica-track', track.id);
           e.dataTransfer.setData('application/json', JSON.stringify({ trackId: track.id, track }));
           e.dataTransfer.setData('text/plain', track.id);
-          e.dataTransfer.effectAllowed = 'copyMove';
+          e.dataTransfer.effectAllowed = 'copy';
         }}
         onDoubleClick={() => onPlay(track)}
         className={`grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 hover:bg-[var(--bg-tertiary)] transition-colors group cursor-grab active:cursor-grabbing ${

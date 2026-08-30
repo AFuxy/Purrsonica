@@ -56,6 +56,27 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.5.0-beta.3',
+    title: 'Full Ghost Virtualization for Duplicate File Cleaner & High-Capacity Library Scaling',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Ghost Virtualization for Duplicate Cleaner: Implemented full dynamic ghost virtualization with layout offset precomputation, bounding overscan windows, and requestAnimationFrame scroll scheduling—rendering thousands of duplicate files with near-zero DOM overhead.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Zero-Lag Deselect & Selection Scaling: Replaced progressive list appending with true windowed virtualization, eliminating UI freeze and DOM bloat when managing libraries with 4,000+ duplicate files.',
+          'Custom Playlist Artwork Persistence: Moved custom user-uploaded playlist and track cover images into a permanent storage directory, preventing them from being wiped during background cache cleanups or app restarts.',
+          'Track Drag-and-Drop vs Image Upload Isolation: Added draggable isolation to album artwork images and custom drag data types, preventing internal track drag operations from triggering the full-screen media file upload overlay.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.5.0-beta.2',
     title: 'Duplicate Scanner Performance Optimization, Lazy Windowing & Mini-Player Refinements',
     isPrerelease: true,

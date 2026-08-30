@@ -41,7 +41,7 @@ import {
   getScanProgress,
   detectSystemDrives,
 } from './scanner/scanner-controller.js';
-import { getCoversCacheDir, clearCoversCache } from './db/database.js';
+import { getCoversCacheDir, getCustomCoversDir, clearCoversCache } from './db/database.js';
 import { extractWaveformPeaks } from './scanner/waveform.js';
 import { getMediaType } from './scanner/exclusions.js';
 import { recacheAllArtwork, cancelArtworkRecache } from './scanner/artwork-recacher.js';
@@ -280,11 +280,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
     let newCoverPath = track.cover_art_path;
 
-    // If custom cover image base64 is provided, write to cache dir
+    // If custom cover image base64 is provided, write to permanent custom covers dir
     if (payload.cover_art_base64) {
-      const cacheDir = getCoversCacheDir();
+      const customDir = getCustomCoversDir();
       const filename = `custom_${payload.id}_${Date.now()}.jpg`;
-      newCoverPath = path.join(cacheDir, filename);
+      newCoverPath = path.join(customDir, filename);
       const base64Data = payload.cover_art_base64.replace(/^data:image\/\w+;base64,/, '');
       await fs.promises.writeFile(newCoverPath, Buffer.from(base64Data, 'base64'));
     }
@@ -353,9 +353,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     async (_event, id: string, name?: string, description?: string, coverArtBase64?: string) => {
       let coverArtPath: string | undefined;
       if (coverArtBase64) {
-        const cacheDir = getCoversCacheDir();
+        const customDir = getCustomCoversDir();
         const filename = `pl_cover_${id}_${Date.now()}.jpg`;
-        coverArtPath = path.join(cacheDir, filename);
+        coverArtPath = path.join(customDir, filename);
         const base64Data = coverArtBase64.replace(/^data:image\/\w+;base64,/, '');
         await fs.promises.writeFile(coverArtPath, Buffer.from(base64Data, 'base64'));
       }

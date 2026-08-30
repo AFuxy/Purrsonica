@@ -21,6 +21,23 @@ export function getDatabasePath(): string {
   return path.join(localDir, 'purrsonica.db');
 }
 
+let customCoversDir = '';
+
+export function getCustomCoversDir(): string {
+  if (customCoversDir) return customCoversDir;
+
+  if (app) {
+    customCoversDir = path.join(app.getPath('userData'), 'custom_covers');
+  } else {
+    customCoversDir = path.join(process.cwd(), '.purrsonica_data', 'custom_covers');
+  }
+
+  if (!fs.existsSync(customCoversDir)) {
+    fs.mkdirSync(customCoversDir, { recursive: true });
+  }
+  return customCoversDir;
+}
+
 export function getCoversCacheDir(): string {
   if (coversCacheDir) return coversCacheDir;
 
@@ -42,13 +59,15 @@ export function clearCoversCache(): boolean {
     if (fs.existsSync(dir)) {
       const files = fs.readdirSync(dir);
       for (const f of files) {
+        // Never delete custom playlist or track covers
+        if (f.startsWith('pl_cover_') || f.startsWith('custom_')) continue;
         try {
           fs.unlinkSync(path.join(dir, f));
         } catch {}
       }
     }
     if (dbInstance) {
-      dbInstance.prepare("UPDATE tracks SET cover_art_path = NULL WHERE cover_art_path LIKE '%cache%'").run();
+      dbInstance.prepare("UPDATE tracks SET cover_art_path = NULL WHERE cover_art_path LIKE '%cache%' AND cover_art_path NOT LIKE '%custom_%'").run();
       dbInstance.prepare("UPDATE albums SET cover_art_path = NULL WHERE cover_art_path LIKE '%cache%'").run();
     }
     return true;
