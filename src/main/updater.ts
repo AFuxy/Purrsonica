@@ -107,7 +107,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   targetWindow = mainWindow;
 
   // Configure autoUpdater
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
   syncPrereleaseSetting();
 
@@ -121,13 +121,31 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[Purrsonica Updater] Update available:', info.version);
-    const notes = extractReleaseNotes(info.releaseNotes);
     const isPrerelease = isPrereleaseVersion(info.version);
+    const allowPrerelease = !!getScanSettings().allowPrerelease;
+
+    // Safety Gate: Skip prerelease builds if user has not opted in
+    if (isPrerelease && !allowPrerelease) {
+      console.log('[Purrsonica Updater] Prerelease update skipped (allowPrerelease is false):', info.version);
+      sendStatus({
+        state: 'not-available',
+        version: app.getVersion(),
+        isPrerelease: isPrereleaseVersion(app.getVersion()),
+      });
+      return;
+    }
+
+    const notes = extractReleaseNotes(info.releaseNotes);
     sendStatus({
       state: 'available',
       version: info.version,
       releaseNotes: notes,
       isPrerelease,
+    });
+
+    // Start download only if allowed
+    autoUpdater.downloadUpdate().catch((err) => {
+      console.warn('[Purrsonica Updater] Download failed:', err?.message || err);
     });
   });
 

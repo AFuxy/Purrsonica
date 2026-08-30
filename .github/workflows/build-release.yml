@@ -49,6 +49,22 @@ jobs:
         run: npm run compile
 
       - name: Build & Publish Release to GitHub
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder ${{ matrix.target }} --publish always
+        run: |
+          if [[ "${{ github.ref_name }}" =~ -(alpha|beta|rc|canary|pre|dev|preview) ]]; then
+            echo "Publishing as GitHub Pre-Release..."
+            npx electron-builder ${{ matrix.target }} --publish always -c.publish.releaseType=prerelease
+          else
+            echo "Publishing as Standard Production Release..."
+            npx electron-builder ${{ matrix.target }} --publish always -c.publish.releaseType=release
+          fi
+
+      - name: Ensure GitHub Pre-Release Flags
+        if: contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-preview') || contains(github.ref_name, '-dev')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "${{ github.ref_name }}" --prerelease=true --latest=false || true
