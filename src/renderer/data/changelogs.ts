@@ -56,6 +56,26 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.5.0-beta.4',
+    title: 'File Path Search Engine, Smart Scanner Placement & Settings Scanner Hub',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'File Path Search Engine: Added full support for searching by file path, folder names, and directory locations in the main search bar.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Smart Sidebar Scan PC Visibility: Automatically hides the prominent "Scan PC" button from the sidebar after your first media scan is completed, keeping the sidebar sleek.',
+          'Enhanced Settings Scanner Hub: Added a prominent "Scan Computer for New Media" action card and clear button in Settings > Library & Scanner Preferences.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.5.0-beta.3',
     title: 'Full Ghost Virtualization for Duplicate File Cleaner & High-Capacity Library Scaling',
     isPrerelease: true,

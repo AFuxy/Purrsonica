@@ -80,7 +80,7 @@ export function queryTracks(params: TrackQueryParams = {}): { tracks: Track[]; t
 
   if (params.search && params.search.trim()) {
     const term = `%${params.search.trim()}%`;
-    conditions.push('(t.title LIKE @search OR t.artist LIKE @search OR t.album LIKE @search OR t.file_name LIKE @search)');
+    conditions.push('(t.title LIKE @search OR t.artist LIKE @search OR t.album LIKE @search OR t.file_name LIKE @search OR t.file_path LIKE @search)');
     bindings.search = term;
   }
 

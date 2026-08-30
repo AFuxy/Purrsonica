@@ -29,6 +29,7 @@ import {
   Palette,
   Check,
   Copy,
+  Zap,
 } from 'lucide-react';
 import { useThemeStore, ACCENT_PRESETS } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -569,9 +570,32 @@ export const SettingsView: React.FC = () => {
           </h2>
           <button
             onClick={() => setModalOpen(true)}
-            className="text-xs font-semibold px-3 py-1 rounded-md bg-emerald-500 hover:bg-emerald-400 text-black shadow transition-all"
+            className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black shadow-md transition-all hover:scale-105 cursor-pointer"
           >
-            Open Scanner Modal
+            <Zap className="w-3.5 h-3.5 fill-black" />
+            <span>Scan PC / Drives</span>
+          </button>
+        </div>
+
+        {/* Quick Scanner Action Card */}
+        <div className="p-4 bg-gradient-to-r from-emerald-950/40 via-emerald-900/15 to-transparent border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-sm">
+              <Zap className="w-5 h-5 fill-emerald-400" />
+            </div>
+            <div>
+              <div className="font-bold text-xs text-white">Scan Computer for New Media</div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                Scan your whole PC, internal/external drives, or selected folders to index new audio and video tracks.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-xs shadow-md transition-all hover:scale-105 flex-shrink-0 cursor-pointer"
+          >
+            <Zap className="w-4 h-4 fill-black" />
+            <span>Start PC Scan</span>
           </button>
         </div>
 

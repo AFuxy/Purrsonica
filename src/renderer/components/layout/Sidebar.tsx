@@ -330,17 +330,19 @@ export const Sidebar: React.FC = () => {
 
       {/* Bottom Action Footer */}
       <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-secondary)] space-y-2">
-        <button
-          onClick={() => setModalOpen(true)}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold shadow-md transition-all hover:scale-[1.02]"
-        >
-          <Zap className="w-4 h-4 fill-black" />
-          <span>Scan PC</span>
-        </button>
+        {(!stats || stats.totalTracks === 0) && (
+          <button
+            onClick={() => setModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold shadow-md transition-all hover:scale-[1.02] cursor-pointer animate-in fade-in"
+          >
+            <Zap className="w-4 h-4 fill-black" />
+            <span>Scan PC</span>
+          </button>
+        )}
 
         <button
           onClick={handlePickFiles}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium border border-[var(--border-color)] transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium border border-[var(--border-color)] transition-colors cursor-pointer"
         >
           <FolderInput className="w-4 h-4 text-emerald-400" />
           <span>Import Files</span>
