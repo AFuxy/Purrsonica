@@ -79,6 +79,7 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
         heading: 'Bug Fixes',
         items: [
           'Zero-Freeze Library Verification: Rebuilt Verify Library & Clean Missing Files with asynchronous chunking and live progress counters, eliminating application freezes and crashes during deep library maintenance.',
+          'Mini-Player Logo & Seekbar Rendering: Fixed broken header logo image path and redesigned the mini-player layout with a dedicated full-width seekbar scrubber and duration counters.',
         ],
       },
     ],

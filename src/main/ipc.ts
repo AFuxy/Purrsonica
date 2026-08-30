@@ -111,7 +111,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       win.setAlwaysOnTop(true, 'floating');
 
       const width = 380;
-      const height = 135;
+      const height = 145;
       const currentBounds = win.getBounds();
 
       win.setBounds({
