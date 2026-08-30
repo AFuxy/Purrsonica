@@ -43,10 +43,12 @@ export const DuplicateCleanerModal: React.FC<DuplicateCleanerModalProps> = ({
 
       // By default, pre-select all copies EXCEPT the recommended keep copy
       const toDelete = new Set<string>();
-      for (const cluster of result.clusters) {
-        for (const track of cluster.tracks) {
-          if (!track.isRecommendedKeep) {
-            toDelete.add(track.id);
+      if (result && Array.isArray(result.clusters)) {
+        for (const cluster of result.clusters) {
+          for (const track of cluster.tracks) {
+            if (!track.isRecommendedKeep) {
+              toDelete.add(track.id);
+            }
           }
         }
       }
