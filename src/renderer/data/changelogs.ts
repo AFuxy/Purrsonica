@@ -56,6 +56,25 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.4.0',
+    title: 'Floating Mini-Player Widget, Gapless Looping & Channel-Aware Changelogs',
+    sections: [
+      {
+        heading: 'New Features & Enhancements',
+        items: [
+          'Floating Always-on-Top Mini-Player: A sleek, compact floating widget (380×135px) engineered for gaming, multitasking, and distraction-free daily listening.',
+          'Interactive Waveform Scrubber: Live seekable waveform bar with duration timers and glowing accent playback head.',
+          'Global Mini-Player Shortcut: Press Ctrl+M (or Cmd+M on macOS) anywhere inside the app to toggle mini-player mode.',
+          'Gapless Audio Loop Engine: Native browser-level loop decoders for seamless single-track Repeat One (🔂) and full-queue Repeat All (🔁).',
+          'Dynamic Channel-Aware Changelogs: Automatically hides experimental beta and pre-release changelogs on live production builds.',
+          'Visual Channel Badges: Color-coded visual badges for Latest Stable and Pre-Release / Beta channels.',
+          'One-Click Pre-Release Downgrade System: Seamlessly toggle pre-releases OFF to download and downgrade to the latest stable release.',
+          'Automated CI/CD Pre-Release Detection: Automatic tagging and release categorization across Windows, macOS, and Linux.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.4.0-beta.2',
     title: 'Dynamic Channel-Aware Changelogs & One-Click Downgrade Engine',
     isPrerelease: true,
