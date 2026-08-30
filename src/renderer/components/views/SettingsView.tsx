@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Settings as SettingsIcon,
   Sun,
@@ -34,7 +34,7 @@ import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
-import { APP_CHANGELOGS } from '../../data/changelogs.js';
+import { APP_CHANGELOGS, fetchGitHubReleases, isPrereleaseVersion, GitHubReleaseInfo } from '../../data/changelogs.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 import { ScanSettings } from '../../../shared/types.js';
 
@@ -67,10 +67,22 @@ export const SettingsView: React.FC = () => {
   const [newExclusion, setNewExclusion] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Multi-version changelog accordion state (latest version open by default)
-  const [expandedChangelogs, setExpandedChangelogs] = useState<Record<string, boolean>>({
-    [APP_CHANGELOGS[0]?.version || '1.1.3']: true,
-  });
+  // Dynamic GitHub Releases cache
+  const [gitHubReleases, setGitHubReleases] = useState<GitHubReleaseInfo[]>([]);
+
+  useEffect(() => {
+    fetchGitHubReleases().then((releases) => {
+      if (releases && releases.length > 0) {
+        setGitHubReleases(releases);
+      }
+    });
+  }, []);
+
+  // Dynamic App Version
+  const [appVersion, setAppVersion] = useState('1.4.0-beta.2');
+
+  // Multi-version changelog accordion state
+  const [expandedChangelogs, setExpandedChangelogs] = useState<Record<string, boolean>>({});
 
   const toggleChangelog = (ver: string) => {
     setExpandedChangelogs((prev) => ({
@@ -78,9 +90,6 @@ export const SettingsView: React.FC = () => {
       [ver]: !prev[ver],
     }));
   };
-
-  // Dynamic App Version
-  const [appVersion, setAppVersion] = useState('1.1.3');
 
   // Danger Zone Confirmation States
   const [confirmWipe, setConfirmWipe] = useState(false);
@@ -117,6 +126,49 @@ export const SettingsView: React.FC = () => {
     enableDiscordRpc: true,
     discordRpcShowButtons: true,
   };
+
+  const isCurrentPrerelease = isPrereleaseVersion(appVersion);
+  const showPrereleases = isCurrentPrerelease || !!currentSettings.allowPrerelease;
+
+  // Filter out pre-release changelogs on live stable builds unless opted in
+  const visibleChangelogs = useMemo(() => {
+    return APP_CHANGELOGS.filter((rel) => {
+      if (showPrereleases) return true;
+      return !rel.isPrerelease && !isPrereleaseVersion(rel.version);
+    });
+  }, [showPrereleases]);
+
+  // Dynamically resolve latest stable and latest beta versions from GitHub API or local data
+  const latestStableVersion = useMemo(() => {
+    if (gitHubReleases.length > 0) {
+      const found = gitHubReleases.find((r) => !r.prerelease && !r.draft);
+      if (found) return found.tag_name.replace(/^v/, '');
+    }
+    const local = APP_CHANGELOGS.find((r) => !r.isPrerelease && !isPrereleaseVersion(r.version));
+    return local?.version || '1.3.1';
+  }, [gitHubReleases]);
+
+  const latestBetaVersion = useMemo(() => {
+    if (gitHubReleases.length > 0) {
+      const found = gitHubReleases.find((r) => r.prerelease && !r.draft);
+      if (found) return found.tag_name.replace(/^v/, '');
+    }
+    const local = APP_CHANGELOGS.find((r) => r.isPrerelease || isPrereleaseVersion(r.version));
+    return local?.version;
+  }, [gitHubReleases]);
+
+  // Auto-expand the top visible changelog by default
+  useEffect(() => {
+    if (visibleChangelogs.length > 0) {
+      const firstVer = visibleChangelogs[0].version;
+      setExpandedChangelogs((prev) => {
+        if (Object.keys(prev).length === 0 || !Object.values(prev).some(Boolean)) {
+          return { [firstVer]: true };
+        }
+        return prev;
+      });
+    }
+  }, [visibleChangelogs]);
 
   const handleAddExclusion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1042,26 +1094,40 @@ export const SettingsView: React.FC = () => {
                 Release History & Changelogs
               </span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                {APP_CHANGELOGS.length} Versions
+                {visibleChangelogs.length} Versions {showPrereleases ? '(Includes Betas)' : '(Stable Channel)'}
               </span>
             </div>
 
             <div className="space-y-2 mt-2">
-              {APP_CHANGELOGS.map((rel) => {
+              {visibleChangelogs.map((rel) => {
                 const isOpen = !!expandedChangelogs[rel.version];
+                const isBeta = rel.isPrerelease || isPrereleaseVersion(rel.version);
+                const isLatestStable = rel.version === latestStableVersion;
+                const isLatestBeta = isBeta && rel.version === latestBetaVersion;
+
                 return (
                   <div
                     key={rel.version}
-                    className="border border-[var(--border-color)] bg-[var(--bg-tertiary)] rounded-lg overflow-hidden transition-all"
+                    className={`rounded-lg overflow-hidden transition-all ${
+                      isLatestBeta
+                        ? 'border border-purple-500/40 bg-purple-950/20 shadow-sm'
+                        : isBeta
+                        ? 'border border-purple-500/25 bg-purple-950/10'
+                        : isLatestStable
+                        ? 'border border-emerald-500/40 bg-emerald-950/20 shadow-sm'
+                        : 'border border-[var(--border-color)] bg-[var(--bg-tertiary)]'
+                    }`}
                   >
                     <button
                       onClick={() => toggleChangelog(rel.version)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
-                          className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded ${
-                            rel.isLatest
+                          className={`text-xs font-bold font-mono px-2 py-0.5 rounded ${
+                            isBeta
+                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                              : isLatestStable
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                               : 'bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-color)]'
                           }`}
@@ -1071,16 +1137,29 @@ export const SettingsView: React.FC = () => {
                         <span className="text-xs font-semibold text-[var(--text-primary)]">
                           {rel.title}
                         </span>
-                        {rel.isLatest && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">
-                            Latest
+
+                        {isLatestBeta && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 uppercase tracking-wider flex items-center gap-1">
+                            <Flame className="w-3 h-3 text-purple-400" /> Active Beta
+                          </span>
+                        )}
+
+                        {isBeta && !isLatestBeta && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400/80 font-medium border border-purple-500/20 flex items-center gap-1">
+                            <Flame className="w-3 h-3 text-purple-400" /> Pre-Release
+                          </span>
+                        )}
+
+                        {isLatestStable && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 uppercase tracking-wider flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-emerald-400" /> Latest Stable
                           </span>
                         )}
                       </div>
                       {isOpen ? (
-                        <ChevronUp className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                        <ChevronUp className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0" />
                       ) : (
-                        <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                        <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0" />
                       )}
                     </button>
 
@@ -1091,18 +1170,21 @@ export const SettingsView: React.FC = () => {
                             <div className="font-bold text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
                               {sec.heading}
                             </div>
-                            <ul className="list-disc list-inside space-y-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
+                            <ul className="space-y-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
                               {sec.items.map((item, iIdx) => {
                                 const parts = item.split(': ');
                                 return (
-                                  <li key={iIdx}>
-                                    {parts.length > 1 ? (
-                                      <>
-                                        <strong className="text-[var(--text-primary)]">{parts[0]}</strong>: {parts.slice(1).join(': ')}
-                                      </>
-                                    ) : (
-                                      item
-                                    )}
+                                  <li key={iIdx} className="flex items-start gap-1.5">
+                                    <span className={isBeta ? 'text-purple-400 font-bold flex-shrink-0' : 'text-emerald-400 font-bold flex-shrink-0'}>•</span>
+                                    <div>
+                                      {parts.length > 1 ? (
+                                        <>
+                                          <strong className="text-[var(--text-primary)]">{parts[0]}</strong>: {parts.slice(1).join(': ')}
+                                        </>
+                                      ) : (
+                                        item
+                                      )}
+                                    </div>
                                   </li>
                                 );
                               })}

@@ -1,18 +1,82 @@
 export interface ChangelogRelease {
   version: string;
   title: string;
-  isLatest?: boolean;
+  isPrerelease?: boolean;
   sections: {
     heading: string;
     items: string[];
   }[];
 }
 
+export function isPrereleaseVersion(versionStr?: string): boolean {
+  if (!versionStr) return false;
+  return /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(versionStr);
+}
+
+export interface GitHubReleaseInfo {
+  tag_name: string;
+  name: string;
+  prerelease: boolean;
+  draft: boolean;
+  published_at: string;
+  html_url: string;
+}
+
+let cachedGitHubReleases: GitHubReleaseInfo[] | null = null;
+let lastFetchTime = 0;
+
+export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
+  const now = Date.now();
+  if (cachedGitHubReleases && now - lastFetchTime < 10 * 60 * 1000) {
+    return cachedGitHubReleases;
+  }
+
+  try {
+    const res = await fetch('https://api.github.com/repos/AFuxy/Purrsonica/releases?per_page=30');
+    if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      cachedGitHubReleases = data.map((r: any) => ({
+        tag_name: r.tag_name,
+        name: r.name,
+        prerelease: !!r.prerelease,
+        draft: !!r.draft,
+        published_at: r.published_at,
+        html_url: r.html_url,
+      }));
+      lastFetchTime = now;
+      return cachedGitHubReleases;
+    }
+  } catch (err) {
+    console.warn('[Changelog] Could not fetch GitHub releases dynamically, using local fallback:', err);
+  }
+
+  return cachedGitHubReleases || [];
+}
+
 export const APP_CHANGELOGS: ChangelogRelease[] = [
+  {
+    version: '1.4.0-beta.2',
+    title: 'Dynamic Channel-Aware Changelogs & One-Click Downgrade Engine',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'New Features & Enhancements',
+        items: [
+          'Dynamic Channel-Aware Changelogs: Automatically hides pre-release changelogs on live production builds so standard users only see official releases.',
+          'Color-Coded Release Identity: Distinct glowing badges for Latest Stable (Emerald) and Pre-Release / Beta (Purple Flame).',
+          'One-Click Pre-Release Downgrade System: Toggle pre-releases OFF to seamlessly download and downgrade back to the latest stable release.',
+          'Automated CI/CD Pre-Release Detection: GitHub Actions workflow automatically flags pre-release tags without manual configuration.',
+          'Always-on-Top Floating Mini-Player: Compact widget with scrubbable waveform, DJ key badges, volume flyout, and Ctrl+M toggle.',
+          'Gapless Audio Loop Engine: Native loop decoders for seamless Repeat One (🔂) and full-queue Repeat All (🔁).',
+        ],
+      },
+    ],
+  },
   {
     version: '1.4.0-beta.1',
     title: 'Always-on-Top Floating Mini-Player & Gapless Audio Loop Engine',
-    isLatest: true,
+    isPrerelease: true,
     sections: [
       {
         heading: 'New Features',
