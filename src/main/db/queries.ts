@@ -8,6 +8,9 @@ import {
   LibraryStats,
   ScanSettings,
   UpdateTrackMetadataPayload,
+  DuplicateCluster,
+  DuplicateTrackItem,
+  DuplicateScanResult,
 } from '../../shared/types.js';
 
 export interface TrackQueryParams {
@@ -554,26 +557,175 @@ export function wipeLibraryOnly(): void {
   })();
 }
 
-export function cleanDeadTracks(): { removedCount: number } {
+export async function cleanDeadTracks(
+  onProgress?: (current: number, total: number) => void
+): Promise<{ removedCount: number }> {
   const db = getDB();
   const rows = db.prepare('SELECT id, file_path FROM tracks').all() as { id: string; file_path: string }[];
+  const total = rows.length;
+  const deadIds: string[] = [];
+
+  const chunkSize = 250;
+  for (let i = 0; i < total; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (r) => {
+        try {
+          await fs.promises.access(r.file_path, fs.constants.F_OK);
+        } catch {
+          deadIds.push(r.id);
+        }
+      })
+    );
+
+    if (onProgress) {
+      onProgress(Math.min(i + chunkSize, total), total);
+    }
+    // Yield to the event loop so Electron main thread never blocks or freezes
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
   let removedCount = 0;
+  if (deadIds.length > 0) {
+    const deletePlaylistTracksStmt = db.prepare('DELETE FROM playlist_tracks WHERE track_id = ?');
+    const deleteTrackStmt = db.prepare('DELETE FROM tracks WHERE id = ?');
 
-  const deleteStmt = db.prepare('DELETE FROM tracks WHERE id = ?');
-  const deletePlaylistTracksStmt = db.prepare('DELETE FROM playlist_tracks WHERE track_id = ?');
+    const deleteBatch = db.transaction((ids: string[]) => {
+      for (const id of ids) {
+        deletePlaylistTracksStmt.run(id);
+        deleteTrackStmt.run(id);
+      }
+    });
 
-  const runCleanup = db.transaction(() => {
+    deleteBatch(deadIds);
+    removedCount = deadIds.length;
+  }
+
+  return { removedCount };
+}
+
+export async function findDuplicateTracks(): Promise<DuplicateScanResult> {
+  const db = getDB();
+
+  // Find all duplicate groups matching normalized title, artist, and rounded duration
+  const candidateGroups = db.prepare(`
+    SELECT 
+      LOWER(TRIM(title)) AS norm_title,
+      LOWER(TRIM(artist)) AS norm_artist,
+      ROUND(duration, 0) AS norm_dur,
+      COUNT(*) AS count
+    FROM tracks
+    WHERE title IS NOT NULL AND TRIM(title) != '' AND duration > 5
+    GROUP BY norm_title, norm_artist, norm_dur
+    HAVING count > 1
+    ORDER BY count DESC
+  `).all() as { norm_title: string; norm_artist: string; norm_dur: number; count: number }[];
+
+  const clusters: DuplicateCluster[] = [];
+  let totalDuplicateFiles = 0;
+  let totalWastedBytes = 0;
+
+  const fetchTracksStmt = db.prepare(`
+    SELECT 
+      id, file_path, file_name, file_size, bitrate, format, duration, drive_letter, created_at, title, artist, album
+    FROM tracks
+    WHERE LOWER(TRIM(title)) = ? AND LOWER(TRIM(artist)) = ? AND ROUND(duration, 0) = ?
+    ORDER BY bitrate DESC, file_size DESC
+  `);
+
+  for (const group of candidateGroups) {
+    const rows = fetchTracksStmt.all(group.norm_title, group.norm_artist, group.norm_dur) as any[];
+    if (rows.length < 2) continue;
+
+    const uniqueByPath = new Map<string, any>();
     for (const r of rows) {
-      if (!fs.existsSync(r.file_path)) {
-        deletePlaylistTracksStmt.run(r.id);
-        deleteStmt.run(r.id);
-        removedCount++;
+      uniqueByPath.set(r.file_path.toLowerCase(), r);
+    }
+    const distinctRows = Array.from(uniqueByPath.values());
+    if (distinctRows.length < 2) continue;
+
+    distinctRows.sort((a, b) => {
+      if ((b.bitrate || 0) !== (a.bitrate || 0)) {
+        return (b.bitrate || 0) - (a.bitrate || 0);
+      }
+      return (b.file_size || 0) - (a.file_size || 0);
+    });
+
+    const trackItems: DuplicateTrackItem[] = distinctRows.map((r, idx) => ({
+      id: r.id,
+      file_path: r.file_path,
+      file_name: r.file_name,
+      file_size: r.file_size || 0,
+      bitrate: r.bitrate || 0,
+      format: r.format || 'audio',
+      duration: r.duration || 0,
+      drive_letter: r.drive_letter,
+      created_at: r.created_at,
+      isRecommendedKeep: idx === 0,
+    }));
+
+    const wastedInCluster = trackItems.slice(1).reduce((acc, t) => acc + t.file_size, 0);
+
+    clusters.push({
+      key: `${group.norm_title}:::${group.norm_artist}:::${group.norm_dur}`,
+      title: distinctRows[0].title || distinctRows[0].file_name,
+      artist: distinctRows[0].artist || 'Unknown Artist',
+      album: distinctRows[0].album || undefined,
+      duration: distinctRows[0].duration || 0,
+      tracks: trackItems,
+      totalWastedBytes: wastedInCluster,
+    });
+
+    totalDuplicateFiles += trackItems.length - 1;
+    totalWastedBytes += wastedInCluster;
+  }
+
+  return {
+    clusters,
+    totalClusters: clusters.length,
+    totalDuplicateFiles,
+    totalWastedBytes,
+  };
+}
+
+export async function deleteDuplicateTracks(
+  trackIds: string[],
+  sendToTrash = true
+): Promise<{ deletedCount: number; errors: string[] }> {
+  const db = getDB();
+  const errors: string[] = [];
+  let deletedCount = 0;
+
+  const getTrackStmt = db.prepare('SELECT id, file_path FROM tracks WHERE id = ?');
+  const deletePlaylistTracksStmt = db.prepare('DELETE FROM playlist_tracks WHERE track_id = ?');
+  const deleteTrackStmt = db.prepare('DELETE FROM tracks WHERE id = ?');
+
+  const tracksToDelete = trackIds
+    .map((id) => getTrackStmt.get(id) as { id: string; file_path: string } | undefined)
+    .filter(Boolean) as { id: string; file_path: string }[];
+
+  for (const track of tracksToDelete) {
+    if (sendToTrash) {
+      try {
+        const { shell } = await import('electron');
+        await shell.trashItem(track.file_path);
+      } catch (err: any) {
+        errors.push(`Could not move ${track.file_path} to trash: ${err?.message || err}`);
       }
     }
-  });
 
-  runCleanup();
-  return { removedCount };
+    try {
+      db.transaction(() => {
+        deletePlaylistTracksStmt.run(track.id);
+        deleteTrackStmt.run(track.id);
+      })();
+      deletedCount++;
+    } catch (err: any) {
+      errors.push(`Could not remove ${track.file_path} from database: ${err?.message || err}`);
+    }
+  }
+
+  return { deletedCount, errors };
 }
 
 export function factoryResetDatabase(): void {

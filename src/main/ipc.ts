@@ -32,6 +32,8 @@ import {
   wipeLibraryOnly,
   factoryResetDatabase,
   cleanDeadTracks,
+  findDuplicateTracks,
+  deleteDuplicateTracks,
 } from './db/queries.js';
 import {
   startScan,
@@ -207,7 +209,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.handle('system:cleanDeadTracks', async () => {
-    const result = cleanDeadTracks();
+    const result = await cleanDeadTracks((current, total) => {
+      mainWindow?.webContents.send('maintenance:cleanDeadTracksProgress', { current, total });
+    });
+    mainWindow?.webContents.send('library:updated');
+    return result;
+  });
+
+  ipcMain.handle('system:findDuplicates', async () => {
+    return findDuplicateTracks();
+  });
+
+  ipcMain.handle('system:deleteDuplicates', async (_event, trackIds: string[], sendToTrash = true) => {
+    const result = await deleteDuplicateTracks(trackIds, sendToTrash);
     mainWindow?.webContents.send('library:updated');
     return result;
   });

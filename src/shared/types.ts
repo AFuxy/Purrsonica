@@ -164,3 +164,34 @@ export interface UpdateStatus {
   isDowngrade?: boolean;
   errorMessage?: string;
 }
+
+export interface DuplicateTrackItem {
+  id: string;
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  bitrate: number;
+  format: string;
+  duration: number;
+  drive_letter: string;
+  created_at: string;
+  isRecommendedKeep: boolean;
+}
+
+export interface DuplicateCluster {
+  key: string;
+  title: string;
+  artist: string;
+  album?: string;
+  duration: number;
+  tracks: DuplicateTrackItem[];
+  totalWastedBytes: number;
+}
+
+export interface DuplicateScanResult {
+  clusters: DuplicateCluster[];
+  totalClusters: number;
+  totalDuplicateFiles: number;
+  totalWastedBytes: number;
+}
+

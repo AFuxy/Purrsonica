@@ -56,6 +56,23 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.5.0-beta.1',
+    title: 'Duplicate File Detector, Disk Space Cleaner & Async Library Verification',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'New Features & Enhancements',
+        items: [
+          'Duplicate File Detector: Scans your entire library across drives to identify identical audio tracks stored in different folders (matching title, artist, and duration).',
+          'Disk Space Reclaim Engine: Computes total wasted storage per duplicate cluster with side-by-side comparisons of file paths, bitrates, audio formats, and sizes.',
+          'Smart Best-Quality Retention: Automatically recommends keeping the highest audio quality/bitrate copy while marking redundant files for removal.',
+          'Safe Trash / Recycle Bin Removal: Move redundant files directly to your OS Trash / Recycle Bin with full undo safety.',
+          'Zero-Freeze Library Verification: Completely rebuilt Verify Library & Clean Missing Files with asynchronous chunking and live progress counters, eliminating application freezes.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.4.0',
     title: 'Floating Mini-Player Widget, Gapless Looping & Channel-Aware Changelogs',
     sections: [

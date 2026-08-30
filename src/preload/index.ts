@@ -10,6 +10,7 @@ import {
   UpdateTrackMetadataPayload,
   UpdateStatus,
   DiscordPresencePayload,
+  DuplicateScanResult,
 } from '../shared/types.js';
 
 export const electronAPI = {
@@ -116,6 +117,16 @@ export const electronAPI = {
   wipeLibrary: (): Promise<boolean> => ipcRenderer.invoke('system:wipeLibrary'),
   factoryReset: (): Promise<boolean> => ipcRenderer.invoke('system:factoryReset'),
   cleanDeadTracks: (): Promise<{ removedCount: number }> => ipcRenderer.invoke('system:cleanDeadTracks'),
+  onCleanDeadTracksProgress: (callback: (progress: { current: number; total: number }) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('maintenance:cleanDeadTracksProgress', handler);
+    return () => {
+      ipcRenderer.removeListener('maintenance:cleanDeadTracksProgress', handler);
+    };
+  },
+  findDuplicates: (): Promise<DuplicateScanResult> => ipcRenderer.invoke('system:findDuplicates'),
+  deleteDuplicates: (trackIds: string[], sendToTrash?: boolean): Promise<{ deletedCount: number; errors: string[] }> =>
+    ipcRenderer.invoke('system:deleteDuplicates', trackIds, sendToTrash),
   showItemInFolder: (filePath: string): Promise<boolean> => ipcRenderer.invoke('system:showItemInFolder', filePath),
 
   // Dialogs & Drag-and-Drop Import

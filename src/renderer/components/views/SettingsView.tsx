@@ -28,12 +28,14 @@ import {
   Radio,
   Palette,
   Check,
+  Copy,
 } from 'lucide-react';
 import { useThemeStore, ACCENT_PRESETS } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
+import { DuplicateCleanerModal } from '../modals/DuplicateCleanerModal.js';
 import { APP_CHANGELOGS, fetchGitHubReleases, isPrereleaseVersion, GitHubReleaseInfo } from '../../data/changelogs.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 import { ScanSettings } from '../../../shared/types.js';
@@ -216,10 +218,23 @@ export const SettingsView: React.FC = () => {
   };
 
   const [isCleaningGhostTracks, setIsCleaningGhostTracks] = useState(false);
+  const [cleanDeadProgress, setCleanDeadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!window.api?.onCleanDeadTracksProgress) return;
+    const unsub = window.api.onCleanDeadTracksProgress((p) => {
+      setCleanDeadProgress(p);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
 
   const handleCleanDeadTracks = async () => {
     if (!window.api || isCleaningGhostTracks) return;
     setIsCleaningGhostTracks(true);
+    setCleanDeadProgress(null);
     try {
       const result = await window.api.cleanDeadTracks();
       await refreshAll();
@@ -232,6 +247,7 @@ export const SettingsView: React.FC = () => {
       showToast('Error cleaning dead tracks');
     } finally {
       setIsCleaningGhostTracks(false);
+      setCleanDeadProgress(null);
     }
   };
 
@@ -817,6 +833,28 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
+          {/* Duplicate File Detector & Disk Cleaner Card */}
+          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3 sm:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                  <Copy className="w-4 h-4 text-purple-400" />
+                  <span>Duplicate File Detector & Disk Cleaner</span>
+                </div>
+                <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                  Identifies identical audio tracks stored across different folders and drives. Compare bitrates and safely move redundant copies to Trash to reclaim storage space.
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDuplicateModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all flex-shrink-0 cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-purple-400" />
+                <span>Find & Clean Duplicates</span>
+              </button>
+            </div>
+          </div>
+
           {/* Clean Ghost / Moved Tracks Card */}
           <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3 sm:col-span-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -835,7 +873,13 @@ export const SettingsView: React.FC = () => {
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isCleaningGhostTracks ? 'animate-spin text-emerald-400' : ''}`} />
-                <span>{isCleaningGhostTracks ? 'Cleaning...' : 'Clean Missing Tracks'}</span>
+                <span>
+                  {isCleaningGhostTracks
+                    ? cleanDeadProgress && cleanDeadProgress.total > 0
+                      ? `Verifying (${cleanDeadProgress.current}/${cleanDeadProgress.total})...`
+                      : 'Verifying...'
+                    : 'Clean Missing Tracks'}
+                </span>
               </button>
             </div>
           </div>
@@ -1314,6 +1358,13 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
       </div>
+
+      {/* Duplicate File Manager Modal */}
+      <DuplicateCleanerModal
+        isOpen={isDuplicateModalOpen}
+        onClose={() => setIsDuplicateModalOpen(false)}
+        onRefreshLibrary={refreshAll}
+      />
     </div>
   );
 };
