@@ -56,6 +56,41 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.5.0',
+    title: 'Duplicate File Cleaner & Disk Reclaimer, Ghost Virtualization, Global Playlist Drag-and-Drop & File Path Search Engine',
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'Duplicate File Detector & Disk Cleaner: Scans your entire library across drives to identify identical audio tracks stored in different folders (matching title, artist, and duration) with safe OS Trash / Recycle Bin removal.',
+          'Global Drag-and-Drop to Playlists: Drag any song from track tables, the playback bar, or song info pages directly onto custom playlists or Liked Songs in the sidebar to add it instantly.',
+          'File Path & Folder Search Engine: Search for tracks by full file path, drive letter, or folder directory name directly from the main search bar in the Titlebar.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Ghost Virtualization for Duplicate Cleaner: Full dynamic ghost virtualization with layout offset precomputation, bounding overscan windows, and requestAnimationFrame scroll scheduling—rendering thousands of duplicate files with near-zero DOM overhead.',
+          'Disk Space Reclaim Engine: Computes total wasted storage per duplicate cluster with side-by-side comparisons of file paths, bitrates, audio formats, and sizes.',
+          'Smart Best-Quality Retention: Automatically recommends keeping the highest audio quality/bitrate copy while marking redundant files for removal.',
+          'Smart Sidebar Scan PC Visibility: Automatically hides the prominent "Scan PC" button from the sidebar after your first media scan is completed, keeping the sidebar sleek.',
+          'Enhanced Settings Scanner Hub: Added a prominent "Scan Computer for New Media" action card and clear button in Settings > Library & Scanner Preferences.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Single-Pass SQL Duplicate Scanner: Rebuilt duplicate cluster scanner into an atomic single-pass SQL query, eliminating main-thread application freeze on large music libraries.',
+          'Zero-Lag Deselect & Selection Scaling: Replaced progressive list appending with true windowed virtualization, eliminating UI freeze and DOM bloat when managing libraries with 4,000+ duplicate files.',
+          'Custom Playlist Artwork Persistence: Moved custom user-uploaded playlist and track cover images into a permanent storage directory, preventing them from being wiped during background cache cleanups or app restarts.',
+          'Track Drag-and-Drop vs Image Upload Isolation: Added draggable isolation to album artwork images and custom drag data types, preventing internal track drag operations from triggering the full-screen media file upload overlay.',
+          'Zero-Freeze Library Verification: Rebuilt Verify Library & Clean Missing Files with asynchronous chunking and live progress counters, eliminating application freezes and crashes during deep library maintenance.',
+          'Mini-Player Header Logo & Full-Width Seekbar: Fixed broken header logo image path in pop-out widget and restructured the mini-player layout with a dedicated full-width seekbar scrubber.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.5.0-beta.4',
     title: 'File Path Search Engine, Smart Scanner Placement & Settings Scanner Hub',
     isPrerelease: true,
