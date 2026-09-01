@@ -57,7 +57,7 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
     version: '1.6.0-beta.1',
-    title: 'WASM Key & BPM Analyzer, Gapless Playback, Audio Crossfader & Waveform Transition Zones',
+    title: 'WASM Key & BPM Analyzer, DJ Harmonic Matcher, Gapless Audio Crossfader, Exclusion Cleaner & After-Action Reports',
     isPrerelease: true,
     sections: [
       {
@@ -65,15 +65,19 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
         items: [
           'On-Demand WASM BPM & Key Analyzer: Integrated high-precision WebAssembly audio DSP engine utilizing 36-bin EDMA harmonic chromagrams and hardware-calibrated 44.1 kHz resampling to calculate exact Camelot keys and tempos.',
           'Single-Track & Batch Library Analysis: Run on-demand tempo and key detection from Song Detail cards, Track Context Menus, the Metadata Editor, or batch re-analyze your library from Settings.',
+          'DJ Harmonic Matcher & Mix Assistant: Real-time harmonic mixing hub calculating Camelot Wheel compatibility (±1h, relative major/minor, +1/+2 energy boosts) and BPM tolerance matching (±0%, ±3%, ±5%, ±8%, ±16%, half/double time). Includes instant "Save as DJ Crate" playlist generation and live player sync.',
           'Audio Crossfade Engine (1–10s): Smoothly blends consecutive tracks with equal-power volume curves, adjustable from 0s (Gapless) to 10s in Settings.',
-          'Visual Waveform Transition Zones: Highlights active fade-in and fade-out transition windows directly on the waveform bar with frosted white indicators and tooltip readouts.',
+          'Visual Waveform Transition Zones & Live Animations: Highlights active fade-in and fade-out transition windows directly on the waveform bar with purple gradient sweeps, shimmer highlights, and artwork cross-dissolve with live "Blend %" badges.',
           'Seamless Gapless Playback Engine: Dual-deck A/B hardware pipeline with background pre-buffering, 25ms sub-frame monitoring, and 350ms buffer overlap for zero-hitch song-to-song transitions.',
-          'Gapless & Crossfade Preferences: Added dedicated toggle and duration slider under Library & Playback preferences in Settings.',
+          'Destructive Action Confirmations ("Are You Sure?"): Added sleek confirmation modals before executing long-running or destructive maintenance tasks (Library Verification, Artwork Caching, Waveform Generation, Batch Audio Analysis, Clear Cache).',
+          'Non-Intrusive "After-Action" Reports: Added comprehensive Action Reports accessible via persistent "View Report" buttons on maintenance cards, reporting itemized changes, performance stats, and one-click clipboard summaries.',
+          'Excluded Folder Library Cleaner: Updated "Verify Library & Clean Missing Files" to detect and purge stale tracks matching newly added Excluded Folders alongside missing files.',
         ],
       },
       {
         heading: 'Improvements & Updates',
         items: [
+          'Conditional DJ Suite Visibility: Gated all DJ Matcher navigation, context menus, and detail actions strictly behind the "Enable DJ Suite" toggle.',
           'Auto-Detuning Pitch Correction: Key detection automatically measures and compensates for non-standard 440 Hz concert pitch (up to ±50 cents).',
           'Audio-Only Analysis Guard: Strictly filters analysis queues to audio tracks, ignoring video media.',
           'Cross-Player Video Seek Synchronization: Synchronized timeline seeking across the bottom PlaybackBar, WaveformBar, and Video Modal with timeupdate gating during scrubs.',
@@ -82,6 +86,7 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
       {
         heading: 'Bug Fixes',
         items: [
+          'Repeat One Full-Track Loop: Fixed loop restart glitch where tracks looping under Repeat One prematurely triggered crossfade handoffs, ensuring tracks play to 100% completion before seamlessly looping.',
           'WASM Module Bundler Interop: Resolved constructor resolution issues with WebAssembly algorithm bindings in production Vite/Rollup bundles.',
           'Video Scrubber Frame Conflict: Fixed frame timeupdate race conditions that caused the video scrubber to snap back during dragging.',
         ],
