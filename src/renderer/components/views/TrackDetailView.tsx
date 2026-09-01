@@ -15,10 +15,14 @@ import {
   HardDrive,
   Copy,
   Check,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { Track } from '../../../shared/types.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
+import { useScanStore } from '../../store/scanStore.js';
+import { analyzeAudioTrack } from '../../services/audioAnalyzer.js';
 import { seekAudioTo } from '../../hooks/useAudioPlayer.js';
 import { WaveformBar } from '../player/WaveformBar.js';
 import { TrackCover } from '../common/TrackCover.js';
@@ -31,8 +35,54 @@ interface TrackDetailViewProps {
 export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
   const { currentTrack, isPlaying, currentTime, setTrack, togglePlay, setVideoModalOpen } = usePlayerStore();
   const { toggleLikeTrack, setEditingTrack, selectArtist, selectAlbumByName } = useLibraryStore();
+  const { settings } = useScanStore();
+  const isDjMode = !!settings?.enableDjMode;
   const [copied, setCopied] = React.useState(false);
+  const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [loadedWaveform, setLoadedWaveform] = React.useState<number[] | undefined>(track.waveform_data);
+
+  const [localBpm, setLocalBpm] = React.useState<number | undefined>(track.bpm);
+  const [localMusicalKey, setLocalMusicalKey] = React.useState<string | undefined>(track.musical_key);
+  const [localCamelotKey, setLocalCamelotKey] = React.useState<string | undefined>(track.camelot_key);
+
+  React.useEffect(() => {
+    setLocalBpm(track.bpm);
+    setLocalMusicalKey(track.musical_key);
+    setLocalCamelotKey(track.camelot_key);
+  }, [track.id, track.bpm, track.musical_key, track.camelot_key]);
+
+  const handleAnalyzeTrack = async () => {
+    if (track.media_type !== 'audio' || isAnalyzing) return;
+    setIsAnalyzing(true);
+    try {
+      const res = await analyzeAudioTrack(track);
+      if (res) {
+        setLocalBpm(res.bpm);
+        setLocalMusicalKey(res.musical_key);
+        setLocalCamelotKey(res.camelot_key);
+
+        if (window.api?.updateMetadata) {
+          const updated = await window.api.updateMetadata({
+            id: track.id,
+            bpm: res.bpm,
+            musical_key: res.musical_key,
+            camelot_key: res.camelot_key,
+          });
+          if (updated) {
+            useLibraryStore.getState().updateTrackInStore(updated);
+            if (currentTrack?.id === track.id) {
+              usePlayerStore.getState().updateCurrentTrackMetadata(updated);
+            }
+          }
+          await useLibraryStore.getState().refreshAll();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to analyze track:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   React.useEffect(() => {
     setLoadedWaveform(track.waveform_data);
@@ -242,27 +292,57 @@ export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
 
       {/* Audio Engine & Metadata Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {/* BPM Card */}
-        <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-1">
-          <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Tempo / BPM</span>
+        {/* BPM Card (DJ Mode Only) */}
+        {isDjMode && (
+          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-1 relative group">
+            <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Tempo / BPM</span>
+              </div>
+              {track.media_type === 'audio' && (
+                <button
+                  onClick={handleAnalyzeTrack}
+                  disabled={isAnalyzing}
+                  className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 disabled:opacity-50 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Detect BPM & Musical Key using WASM Engine"
+                >
+                  <Sparkles className={`w-3 h-3 ${isAnalyzing ? 'animate-spin text-emerald-400' : ''}`} />
+                  <span>{isAnalyzing ? 'Analyzing...' : localBpm ? 'Re-Analyze' : 'Analyze'}</span>
+                </button>
+              )}
+            </div>
+            <div className="text-lg font-bold font-mono text-[var(--text-primary)]">
+              {localBpm ? `${Math.round(localBpm)} BPM` : 'Not Detected'}
+            </div>
           </div>
-          <div className="text-lg font-bold font-mono text-[var(--text-primary)]">
-            {track.bpm ? `${Math.round(track.bpm)} BPM` : 'Not Detected'}
-          </div>
-        </div>
+        )}
 
-        {/* Harmonic Key Card */}
-        <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-1">
-          <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-            <Key className="w-3.5 h-3.5 text-amber-400" />
-            <span>Musical & Camelot Key</span>
+        {/* Harmonic Key Card (DJ Mode Only) */}
+        {isDjMode && (
+          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-1 relative group">
+            <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-400" />
+                <span>Musical & Camelot Key</span>
+              </div>
+              {track.media_type === 'audio' && (
+                <button
+                  onClick={handleAnalyzeTrack}
+                  disabled={isAnalyzing}
+                  className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 disabled:opacity-50 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Detect BPM & Musical Key using WASM Engine"
+                >
+                  <Sparkles className={`w-3 h-3 ${isAnalyzing ? 'animate-spin text-amber-400' : ''}`} />
+                  <span>{isAnalyzing ? 'Analyzing...' : localCamelotKey ? 'Re-Analyze' : 'Analyze'}</span>
+                </button>
+              )}
+            </div>
+            <div className="text-lg font-bold font-mono text-[var(--text-primary)]">
+              {localMusicalKey || localCamelotKey ? `${localMusicalKey || ''} ${localCamelotKey ? `(${localCamelotKey})` : ''}` : 'Not Detected'}
+            </div>
           </div>
-          <div className="text-lg font-bold font-mono text-[var(--text-primary)]">
-            {track.musical_key || track.camelot_key ? `${track.musical_key || ''} ${track.camelot_key ? `(${track.camelot_key})` : ''}` : 'Not Detected'}
-          </div>
-        </div>
+        )}
 
         {/* Quality & Bitrate Card */}
         <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-1">

@@ -86,12 +86,36 @@ export const VideoModal: React.FC = () => {
     video.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
 
+  const lastUserSeekTimestampRef = useRef<number>(0);
+
+  // Sync External Global Seek Events (from bottom PlaybackBar, WaveformBar, MediaKeys)
+  useEffect(() => {
+    const handleGlobalSeek = (e: CustomEvent<number>) => {
+      const target = e.detail;
+      const video = videoRef.current;
+      if (video && !isNaN(target)) {
+        lastUserSeekTimestampRef.current = Date.now();
+        const clamped = Math.max(0, Math.min(video.duration || duration || 1, target));
+        try {
+          video.currentTime = clamped;
+        } catch {}
+      }
+    };
+
+    window.addEventListener('purrsonica:seek-video' as any, handleGlobalSeek);
+    return () => window.removeEventListener('purrsonica:seek-video' as any, handleGlobalSeek);
+  }, [duration]);
+
   // Sync External Seek (if not currently dragging)
   useEffect(() => {
     const video = videoRef.current;
     if (!video || isScrubbing) return;
+    if (Date.now() - lastUserSeekTimestampRef.current < 400) return;
     if (Math.abs(video.currentTime - currentTime) > 1.2) {
-      video.currentTime = currentTime;
+      lastUserSeekTimestampRef.current = Date.now();
+      try {
+        video.currentTime = currentTime;
+      } catch {}
     }
   }, [currentTime, isScrubbing]);
 
@@ -146,8 +170,11 @@ export const VideoModal: React.FC = () => {
 
   const handleSeek = (timeInSecs: number) => {
     const target = Math.max(0, Math.min(duration || 1, timeInSecs));
+    lastUserSeekTimestampRef.current = Date.now();
     if (videoRef.current) {
-      videoRef.current.currentTime = target;
+      try {
+        videoRef.current.currentTime = target;
+      } catch {}
     }
     setCurrentTime(target);
   };
@@ -155,7 +182,10 @@ export const VideoModal: React.FC = () => {
   const handleSkip = (seconds: number) => {
     if (videoRef.current) {
       const newTime = Math.max(0, Math.min(duration || 1, videoRef.current.currentTime + seconds));
-      videoRef.current.currentTime = newTime;
+      lastUserSeekTimestampRef.current = Date.now();
+      try {
+        videoRef.current.currentTime = newTime;
+      } catch {}
       setCurrentTime(newTime);
       setShowCenterIcon(seconds > 0 ? '+10s' : '-10s');
       setTimeout(() => setShowCenterIcon(null), 500);
@@ -303,7 +333,11 @@ export const VideoModal: React.FC = () => {
             playsInline
             loop={repeatMode === 'one'}
             onTimeUpdate={() => {
-              if (videoRef.current && !isScrubbing) {
+              if (
+                videoRef.current &&
+                !isScrubbing &&
+                Date.now() - lastUserSeekTimestampRef.current > 300
+              ) {
                 setCurrentTime(videoRef.current.currentTime);
               }
             }}

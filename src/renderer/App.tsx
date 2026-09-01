@@ -115,8 +115,9 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Initial fetch of library data
+    // Initial fetch of library data and scanner/DJ settings
     refreshAll();
+    useScanStore.getState().fetchSettings();
 
     // Listen to real-time scanning telemetry & updates from Electron worker
     let cleanupScan: (() => void) | undefined;

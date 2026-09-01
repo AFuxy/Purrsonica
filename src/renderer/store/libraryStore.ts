@@ -72,6 +72,7 @@ interface LibraryState {
   setSearchQuery: (query: string) => void;
   setSorting: (sortBy: any, sortOrder?: 'ASC' | 'DESC') => void;
   setEditingTrack: (track: Track | null) => void;
+  updateTrackInStore: (updatedTrack: Track) => void;
 
   // Data fetchers
   fetchTracks: () => Promise<void>;
@@ -344,6 +345,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   setEditingTrack: (track: Track | null) => set({ editingTrack: track }),
 
+  updateTrackInStore: (updatedTrack: Track) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => (t.id === updatedTrack.id ? updatedTrack : t)),
+      selectedTrackDetail:
+        state.selectedTrackDetail?.id === updatedTrack.id ? updatedTrack : state.selectedTrackDetail,
+      editingTrack:
+        state.editingTrack?.id === updatedTrack.id ? updatedTrack : state.editingTrack,
+    }));
+  },
+
   fetchTracks: async () => {
     if (!window.api) return;
     set({ isLoading: true });
@@ -377,10 +388,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       }
 
       const result = await window.api.queryTracks(params);
+      const currentDetail = get().selectedTrackDetail;
+      const updatedDetail = currentDetail
+        ? result.tracks.find((t) => t.id === currentDetail.id) || currentDetail
+        : null;
+
       set({
         tracks: result.tracks,
         totalTracks: result.total,
         hasMore: result.tracks.length < result.total,
+        selectedTrackDetail: updatedDetail,
         isLoading: false,
       });
     } catch (err) {

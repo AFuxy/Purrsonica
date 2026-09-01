@@ -1,33 +1,54 @@
 import { useEffect } from 'react';
 import { usePlayerStore } from '../store/playerStore.js';
+import { useScanStore } from '../store/scanStore.js';
 
-let globalAudio: HTMLAudioElement | null = null;
+// Dual-deck audio pipeline for zero-gap seamless transitions
+const decks = [new Audio(), new Audio()];
+decks[0].preload = 'auto';
+decks[1].preload = 'auto';
+
+let activeDeckIndex: 0 | 1 = 0;
 let listenersInitialized = false;
 let currentPlayingTrackId: string | null = null;
 let pendingRestoreTime: number | null = null;
 let hasCheckedInitialResume = false;
+let preloadedTrackId: string | null = null;
+let isGaplessTransitioning = false;
+let handoffFiredForTrackId: string | null = null;
+let precisionTimer: any = null;
 
 export function getAudioElement(): HTMLAudioElement {
-  if (!globalAudio) {
-    globalAudio = new Audio();
-    globalAudio.preload = 'auto';
-  }
-  return globalAudio;
+  return decks[activeDeckIndex];
+}
+
+export function getActiveDeck(): HTMLAudioElement {
+  return decks[activeDeckIndex];
+}
+
+export function getStandbyDeck(): HTMLAudioElement {
+  return decks[1 - activeDeckIndex as 0 | 1];
 }
 
 export function seekAudioTo(newTime: number): void {
-  const audio = getAudioElement();
+  const currentTrack = usePlayerStore.getState().currentTrack;
   pendingRestoreTime = null;
-  if (audio && !isNaN(newTime)) {
-    try {
-      audio.currentTime = newTime;
-    } catch {}
+  handoffFiredForTrackId = null;
+
+  if (currentTrack?.media_type === 'video') {
+    window.dispatchEvent(new CustomEvent('purrsonica:seek-video', { detail: newTime }));
+  } else {
+    const active = getActiveDeck();
+    if (active && !isNaN(newTime)) {
+      try {
+        active.currentTime = newTime;
+      } catch {}
+    }
   }
   usePlayerStore.getState().setCurrentTime(newTime);
 }
 
 export function useAudioPlayer() {
-  const audio = getAudioElement();
+  const activeAudio = getActiveDeck();
 
   // Check saved session time on initial hook run
   if (!hasCheckedInitialResume) {
@@ -53,135 +74,283 @@ export function useAudioPlayer() {
     playPrevious,
   } = usePlayerStore();
 
-  // Initialize event listeners once on the global audio instance
+  const { settings } = useScanStore();
+  const isGaplessEnabled = settings?.enableGaplessPlayback !== false;
+
+  // Pre-buffer upcoming track on the standby deck
+  const preloadUpcomingTrack = () => {
+    if (!isGaplessEnabled) return;
+    const state = usePlayerStore.getState();
+    const nextTrack = state.queue.length > 0
+      ? state.queue[0]
+      : (state.repeatMode === 'all' && state.history.length > 0 ? state.history[state.history.length - 1] : null);
+
+    if (
+      nextTrack &&
+      nextTrack.media_type !== 'video' &&
+      nextTrack.id !== preloadedTrackId &&
+      nextTrack.id !== currentPlayingTrackId
+    ) {
+      preloadedTrackId = nextTrack.id;
+      const standby = getStandbyDeck();
+      const nextMediaUrl = window.api
+        ? window.api.getMediaUrl(nextTrack.file_path)
+        : nextTrack.file_path;
+
+      if (standby.src !== nextMediaUrl) {
+        standby.src = nextMediaUrl;
+        standby.preload = 'auto';
+        standby.load();
+        standby.volume = isMuted ? 0 : volume;
+      }
+    }
+  };
+
+  // Perform instant 0ms handoff from active deck to pre-buffered standby deck
+  const executeHandoff = () => {
+    if (isGaplessTransitioning) return;
+    const state = usePlayerStore.getState();
+    const active = getActiveDeck();
+    const standby = getStandbyDeck();
+
+    if (active.src && handoffFiredForTrackId === currentPlayingTrackId) {
+      return;
+    }
+    handoffFiredForTrackId = currentPlayingTrackId;
+
+    if (precisionTimer) {
+      clearInterval(precisionTimer);
+      precisionTimer = null;
+    }
+
+    if (state.repeatMode === 'one' && state.currentTrack) {
+      active.currentTime = 0;
+      active.play().catch(() => {});
+      setCurrentTime(0);
+      setIsPlaying(true);
+      handoffFiredForTrackId = null;
+      return;
+    }
+
+    const nextTrack = state.queue.length > 0
+      ? state.queue[0]
+      : (state.repeatMode === 'all' && state.history.length > 0 ? state.history[state.history.length - 1] : null);
+
+    if (
+      isGaplessEnabled &&
+      nextTrack &&
+      nextTrack.media_type !== 'video' &&
+      standby.src
+    ) {
+      isGaplessTransitioning = true;
+      currentPlayingTrackId = nextTrack.id;
+      preloadedTrackId = null;
+
+      // Start standby deck immediately with zero latency
+      standby.currentTime = 0;
+      standby.play().catch((err) => {
+        console.warn('Gapless playback transition error:', err);
+      });
+
+      // Swap active deck reference
+      const oldActive = active;
+      activeDeckIndex = (1 - activeDeckIndex) as 0 | 1;
+
+      if (!isNaN(standby.duration) && standby.duration > 0) {
+        setDuration(standby.duration);
+      }
+      setCurrentTime(0);
+
+      usePlayerStore.getState().playNext();
+
+      isGaplessTransitioning = false;
+
+      // Gracefully overlap for 350ms so the hardware WASAPI buffer never drops to silence
+      setTimeout(() => {
+        try {
+          oldActive.pause();
+          oldActive.src = '';
+        } catch {}
+      }, 350);
+    } else {
+      usePlayerStore.getState().playNext();
+    }
+  };
+
+  // Start high-precision monitor for the final 3 seconds of a track
+  const checkPrecisionEnd = (deck: HTMLAudioElement) => {
+    if (!isGaplessEnabled || precisionTimer) return;
+    if (deck.duration > 3 && deck.currentTime >= deck.duration - 3.0) {
+      precisionTimer = setInterval(() => {
+        const currentActive = getActiveDeck();
+        if (currentActive === deck && !deck.paused) {
+          if (deck.currentTime >= deck.duration - 0.20) {
+            executeHandoff();
+          }
+        } else {
+          clearInterval(precisionTimer);
+          precisionTimer = null;
+        }
+      }, 25);
+    }
+  };
+
+  // Initialize event listeners once on both decks
   useEffect(() => {
-    if (listenersInitialized || !globalAudio) return;
+    if (listenersInitialized) return;
     listenersInitialized = true;
 
-    const applyPendingRestore = () => {
-      if (globalAudio && pendingRestoreTime !== null && pendingRestoreTime > 0) {
+    const applyPendingRestore = (deck: HTMLAudioElement) => {
+      if (pendingRestoreTime !== null && pendingRestoreTime > 0) {
         try {
-          if (Math.abs(globalAudio.currentTime - pendingRestoreTime) > 0.5) {
-            globalAudio.currentTime = pendingRestoreTime;
+          if (Math.abs(deck.currentTime - pendingRestoreTime) > 0.5) {
+            deck.currentTime = pendingRestoreTime;
           }
         } catch {}
         pendingRestoreTime = null;
       }
     };
 
-    globalAudio.addEventListener('timeupdate', () => {
-      if (globalAudio) {
-        if (pendingRestoreTime !== null) {
-          return;
+    decks.forEach((deck, deckIdx) => {
+      deck.addEventListener('timeupdate', () => {
+        if (deckIdx === activeDeckIndex) {
+          if (pendingRestoreTime !== null) return;
+          setCurrentTime(deck.currentTime);
+
+          // Preload upcoming track when within last 12 seconds
+          if (deck.duration > 10 && deck.currentTime >= deck.duration - 12) {
+            preloadUpcomingTrack();
+          }
+
+          // Trigger high-precision end monitor during final 3 seconds
+          checkPrecisionEnd(deck);
         }
-        setCurrentTime(globalAudio.currentTime);
-      }
-    });
+      });
 
-    globalAudio.addEventListener('loadedmetadata', () => {
-      if (globalAudio && !isNaN(globalAudio.duration)) {
-        setDuration(globalAudio.duration);
-      }
-      applyPendingRestore();
-    });
-
-    globalAudio.addEventListener('canplay', () => {
-      applyPendingRestore();
-    });
-
-    globalAudio.addEventListener('ended', () => {
-      pendingRestoreTime = null;
-      const { repeatMode, currentTrack } = usePlayerStore.getState();
-      if (repeatMode === 'one' && currentTrack) {
-        if (globalAudio) {
-          globalAudio.currentTime = 0;
-          globalAudio.play().catch(() => {});
+      deck.addEventListener('loadedmetadata', () => {
+        if (deckIdx === activeDeckIndex && !isNaN(deck.duration)) {
+          setDuration(deck.duration);
+          applyPendingRestore(deck);
         }
-        usePlayerStore.getState().setCurrentTime(0);
-        usePlayerStore.getState().setIsPlaying(true);
-        return;
-      }
-      usePlayerStore.getState().playNext();
-    });
+      });
 
-    globalAudio.addEventListener('error', () => {
-      if (globalAudio && globalAudio.src && globalAudio.src !== window.location.href) {
-        console.warn('Audio playback error on source:', globalAudio.src);
-      }
+      deck.addEventListener('canplay', () => {
+        if (deckIdx === activeDeckIndex) {
+          applyPendingRestore(deck);
+        }
+      });
+
+      deck.addEventListener('ended', () => {
+        if (deckIdx !== activeDeckIndex) return;
+        pendingRestoreTime = null;
+        executeHandoff();
+      });
+
+      deck.addEventListener('error', () => {
+        if (deck.src && deck.src !== window.location.href) {
+          console.warn(`Audio playback error on deck ${deckIdx}:`, deck.src);
+        }
+      });
     });
 
     window.addEventListener('beforeunload', () => {
-      if (globalAudio && !isNaN(globalAudio.currentTime) && globalAudio.currentTime > 0) {
-        usePlayerStore.getState().setCurrentTime(globalAudio.currentTime);
+      const active = getActiveDeck();
+      if (active && !isNaN(active.currentTime) && active.currentTime > 0) {
+        usePlayerStore.getState().setCurrentTime(active.currentTime);
       }
     });
   }, []);
 
   // Sync native HTMLAudioElement loop mode
   useEffect(() => {
-    if (!audio) return;
-    audio.loop = repeatMode === 'one';
-  }, [repeatMode, audio]);
+    decks.forEach((deck) => {
+      deck.loop = repeatMode === 'one';
+    });
+  }, [repeatMode]);
 
-  // Update track source
+  // Update track source when currentTrack changes
   useEffect(() => {
-    if (!audio) return;
+    if (isGaplessTransitioning) return;
+
+    const active = getActiveDeck();
 
     if (currentTrack && currentTrack.media_type !== 'video') {
+      const mediaUrl = window.api
+        ? window.api.getMediaUrl(currentTrack.file_path)
+        : currentTrack.file_path;
+
       if (currentPlayingTrackId !== currentTrack.id) {
         currentPlayingTrackId = currentTrack.id;
-        const mediaUrl = window.api
-          ? window.api.getMediaUrl(currentTrack.file_path)
-          : currentTrack.file_path;
+        handoffFiredForTrackId = null;
 
-        audio.src = mediaUrl;
-        audio.load();
+        // If the active deck is not yet playing this mediaUrl (manual track select)
+        if (active.src !== mediaUrl) {
+          active.src = mediaUrl;
+          active.load();
 
-        if (isPlaying) {
-          audio.play().catch((err) => {
-            console.warn('Auto-play blocked or media unsupported:', err);
-          });
-        }
-      } else {
-        // Same track re-triggered (e.g. repeat mode all on single track or manual replay)
-        if (isPlaying) {
-          if (usePlayerStore.getState().currentTime === 0 && audio.currentTime > 0) {
-            audio.currentTime = 0;
+          if (isPlaying) {
+            active.play().catch((err) => {
+              console.warn('Auto-play blocked or media unsupported:', err);
+            });
           }
-          if (audio.paused || audio.ended) {
-            audio.play().catch(() => {});
+        } else if (isPlaying && (active.paused || active.ended)) {
+          active.play().catch(() => {});
+        }
+
+        // Trigger preload for upcoming track
+        setTimeout(() => {
+          preloadUpcomingTrack();
+        }, 500);
+      } else {
+        // Same track re-triggered
+        if (isPlaying) {
+          if (usePlayerStore.getState().currentTime === 0 && active.currentTime > 0) {
+            active.currentTime = 0;
+          }
+          if (active.paused || active.ended) {
+            active.play().catch(() => {});
           }
         }
       }
     } else {
       if (currentPlayingTrackId !== null) {
         currentPlayingTrackId = null;
-        audio.pause();
-        audio.src = '';
+        handoffFiredForTrackId = null;
+        active.pause();
+        active.src = '';
+        getStandbyDeck().pause();
+        getStandbyDeck().src = '';
       }
     }
   }, [currentTrack, isPlaying]);
 
   // Handle Play/Pause
   useEffect(() => {
-    if (!audio || !currentTrack || currentTrack.media_type === 'video') return;
+    const active = getActiveDeck();
+    if (!currentTrack || currentTrack.media_type === 'video') return;
 
     if (isPlaying) {
-      audio.play().catch((err) => {
-        console.warn('Play interrupted:', err);
-      });
+      if (active.paused) {
+        active.play().catch((err) => {
+          console.warn('Play interrupted:', err);
+        });
+      }
     } else {
-      audio.pause();
+      if (!active.paused) {
+        active.pause();
+      }
     }
   }, [isPlaying, currentTrack]);
 
-  // Handle Volume / Mute
+  // Handle Volume / Mute on both decks
   useEffect(() => {
-    if (!audio) return;
-    audio.volume = isMuted ? 0 : volume;
+    const targetVol = isMuted ? 0 : volume;
+    decks.forEach((deck) => {
+      deck.volume = targetVol;
+    });
   }, [volume, isMuted]);
 
-  // Media Session API integration (Windows SMTC & Keyboard Media Keys)
+  // Media Session API integration
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentTrack) return;
 
@@ -242,7 +411,7 @@ export function useAudioPlayer() {
   }, [currentTrack, isPlaying, duration]);
 
   return {
-    audioElement: audio,
+    audioElement: activeAudio,
     seekTo: seekAudioTo,
   };
 }

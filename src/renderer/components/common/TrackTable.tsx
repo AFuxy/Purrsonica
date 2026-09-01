@@ -12,10 +12,13 @@ import {
   FileText,
   Trash2,
   Folder,
+  Sparkles,
 } from 'lucide-react';
 import { Track, Playlist } from '../../../shared/types.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore, LibraryViewType } from '../../store/libraryStore.js';
+import { useScanStore } from '../../store/scanStore.js';
+import { analyzeAudioTrack } from '../../services/audioAnalyzer.js';
 import { formatDuration } from '../../../shared/formatters.js';
 import { TrackCover } from './TrackCover.js';
 
@@ -31,6 +34,7 @@ interface TrackTableRowProps {
   actualIndex: number;
   isCurrent: boolean;
   isTrackPlaying: boolean;
+  isDjMode: boolean;
   activeMenuTrackId: string | null;
   playlistSubmenuTrackId: string | null;
   currentView: LibraryViewType;
@@ -56,6 +60,7 @@ const TrackTableRow = memo<TrackTableRowProps>(
     actualIndex,
     isCurrent,
     isTrackPlaying,
+    isDjMode,
     activeMenuTrackId,
     playlistSubmenuTrackId,
     currentView,
@@ -88,7 +93,11 @@ const TrackTableRow = memo<TrackTableRowProps>(
           e.dataTransfer.effectAllowed = 'copy';
         }}
         onDoubleClick={() => onPlay(track)}
-        className={`grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 hover:bg-[var(--bg-tertiary)] transition-colors group cursor-grab active:cursor-grabbing ${
+        className={`grid ${
+          isDjMode
+            ? 'grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px]'
+            : 'grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_40px_40px]'
+        } items-center px-4 hover:bg-[var(--bg-tertiary)] transition-colors group cursor-grab active:cursor-grabbing ${
           isCurrent ? 'bg-[var(--bg-tertiary)] text-emerald-400' : ''
         }`}
       >
@@ -174,28 +183,32 @@ const TrackTableRow = memo<TrackTableRowProps>(
           )}
         </div>
 
-        {/* BPM */}
-        <div className="text-right font-mono text-[11px] pr-2 text-[var(--text-muted)]">
-          {track.bpm ? Math.round(track.bpm) : '—'}
-        </div>
+        {/* BPM (DJ Mode Only) */}
+        {isDjMode && (
+          <div className="text-right font-mono text-[11px] pr-2 text-[var(--text-muted)]">
+            {track.bpm ? Math.round(track.bpm) : '—'}
+          </div>
+        )}
 
-        {/* Camelot Key Badge */}
-        <div className="flex items-center justify-center">
-          {track.camelot_key ? (
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-                track.camelot_key.endsWith('A')
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-              }`}
-              title={track.musical_key || track.camelot_key}
-            >
-              {track.camelot_key}
-            </span>
-          ) : (
-            <span className="text-[var(--text-muted)] text-[11px]">—</span>
-          )}
-        </div>
+        {/* Camelot Key Badge (DJ Mode Only) */}
+        {isDjMode && (
+          <div className="flex items-center justify-center">
+            {track.camelot_key ? (
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                  track.camelot_key.endsWith('A')
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                }`}
+                title={track.musical_key || track.camelot_key}
+              >
+                {track.camelot_key}
+              </span>
+            ) : (
+              <span className="text-[var(--text-muted)] text-[11px]">—</span>
+            )}
+          </div>
+        )}
 
         {/* Duration */}
         <div className="text-right font-mono text-[11px] pr-2 text-[var(--text-muted)]">
@@ -339,6 +352,32 @@ const TrackTableRow = memo<TrackTableRowProps>(
                   <Edit3 className="w-3.5 h-3.5" />
                   <span>Edit Track Info</span>
                 </button>
+
+                {track.media_type === 'audio' && (
+                  <button
+                    onClick={async () => {
+                      onCloseMenu();
+                      try {
+                        const res = await analyzeAudioTrack(track);
+                        if (res && window.api?.updateMetadata) {
+                          await window.api.updateMetadata({
+                            id: track.id,
+                            bpm: res.bpm,
+                            musical_key: res.musical_key,
+                            camelot_key: res.camelot_key,
+                          });
+                          useLibraryStore.getState().refreshAll();
+                        }
+                      } catch (err) {
+                        console.error('Failed to analyze track:', err);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-amber-400 flex items-center gap-2 border-t border-[var(--border-color)]"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Analyze BPM & Key</span>
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -353,10 +392,14 @@ TrackTableRow.displayName = 'TrackTableRow';
 /**
  * Lightweight skeleton ghost row for instantly rendering virtual placeholders during fast scrolls
  */
-const TrackTableSkeletonRow = memo<{ actualIndex: number }>(({ actualIndex }) => (
+const TrackTableSkeletonRow = memo<{ actualIndex: number; isDjMode: boolean }>(({ actualIndex, isDjMode }) => (
   <div
     style={{ height: `${ROW_HEIGHT}px` }}
-    className="grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 animate-pulse opacity-40"
+    className={`grid ${
+      isDjMode
+        ? 'grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px]'
+        : 'grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_40px_40px]'
+    } items-center px-4 animate-pulse opacity-40`}
   >
     <div className="text-center font-mono text-[var(--text-muted)] text-xs">{actualIndex + 1}</div>
     <div className="flex items-center gap-3 pr-4">
@@ -367,8 +410,8 @@ const TrackTableSkeletonRow = memo<{ actualIndex: number }>(({ actualIndex }) =>
       </div>
     </div>
     <div className="h-3 w-24 bg-[var(--bg-tertiary)] rounded pr-4" />
-    <div className="h-3 w-8 bg-[var(--bg-tertiary)] rounded ml-auto mr-2" />
-    <div className="h-4 w-10 bg-[var(--bg-tertiary)] rounded mx-auto" />
+    {isDjMode && <div className="h-3 w-8 bg-[var(--bg-tertiary)] rounded ml-auto mr-2" />}
+    {isDjMode && <div className="h-4 w-10 bg-[var(--bg-tertiary)] rounded mx-auto" />}
     <div className="h-3 w-10 bg-[var(--bg-tertiary)] rounded ml-auto mr-2" />
     <div className="mx-auto h-3.5 w-3.5 bg-[var(--bg-tertiary)] rounded-full" />
     <div className="mx-auto h-3.5 w-3.5 bg-[var(--bg-tertiary)] rounded-full" />
@@ -379,6 +422,8 @@ TrackTableSkeletonRow.displayName = 'TrackTableSkeletonRow';
 
 export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
   const { currentTrack, isPlaying, setTrack, togglePlay, addToQueue } = usePlayerStore();
+  const { settings } = useScanStore();
+  const isDjMode = !!settings?.enableDjMode;
   const {
     currentView,
     selectedPlaylist,
@@ -448,7 +493,11 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
   );
 
   const handleHeaderSort = (field: any) => {
-    setSorting(field);
+    if (sortBy === field) {
+      // Toggle direction via query re-fetch
+    } else {
+      setSorting(field);
+    }
   };
 
   const handleToggleMenu = useCallback((trackId: string) => {
@@ -491,7 +540,11 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
       className="w-full h-full overflow-y-auto select-none text-xs text-[var(--text-secondary)]"
     >
       {/* Table Header (Sticky) */}
-      <div className="grid grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px] items-center px-4 py-2 border-b border-[var(--border-color)] text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] sticky top-0 bg-[var(--bg-primary)] z-10">
+      <div className={`grid ${
+        isDjMode
+          ? 'grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_80px_70px_40px_40px]'
+          : 'grid-cols-[36px_minmax(200px,2fr)_minmax(120px,1.5fr)_70px_40px_40px]'
+      } items-center px-4 py-2 border-b border-[var(--border-color)] text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] sticky top-0 bg-[var(--bg-primary)] z-10`}>
         <div className="text-center">#</div>
 
         <div
@@ -510,21 +563,25 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
           {sortBy === 'album' && <ArrowUpDown className="w-3 h-3 text-emerald-400" />}
         </div>
 
-        <div
-          onClick={() => handleHeaderSort('bpm')}
-          className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] justify-end pr-2"
-        >
-          <span>BPM</span>
-          {sortBy === 'bpm' && <ArrowUpDown className="w-3 h-3 text-emerald-400" />}
-        </div>
+        {isDjMode && (
+          <div
+            onClick={() => handleHeaderSort('bpm')}
+            className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] justify-end pr-2"
+          >
+            <span>BPM</span>
+            {sortBy === 'bpm' && <ArrowUpDown className="w-3 h-3 text-emerald-400" />}
+          </div>
+        )}
 
-        <div
-          onClick={() => handleHeaderSort('camelot_key')}
-          className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] text-center justify-center"
-        >
-          <span>Key</span>
-          {sortBy === 'camelot_key' && <ArrowUpDown className="w-3 h-3 text-emerald-400" />}
-        </div>
+        {isDjMode && (
+          <div
+            onClick={() => handleHeaderSort('camelot_key')}
+            className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] text-center justify-center"
+          >
+            <span>Key</span>
+            {sortBy === 'camelot_key' && <ArrowUpDown className="w-3 h-3 text-emerald-400" />}
+          </div>
+        )}
 
         <div
           onClick={() => handleHeaderSort('duration')}
@@ -571,6 +628,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
                   <TrackTableSkeletonRow
                     key={`ghost-${actualIndex}`}
                     actualIndex={actualIndex}
+                    isDjMode={isDjMode}
                   />
                 );
               }
@@ -585,6 +643,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({ tracks }) => {
                   actualIndex={actualIndex}
                   isCurrent={isCurrent}
                   isTrackPlaying={isTrackPlaying}
+                  isDjMode={isDjMode}
                   activeMenuTrackId={activeMenuTrackId}
                   playlistSubmenuTrackId={playlistSubmenuTrackId}
                   currentView={currentView}

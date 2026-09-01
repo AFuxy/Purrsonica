@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { X, Upload, Music, Image as ImageIcon, Save, Check } from 'lucide-react';
+import { X, Upload, Music, Image as ImageIcon, Save, Check, Sparkles } from 'lucide-react';
 import { Track, UpdateTrackMetadataPayload } from '../../../shared/types.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
+import { useScanStore } from '../../store/scanStore.js';
 import { CamelotWheelPicker } from './CamelotWheelPicker.js';
 import { parseKey } from '../../../shared/camelot.js';
+import { analyzeAudioTrack } from '../../services/audioAnalyzer.js';
 
 interface MetadataEditorModalProps {
   track: Track;
@@ -14,6 +16,8 @@ interface MetadataEditorModalProps {
 export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({ track, onClose }) => {
   const { fetchTracks, setEditingTrack } = useLibraryStore();
   const { updateCurrentTrackMetadata } = usePlayerStore();
+  const { settings } = useScanStore();
+  const isDjMode = !!settings?.enableDjMode;
 
   const [title, setTitle] = useState(track.title || '');
   const [artist, setArtist] = useState(track.artist || '');
@@ -31,6 +35,24 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({ track,
   const [writeToSourceFile, setWriteToSourceFile] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
+
+  const handleAutoDetect = async () => {
+    if (track.media_type !== 'audio' || isDetecting) return;
+    setIsDetecting(true);
+    try {
+      const res = await analyzeAudioTrack(track);
+      if (res) {
+        if (res.bpm > 0) setBpm(String(res.bpm));
+        if (res.musical_key) setMusicalKey(res.musical_key);
+        if (res.camelot_key) setCamelotKey(res.camelot_key);
+      }
+    } catch (err) {
+      console.error('Failed to auto-detect audio properties:', err);
+    } finally {
+      setIsDetecting(false);
+    }
+  };
 
   const handleSelectCamelot = (camelot: string, musical: string) => {
     setCamelotKey(camelot);
@@ -255,43 +277,59 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({ track,
             </div>
           </div>
 
-          {/* DJ & Harmonic Mixing Section: BPM & Camelot Wheel */}
-          <div className="pt-3 border-t border-[var(--border-color)] space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                DJ Metadata: Tempo & Musical Key
-              </h3>
-              <div className="flex items-center gap-3">
+          {/* DJ & Harmonic Mixing Section: BPM & Camelot Wheel (DJ Mode Only) */}
+          {isDjMode && (
+            <div className="pt-3 border-t border-[var(--border-color)] space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">BPM:</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={bpm}
-                    onChange={(e) => setBpm(e.target.value)}
-                    className="w-20 bg-[var(--bg-tertiary)] border border-[var(--border-color)] focus:border-emerald-500 rounded-md px-2 py-1 text-xs text-[var(--text-primary)] font-mono outline-none"
-                    placeholder="128.0"
-                  />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    DJ Metadata: Tempo & Musical Key
+                  </h3>
+                  {track.media_type === 'audio' && (
+                    <button
+                      type="button"
+                      onClick={handleAutoDetect}
+                      disabled={isDetecting}
+                      className="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                      title="Analyze BPM and Camelot Key with WASM engine"
+                    >
+                      <Sparkles className={`w-3 h-3 ${isDetecting ? 'animate-spin' : ''}`} />
+                      <span>{isDetecting ? 'Detecting...' : 'Auto-Detect'}</span>
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Key:</label>
-                  <input
-                    type="text"
-                    value={musicalKey}
-                    onChange={(e) => handleManualKeyChange(e.target.value)}
-                    className="w-24 bg-[var(--bg-tertiary)] border border-[var(--border-color)] focus:border-emerald-500 rounded-md px-2 py-1 text-xs text-[var(--text-primary)] font-mono outline-none"
-                    placeholder="A Minor / 8A"
-                  />
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">BPM:</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={bpm}
+                      onChange={(e) => setBpm(e.target.value)}
+                      className="w-20 bg-[var(--bg-tertiary)] border border-[var(--border-color)] focus:border-emerald-500 rounded-md px-2 py-1 text-xs text-[var(--text-primary)] font-mono outline-none"
+                      placeholder="128.0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)]">Key:</label>
+                    <input
+                      type="text"
+                      value={musicalKey}
+                      onChange={(e) => handleManualKeyChange(e.target.value)}
+                      className="w-24 bg-[var(--bg-tertiary)] border border-[var(--border-color)] focus:border-emerald-500 rounded-md px-2 py-1 text-xs text-[var(--text-primary)] font-mono outline-none"
+                      placeholder="A Minor / 8A"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Visual Camelot Wheel Selector */}
-            <CamelotWheelPicker
-              selectedCamelot={camelotKey}
-              onSelectKey={handleSelectCamelot}
-            />
-          </div>
+              {/* Visual Camelot Wheel Selector */}
+              <CamelotWheelPicker
+                selectedCamelot={camelotKey}
+                onSelectKey={handleSelectCamelot}
+              />
+            </div>
+          )}
 
           {/* Options & Save Button */}
           <div className="pt-4 border-t border-[var(--border-color)] flex items-center justify-between">

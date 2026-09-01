@@ -5,11 +5,13 @@ import { useLibraryStore } from '../../store/libraryStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
+import { useScanStore } from '../../store/scanStore.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
   const { searchQuery, setSearchQuery, currentView, setView, goBack, goForward, canGoBack, canGoForward } = useLibraryStore();
   const toggleMiniPlayer = usePlayerStore((s) => s.toggleMiniPlayer);
+  const { settings } = useScanStore();
   const { status: updateStatus } = useUpdateStore();
   const { artworkTask, waveformTask, cancelArtworkRecache, cancelWaveformRecache } = useMaintenanceStore();
   const [isMaximized, setIsMaximized] = useState(false);
@@ -102,13 +104,27 @@ export const Titlebar: React.FC = () => {
         className="titlebar-no-drag flex items-center gap-2"
         style={{ WebkitAppRegion: 'no-drag' } as any}
       >
-        <img
-          src={logoPath}
-          alt="Purrsonica"
-          className="h-7 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity"
-          onClick={() => setView('all')}
-          title="Purrsonica"
-        />
+        <div className="relative flex items-center">
+          <img
+            src={logoPath}
+            alt="Purrsonica"
+            className="h-7 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => setView('all')}
+            title="Purrsonica"
+          />
+          {settings?.enableDjMode && (
+            <div
+              className="relative -ml-1 -top-2 flex flex-col items-center rotate-12 hover:rotate-6 hover:scale-110 transition-all cursor-pointer select-none"
+              onClick={() => setView('settings')}
+              title="DJ Mode Active (Click to view DJ settings)"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-neutral-900 border border-white/70 -mb-0.5 z-10 shadow-sm" />
+              <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 text-black text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-amber-200/50 uppercase leading-tight animate-in zoom-in-75 duration-200">
+                DJ
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Back and Forward Navigation History Buttons */}
         <div className="flex items-center gap-0.5 ml-1">

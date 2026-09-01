@@ -56,6 +56,37 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.6.0-beta.1',
+    title: 'WASM Key & BPM Analysis Engine, Seamless Gapless Playback & Video Seek Synchronization',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'On-Demand WASM BPM & Key Analyzer: Integrated high-precision WebAssembly audio DSP engine utilizing 36-bin EDMA harmonic chromagrams and hardware-calibrated 44.1 kHz resampling to calculate exact Camelot keys and tempos.',
+          'Single-Track & Batch Library Analysis: Run on-demand tempo and key detection from Song Detail cards, Track Context Menus, the Metadata Editor, or batch re-analyze your library from Settings.',
+          'Seamless Gapless Playback Engine: Dual-deck A/B hardware pipeline with background pre-buffering, 25ms sub-frame monitoring, and 350ms buffer overlap for zero-hitch song-to-song transitions.',
+          'Gapless Playback Setting: Added a dedicated toggle under Library & Playback preferences in Settings.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Auto-Detuning Pitch Correction: Key detection automatically measures and compensates for non-standard 440 Hz concert pitch (up to ±50 cents).',
+          'Audio-Only Analysis Guard: Strictly filters analysis queues to audio tracks, ignoring video media.',
+          'Cross-Player Video Seek Synchronization: Synchronized timeline seeking across the bottom PlaybackBar, WaveformBar, and Video Modal with timeupdate gating during scrubs.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'WASM Module Bundler Interop: Resolved constructor resolution issues with WebAssembly algorithm bindings in production Vite/Rollup bundles.',
+          'Video Scrubber Frame Conflict: Fixed frame timeupdate race conditions that caused the video scrubber to snap back during dragging.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.5.0',
     title: 'Duplicate File Cleaner & Disk Reclaimer, Ghost Virtualization, Global Playlist Drag-and-Drop & File Path Search Engine',
     sections: [

@@ -18,6 +18,7 @@ import {
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useThemeStore } from '../../store/themeStore.js';
+import { useScanStore } from '../../store/scanStore.js';
 import { WaveformBar } from './WaveformBar.js';
 import { TrackCover } from '../common/TrackCover.js';
 import { formatDuration } from '../../../shared/formatters.js';
@@ -47,6 +48,7 @@ export const MiniPlayerView: React.FC<MiniPlayerViewProps> = ({ onSeek }) => {
   } = usePlayerStore();
 
   const { logoPath } = useThemeStore();
+  const { settings } = useScanStore();
   const { toggleLikeTrack } = useLibraryStore();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
@@ -70,10 +72,23 @@ export const MiniPlayerView: React.FC<MiniPlayerViewProps> = ({ onSeek }) => {
         onDoubleClick={() => toggleMiniPlayer(false)}
         className="h-7 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-2.5 flex items-center justify-between cursor-move flex-shrink-0"
       >
-        {/* Left: Brand + Camelot Key */}
-        <div className="flex items-center gap-2 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <img src={logoPath} alt="Purrsonica" className="h-4 w-auto object-contain" />
-          {currentTrack?.camelot_key && (
+        {/* Left: Brand + Hanging DJ Badge + Camelot Key (if DJ Mode) */}
+        <div className="flex items-center gap-1.5 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <div className="relative flex items-center">
+            <img src={logoPath} alt="Purrsonica" className="h-4 w-auto object-contain" />
+            {settings?.enableDjMode && (
+              <div
+                className="relative -ml-0.5 -top-1.5 flex flex-col items-center rotate-12 select-none pointer-events-none"
+                title="DJ Mode Active"
+              >
+                <div className="w-1 h-1 rounded-full bg-neutral-900 border border-white/70 -mb-0.5 z-10 shadow-sm" />
+                <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 text-black text-[7px] font-black tracking-widest px-1 py-0.2 rounded shadow border border-amber-200/50 uppercase leading-none">
+                  DJ
+                </div>
+              </div>
+            )}
+          </div>
+          {settings?.enableDjMode && currentTrack?.camelot_key && (
             <span
               className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold leading-none"
               style={{
@@ -84,7 +99,7 @@ export const MiniPlayerView: React.FC<MiniPlayerViewProps> = ({ onSeek }) => {
               {currentTrack.camelot_key}
             </span>
           )}
-          {currentTrack?.bpm && (
+          {settings?.enableDjMode && currentTrack?.bpm && (
             <span className="text-[9px] font-mono text-[var(--text-muted)] hidden sm:inline">
               {Math.round(currentTrack.bpm)} BPM
             </span>

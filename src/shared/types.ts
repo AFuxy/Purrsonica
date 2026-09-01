@@ -93,6 +93,8 @@ export interface ScanSettings {
   allowPrerelease?: boolean;
   enableDiscordRpc?: boolean;
   discordRpcShowButtons?: boolean;
+  enableDjMode?: boolean;
+  enableGaplessPlayback?: boolean;
 }
 
 export interface DiscordPresencePayload {

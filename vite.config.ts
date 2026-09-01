@@ -17,7 +17,16 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron/main',
             rollupOptions: {
-              external: ['better-sqlite3', 'music-metadata', 'node-id3', 'electron'],
+              external: [
+                'better-sqlite3',
+                'music-metadata',
+                'node-id3',
+                'electron',
+                'electron-updater',
+                '@xhayper/discord-rpc',
+                'bufferutil',
+                'utf-8-validate',
+              ],
               output: {
                 entryFileNames: 'index.js',
               },
@@ -52,7 +61,15 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron/scanner',
             rollupOptions: {
-              external: ['better-sqlite3', 'music-metadata', 'node-id3', 'electron'],
+              external: [
+                'better-sqlite3',
+                'music-metadata',
+                'node-id3',
+                'electron',
+                '@xhayper/discord-rpc',
+                'bufferutil',
+                'utf-8-validate',
+              ],
               output: {
                 entryFileNames: 'scanner-worker.js',
               },

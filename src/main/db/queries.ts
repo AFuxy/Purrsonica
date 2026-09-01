@@ -523,6 +523,8 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   allowPrerelease: false,
   enableDiscordRpc: true,
   discordRpcShowButtons: true,
+  enableDjMode: false,
+  enableGaplessPlayback: true,
 };
 
 export function getScanSettings(): ScanSettings {

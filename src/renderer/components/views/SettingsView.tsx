@@ -61,10 +61,13 @@ export const SettingsView: React.FC = () => {
   const {
     artworkTask,
     waveformTask,
+    audioAnalysisTask,
     startArtworkRecache,
     cancelArtworkRecache,
     startWaveformRecache,
     cancelWaveformRecache,
+    startAudioAnalysis,
+    cancelAudioAnalysis,
   } = useMaintenanceStore();
 
   const [newExclusion, setNewExclusion] = useState('');
@@ -196,6 +199,18 @@ export const SettingsView: React.FC = () => {
     await saveSettings({ ...currentSettings, autoDetectKeyBpm: !currentSettings.autoDetectKeyBpm });
   };
 
+  const handleToggleGapless = async () => {
+    const nextVal = currentSettings.enableGaplessPlayback === false ? true : false;
+    await saveSettings({ ...currentSettings, enableGaplessPlayback: nextVal });
+    showToast(nextVal ? 'Gapless audio playback enabled' : 'Gapless playback disabled');
+  };
+
+  const handleToggleDjMode = async () => {
+    const nextVal = currentSettings.enableDjMode === false || currentSettings.enableDjMode === undefined ? true : false;
+    await saveSettings({ ...currentSettings, enableDjMode: nextVal });
+    showToast(nextVal ? 'DJ Suite & Performance Mode enabled' : 'DJ Suite disabled (Standard Mode active)');
+  };
+
   const handleTogglePrerelease = async () => {
     const nextVal = !currentSettings.allowPrerelease;
     await saveSettings({ ...currentSettings, allowPrerelease: nextVal });
@@ -291,6 +306,26 @@ export const SettingsView: React.FC = () => {
       }
     } catch (err) {
       showToast('Error generating waveforms');
+    }
+  };
+
+  const handleBatchAnalyzeAudio = async (reanalyzeAll = false) => {
+    if (audioAnalysisTask.isActive) {
+      cancelAudioAnalysis();
+      showToast('Audio analysis stopped');
+      return;
+    }
+    try {
+      const result = await startAudioAnalysis({ reanalyzeAll });
+      if (result.cancelled) {
+        showToast('Audio analysis cancelled');
+      } else if (result.analyzedCount > 0) {
+        showToast(`Analysis complete: Successfully analyzed ${result.analyzedCount} audio tracks!`);
+      } else {
+        showToast(reanalyzeAll ? 'No audio tracks found to analyze' : 'All audio tracks are already analyzed!');
+      }
+    } catch (err) {
+      showToast('Error analyzing audio tracks');
     }
   };
 
@@ -604,81 +639,151 @@ export const SettingsView: React.FC = () => {
             {/* Audio Toggle */}
             <div
               onClick={handleToggleAudio}
-              className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <Music className="w-4 h-4 text-emerald-400" />
-                <div>
-                  <div className="font-semibold text-xs text-[var(--text-primary)]">Index Audio Files</div>
-                  <div className="text-[11px] text-[var(--text-muted)]">MP3, FLAC, WAV, M4A, AAC, OGG, OPUS</div>
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <Music className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Index Audio Files</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate">MP3, FLAC, WAV, M4A, AAC, OGG, OPUS</div>
                 </div>
               </div>
-              <input
-                type="checkbox"
-                checked={currentSettings.scanAudio}
-                onChange={() => {}}
-                className="w-4 h-4 accent-emerald-500 pointer-events-none"
-              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleAudio();
+                }}
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                  currentSettings.scanAudio ? 'bg-emerald-500' : 'bg-neutral-600'
+                }`}
+                title="Toggle Audio Indexing"
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                    currentSettings.scanAudio ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
             </div>
 
             {/* Video Toggle */}
             <div
               onClick={handleToggleVideo}
-              className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <Tv className="w-4 h-4 text-purple-400" />
-                <div>
-                  <div className="font-semibold text-xs text-[var(--text-primary)]">Index Video Files</div>
-                  <div className="text-[11px] text-[var(--text-muted)]">MP4, MKV, WEBM, MOV, AVI</div>
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <Tv className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Index Video Files</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate">MP4, MKV, WEBM, MOV, AVI</div>
                 </div>
               </div>
-              <input
-                type="checkbox"
-                checked={currentSettings.scanVideo}
-                onChange={() => {}}
-                className="w-4 h-4 accent-emerald-500 pointer-events-none"
-              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleVideo();
+                }}
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                  currentSettings.scanVideo ? 'bg-purple-500' : 'bg-neutral-600'
+                }`}
+                title="Toggle Video Indexing"
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                    currentSettings.scanVideo ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
             </div>
 
             {/* Waveforms Toggle */}
             <div
               onClick={handleToggleWaveforms}
-              className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <Activity className="w-4 h-4 text-cyan-400" />
-                <div>
-                  <div className="font-semibold text-xs text-[var(--text-primary)]">Generate Waveform Data</div>
-                  <div className="text-[11px] text-[var(--text-muted)]">128-bar loudness amplitude curves</div>
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Generate Waveform Data</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate">128-bar loudness amplitude curves</div>
                 </div>
               </div>
-              <input
-                type="checkbox"
-                checked={currentSettings.generateWaveforms}
-                onChange={() => {}}
-                className="w-4 h-4 accent-emerald-500 pointer-events-none"
-              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleWaveforms();
+                }}
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                  currentSettings.generateWaveforms ? 'bg-cyan-500' : 'bg-neutral-600'
+                }`}
+                title="Toggle Waveform Generation"
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                    currentSettings.generateWaveforms ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
             </div>
 
-            {/* DJ Key/BPM Tag Recognition */}
+            {/* BPM & Camelot Key Tag Recognition Toggle */}
             <div
               onClick={handleToggleKeyBpm}
-              className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <Layers className="w-4 h-4 text-amber-400" />
-                <div>
-                  <div className="font-semibold text-xs text-[var(--text-primary)]">DJ Tags & Camelot Key Recognition</div>
-                  <div className="text-[11px] text-[var(--text-muted)]">Extracts BPM and normalizes key tags to the 1A–12B Camelot Wheel</div>
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <Layers className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">BPM & Key Tag Recognition</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate">Extracts BPM & Camelot keys from ID3 metadata</div>
                 </div>
               </div>
-              <input
-                type="checkbox"
-                checked={currentSettings.autoDetectKeyBpm}
-                onChange={() => {}}
-                className="w-4 h-4 accent-emerald-500 pointer-events-none"
-              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleKeyBpm();
+                }}
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                  currentSettings.autoDetectKeyBpm ? 'bg-amber-500' : 'bg-neutral-600'
+                }`}
+                title="Toggle BPM & Camelot Key Tag Recognition"
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                    currentSettings.autoDetectKeyBpm ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Gapless Audio Playback Toggle */}
+            <div
+              onClick={handleToggleGapless}
+              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <AudioWaveform className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Gapless Audio Playback</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate">Pre-buffers upcoming songs for seamless, zero-delay transitions</div>
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleGapless();
+                }}
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                  currentSettings.enableGaplessPlayback !== false ? 'bg-emerald-500' : 'bg-neutral-600'
+                }`}
+                title="Toggle Gapless Playback"
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                    currentSettings.enableGaplessPlayback !== false ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
@@ -703,7 +808,7 @@ export const SettingsView: React.FC = () => {
               />
               <button
                 type="submit"
-                className="px-4 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-primary)]"
+                className="px-4 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-primary)] cursor-pointer"
               >
                 Add Rule
               </button>
@@ -718,7 +823,7 @@ export const SettingsView: React.FC = () => {
                   <span className="truncate">{rule}</span>
                   <button
                     onClick={() => removeExclusion(rule)}
-                    className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 p-1 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 p-1 transition-opacity cursor-pointer"
                     title="Remove rule"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -730,7 +835,152 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
 
-      {/* Section 3: Storage & Maintenance */}
+      {/* Section 3: DJ Suite & Performance Mode */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+            <Radio className="w-4 h-4 text-amber-400" />
+            <span>DJ Suite & Performance Mode</span>
+          </h2>
+          {currentSettings.enableDjMode && (
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold shadow-sm">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>DJ Mode Active</span>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+          {/* Master DJ Mode Toggle Card */}
+          <div
+            onClick={handleToggleDjMode}
+            className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
+              currentSettings.enableDjMode
+                ? 'bg-gradient-to-r from-amber-950/40 via-amber-900/20 to-transparent border-amber-500/50 shadow-lg ring-1 ring-amber-500/40'
+                : 'bg-[var(--bg-tertiary)] border-[var(--border-color)] hover:border-neutral-600'
+            }`}
+          >
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className={`p-3 rounded-xl border flex items-center justify-center transition-all flex-shrink-0 ${
+                currentSettings.enableDjMode
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-md'
+                  : 'bg-neutral-800 text-[var(--text-muted)] border-neutral-700'
+              }`}>
+                <Radio className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-bold text-xs sm:text-sm text-[var(--text-primary)] flex items-center gap-2">
+                  <span>Enable DJ Suite & Performance Mode</span>
+                  {currentSettings.enableDjMode && (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500 text-black shadow-sm">
+                      DJ
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] sm:text-xs text-[var(--text-muted)] mt-0.5">
+                  Unlocks BPM and Camelot Harmonic Key columns in track tables, Camelot Wheel harmonic mixing tools, and detailed tempo inspection.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleDjMode();
+              }}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                currentSettings.enableDjMode ? 'bg-amber-500' : 'bg-neutral-600'
+              }`}
+              title="Toggle DJ Suite & Performance Mode"
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                  currentSettings.enableDjMode ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* WASM Audio Key & BPM Batch Analyzer Card (DJ Mode Only) */}
+          {currentSettings.enableDjMode && (
+            <div className="p-4 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>WASM Key & BPM Batch Analyzer</span>
+                  </div>
+                  <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                    Analyzes audio songs with the high-precision WebAssembly DSP engine to extract BPM tempo and 1A–12B Camelot harmonic keys (audio files only, videos are skipped).
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0 flex-wrap sm:flex-nowrap">
+                  <button
+                    onClick={() => handleBatchAnalyzeAudio(false)}
+                    disabled={audioAnalysisTask.isActive}
+                    className={`flex items-center justify-center gap-1.5 px-3.5 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all cursor-pointer disabled:opacity-50 ${
+                      audioAnalysisTask.isActive
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                        : 'bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold border-amber-400 hover:opacity-90'
+                    }`}
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${audioAnalysisTask.isActive ? 'animate-spin' : ''}`} />
+                    <span>
+                      {audioAnalysisTask.isActive
+                        ? `Analyzing (${audioAnalysisTask.current}/${audioAnalysisTask.total})...`
+                        : 'Analyze Unanalyzed'}
+                    </span>
+                  </button>
+
+                  {!audioAnalysisTask.isActive && (
+                    <button
+                      onClick={() => handleBatchAnalyzeAudio(true)}
+                      className="px-3 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                      title="Force re-analyze all audio songs regardless of existing BPM/key"
+                    >
+                      Re-Analyze All
+                    </button>
+                  )}
+
+                  {audioAnalysisTask.isActive && (
+                    <button
+                      onClick={cancelAudioAnalysis}
+                      className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                      title="Cancel Audio Analysis"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {audioAnalysisTask.isActive && (
+                <div className="space-y-1.5 pt-2 border-t border-[var(--border-color)]">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[var(--text-muted)] truncate max-w-xs sm:max-w-md">
+                      Current: {audioAnalysisTask.currentTrackTitle || 'Processing...'}
+                    </span>
+                    <span className="text-amber-400 font-mono font-bold">
+                      {Math.round((audioAnalysisTask.current / Math.max(1, audioAnalysisTask.total)) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-200"
+                      style={{
+                        width: `${Math.round((audioAnalysisTask.current / Math.max(1, audioAnalysisTask.total)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Section 4: Storage & Maintenance */}
       <section className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
           <Database className="w-4 h-4 text-emerald-400" />
