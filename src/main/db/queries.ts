@@ -525,6 +525,7 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   discordRpcShowButtons: true,
   enableDjMode: false,
   enableGaplessPlayback: true,
+  crossfadeDuration: 0,
 };
 
 export function getScanSettings(): ScanSettings {

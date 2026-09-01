@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { usePlayerStore } from '../store/playerStore.js';
 import { useScanStore } from '../store/scanStore.js';
 
-// Dual-deck audio pipeline for zero-gap seamless transitions
+// Dual-deck audio pipeline for 0ms gapless and smooth crossfade transitions
 const decks = [new Audio(), new Audio()];
 decks[0].preload = 'auto';
 decks[1].preload = 'auto';
@@ -14,8 +14,18 @@ let pendingRestoreTime: number | null = null;
 let hasCheckedInitialResume = false;
 let preloadedTrackId: string | null = null;
 let isGaplessTransitioning = false;
+let isCrossfading = false;
 let handoffFiredForTrackId: string | null = null;
 let precisionTimer: any = null;
+let crossfadeTimer: any = null;
+
+function getPlayerConfig() {
+  const s = useScanStore.getState().settings;
+  return {
+    isGaplessEnabled: s?.enableGaplessPlayback !== false,
+    crossfadeDuration: Math.min(10, Math.max(0, s?.crossfadeDuration ?? 0)),
+  };
+}
 
 export function getAudioElement(): HTMLAudioElement {
   return decks[activeDeckIndex];
@@ -33,6 +43,21 @@ export function seekAudioTo(newTime: number): void {
   const currentTrack = usePlayerStore.getState().currentTrack;
   pendingRestoreTime = null;
   handoffFiredForTrackId = null;
+
+  if (crossfadeTimer) {
+    clearInterval(crossfadeTimer);
+    crossfadeTimer = null;
+    isCrossfading = false;
+    const curMaster = usePlayerStore.getState().isMuted ? 0 : usePlayerStore.getState().volume;
+    getActiveDeck().volume = curMaster;
+    getStandbyDeck().pause();
+    getStandbyDeck().src = '';
+  }
+
+  if (precisionTimer) {
+    clearInterval(precisionTimer);
+    precisionTimer = null;
+  }
 
   if (currentTrack?.media_type === 'video') {
     window.dispatchEvent(new CustomEvent('purrsonica:seek-video', { detail: newTime }));
@@ -74,12 +99,11 @@ export function useAudioPlayer() {
     playPrevious,
   } = usePlayerStore();
 
-  const { settings } = useScanStore();
-  const isGaplessEnabled = settings?.enableGaplessPlayback !== false;
-
   // Pre-buffer upcoming track on the standby deck
   const preloadUpcomingTrack = () => {
+    const { isGaplessEnabled, crossfadeDuration } = getPlayerConfig();
     if (!isGaplessEnabled) return;
+
     const state = usePlayerStore.getState();
     const nextTrack = state.queue.length > 0
       ? state.queue[0]
@@ -101,14 +125,14 @@ export function useAudioPlayer() {
         standby.src = nextMediaUrl;
         standby.preload = 'auto';
         standby.load();
-        standby.volume = isMuted ? 0 : volume;
+        standby.volume = crossfadeDuration > 0 ? 0 : (isMuted ? 0 : volume);
       }
     }
   };
 
-  // Perform instant 0ms handoff from active deck to pre-buffered standby deck
-  const executeHandoff = () => {
-    if (isGaplessTransitioning) return;
+  // Perform smooth audio crossfade transition over fadeSec seconds
+  const executeCrossfade = (fadeSec: number) => {
+    if (isCrossfading || isGaplessTransitioning) return;
     const state = usePlayerStore.getState();
     const active = getActiveDeck();
     const standby = getStandbyDeck();
@@ -137,6 +161,101 @@ export function useAudioPlayer() {
       : (state.repeatMode === 'all' && state.history.length > 0 ? state.history[state.history.length - 1] : null);
 
     if (
+      nextTrack &&
+      nextTrack.media_type !== 'video' &&
+      standby.src
+    ) {
+      isCrossfading = true;
+      isGaplessTransitioning = true;
+      currentPlayingTrackId = nextTrack.id;
+      preloadedTrackId = null;
+
+      const startTime = Date.now();
+      const totalFadeMs = Math.max(500, fadeSec * 1000);
+
+      // Start incoming track at 0 volume
+      standby.currentTime = 0;
+      standby.volume = 0;
+      standby.play().catch((err) => {
+        console.warn('Crossfade incoming deck play error:', err);
+      });
+
+      if (crossfadeTimer) clearInterval(crossfadeTimer);
+
+      crossfadeTimer = setInterval(() => {
+        const elapsedMs = Date.now() - startTime;
+        const progress = Math.min(1, Math.max(0, elapsedMs / totalFadeMs));
+        const curMaster = usePlayerStore.getState().isMuted ? 0 : usePlayerStore.getState().volume;
+
+        // Equal-power crossfade curve
+        active.volume = curMaster * Math.cos(progress * 0.5 * Math.PI);
+        standby.volume = curMaster * Math.sin(progress * 0.5 * Math.PI);
+
+        if (progress >= 1) {
+          clearInterval(crossfadeTimer);
+          crossfadeTimer = null;
+
+          // Swap active deck reference
+          const oldActive = active;
+          activeDeckIndex = (1 - activeDeckIndex) as 0 | 1;
+
+          standby.volume = curMaster;
+          if (!isNaN(standby.duration) && standby.duration > 0) {
+            setDuration(standby.duration);
+          }
+
+          // Advance queue in store and preserve the continuous ongoing position (e.g. 4.0s)
+          const ongoingTime = standby.currentTime;
+          usePlayerStore.getState().playNext();
+          usePlayerStore.getState().setCurrentTime(ongoingTime);
+
+          isCrossfading = false;
+          isGaplessTransitioning = false;
+
+          try {
+            oldActive.pause();
+            oldActive.src = '';
+          } catch {}
+        }
+      }, 20);
+    } else {
+      executeHandoff();
+    }
+  };
+
+  // Perform instant 0ms handoff from active deck to pre-buffered standby deck
+  const executeHandoff = () => {
+    if (isGaplessTransitioning || isCrossfading) return;
+    const state = usePlayerStore.getState();
+    const active = getActiveDeck();
+    const standby = getStandbyDeck();
+
+    if (active.src && handoffFiredForTrackId === currentPlayingTrackId) {
+      return;
+    }
+    handoffFiredForTrackId = currentPlayingTrackId;
+
+    if (precisionTimer) {
+      clearInterval(precisionTimer);
+      precisionTimer = null;
+    }
+
+    if (state.repeatMode === 'one' && state.currentTrack) {
+      active.currentTime = 0;
+      active.play().catch(() => {});
+      setCurrentTime(0);
+      setIsPlaying(true);
+      handoffFiredForTrackId = null;
+      return;
+    }
+
+    const nextTrack = state.queue.length > 0
+      ? state.queue[0]
+      : (state.repeatMode === 'all' && state.history.length > 0 ? state.history[state.history.length - 1] : null);
+
+    const { isGaplessEnabled } = getPlayerConfig();
+
+    if (
       isGaplessEnabled &&
       nextTrack &&
       nextTrack.media_type !== 'video' &&
@@ -146,7 +265,8 @@ export function useAudioPlayer() {
       currentPlayingTrackId = nextTrack.id;
       preloadedTrackId = null;
 
-      // Start standby deck immediately with zero latency
+      const curMaster = state.isMuted ? 0 : state.volume;
+      standby.volume = curMaster;
       standby.currentTime = 0;
       standby.play().catch((err) => {
         console.warn('Gapless playback transition error:', err);
@@ -177,21 +297,31 @@ export function useAudioPlayer() {
     }
   };
 
-  // Start high-precision monitor for the final 3 seconds of a track
-  const checkPrecisionEnd = (deck: HTMLAudioElement) => {
-    if (!isGaplessEnabled || precisionTimer) return;
-    if (deck.duration > 3 && deck.currentTime >= deck.duration - 3.0) {
-      precisionTimer = setInterval(() => {
-        const currentActive = getActiveDeck();
-        if (currentActive === deck && !deck.paused) {
-          if (deck.currentTime >= deck.duration - 0.20) {
-            executeHandoff();
+  // Monitor end of track for Crossfade or 0ms Gapless Handoff
+  const checkTransition = (deck: HTMLAudioElement) => {
+    const { isGaplessEnabled, crossfadeDuration } = getPlayerConfig();
+    if (!isGaplessEnabled || isCrossfading || isGaplessTransitioning) return;
+
+    if (crossfadeDuration > 0) {
+      // Trigger Crossfade when reaching (duration - crossfadeDuration)
+      if (deck.duration > crossfadeDuration + 0.5 && deck.currentTime >= deck.duration - crossfadeDuration) {
+        executeCrossfade(crossfadeDuration);
+      }
+    } else {
+      // 0ms Gapless: Trigger high-precision monitor during final 3 seconds
+      if (deck.duration > 3 && deck.currentTime >= deck.duration - 3.0 && !precisionTimer) {
+        precisionTimer = setInterval(() => {
+          const currentActive = getActiveDeck();
+          if (currentActive === deck && !deck.paused) {
+            if (deck.currentTime >= deck.duration - 0.20) {
+              executeHandoff();
+            }
+          } else {
+            clearInterval(precisionTimer);
+            precisionTimer = null;
           }
-        } else {
-          clearInterval(precisionTimer);
-          precisionTimer = null;
-        }
-      }, 25);
+        }, 20);
+      }
     }
   };
 
@@ -217,13 +347,13 @@ export function useAudioPlayer() {
           if (pendingRestoreTime !== null) return;
           setCurrentTime(deck.currentTime);
 
-          // Preload upcoming track when within last 12 seconds
-          if (deck.duration > 10 && deck.currentTime >= deck.duration - 12) {
+          const { crossfadeDuration } = getPlayerConfig();
+          const preBufferSec = crossfadeDuration > 0 ? crossfadeDuration + 8 : 12;
+          if (deck.duration > preBufferSec && deck.currentTime >= deck.duration - preBufferSec) {
             preloadUpcomingTrack();
           }
 
-          // Trigger high-precision end monitor during final 3 seconds
-          checkPrecisionEnd(deck);
+          checkTransition(deck);
         }
       });
 
@@ -243,7 +373,9 @@ export function useAudioPlayer() {
       deck.addEventListener('ended', () => {
         if (deckIdx !== activeDeckIndex) return;
         pendingRestoreTime = null;
-        executeHandoff();
+        if (!isCrossfading) {
+          executeHandoff();
+        }
       });
 
       deck.addEventListener('error', () => {
@@ -270,7 +402,7 @@ export function useAudioPlayer() {
 
   // Update track source when currentTrack changes
   useEffect(() => {
-    if (isGaplessTransitioning) return;
+    if (isGaplessTransitioning || isCrossfading) return;
 
     const active = getActiveDeck();
 
@@ -302,11 +434,8 @@ export function useAudioPlayer() {
           preloadUpcomingTrack();
         }, 500);
       } else {
-        // Same track re-triggered
+        // Same track re-triggered (e.g. resume)
         if (isPlaying) {
-          if (usePlayerStore.getState().currentTime === 0 && active.currentTime > 0) {
-            active.currentTime = 0;
-          }
           if (active.paused || active.ended) {
             active.play().catch(() => {});
           }
@@ -342,13 +471,14 @@ export function useAudioPlayer() {
     }
   }, [isPlaying, currentTrack]);
 
-  // Handle Volume / Mute on both decks
+  // Handle Volume / Mute
   useEffect(() => {
+    if (isCrossfading) return;
     const targetVol = isMuted ? 0 : volume;
     decks.forEach((deck) => {
       deck.volume = targetVol;
     });
-  }, [volume, isMuted]);
+  }, [volume, isMuted, isCrossfading]);
 
   // Media Session API integration
   useEffect(() => {

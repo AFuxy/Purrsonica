@@ -95,6 +95,7 @@ export interface ScanSettings {
   discordRpcShowButtons?: boolean;
   enableDjMode?: boolean;
   enableGaplessPlayback?: boolean;
+  crossfadeDuration?: number; // 0 to 10 seconds (0 = 0ms gapless, 1-10s = crossfade)
 }
 
 export interface DiscordPresencePayload {

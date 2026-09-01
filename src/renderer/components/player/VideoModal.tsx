@@ -491,7 +491,7 @@ export const VideoModal: React.FC = () => {
                     setVolume(parseFloat(e.target.value));
                     if (isMuted) toggleMute();
                   }}
-                  className="w-20 h-1.5 bg-white/20 hover:bg-white/30 rounded-full appearance-none cursor-pointer accent-emerald-400"
+                  className="w-20 cursor-pointer"
                   title="Volume"
                 />
               </div>

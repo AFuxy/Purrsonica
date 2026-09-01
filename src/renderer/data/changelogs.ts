@@ -57,7 +57,7 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
     version: '1.6.0-beta.1',
-    title: 'WASM Key & BPM Analysis Engine, Seamless Gapless Playback & Video Seek Synchronization',
+    title: 'WASM Key & BPM Analyzer, Gapless Playback, Audio Crossfader & Waveform Transition Zones',
     isPrerelease: true,
     sections: [
       {
@@ -65,8 +65,10 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
         items: [
           'On-Demand WASM BPM & Key Analyzer: Integrated high-precision WebAssembly audio DSP engine utilizing 36-bin EDMA harmonic chromagrams and hardware-calibrated 44.1 kHz resampling to calculate exact Camelot keys and tempos.',
           'Single-Track & Batch Library Analysis: Run on-demand tempo and key detection from Song Detail cards, Track Context Menus, the Metadata Editor, or batch re-analyze your library from Settings.',
+          'Audio Crossfade Engine (1–10s): Smoothly blends consecutive tracks with equal-power volume curves, adjustable from 0s (Gapless) to 10s in Settings.',
+          'Visual Waveform Transition Zones: Highlights active fade-in and fade-out transition windows directly on the waveform bar with frosted white indicators and tooltip readouts.',
           'Seamless Gapless Playback Engine: Dual-deck A/B hardware pipeline with background pre-buffering, 25ms sub-frame monitoring, and 350ms buffer overlap for zero-hitch song-to-song transitions.',
-          'Gapless Playback Setting: Added a dedicated toggle under Library & Playback preferences in Settings.',
+          'Gapless & Crossfade Preferences: Added dedicated toggle and duration slider under Library & Playback preferences in Settings.',
         ],
       },
       {

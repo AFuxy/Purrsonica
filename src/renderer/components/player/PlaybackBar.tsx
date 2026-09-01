@@ -324,7 +324,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
             step="0.01"
             value={isMuted ? 0 : volume}
             onChange={(e) => setVolume(parseFloat(e.target.value))}
-            className="w-20 accent-emerald-500 h-1 bg-[var(--bg-tertiary)] rounded-full"
+            className="w-20 cursor-pointer"
             title={`Volume: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
           />
         </div>

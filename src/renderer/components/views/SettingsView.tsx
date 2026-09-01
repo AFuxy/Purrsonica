@@ -30,6 +30,7 @@ import {
   Check,
   Copy,
   Zap,
+  Sliders,
 } from 'lucide-react';
 import { useThemeStore, ACCENT_PRESETS } from '../../store/themeStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -784,6 +785,55 @@ export const SettingsView: React.FC = () => {
                   }`}
                 />
               </button>
+            </div>
+
+            {/* Audio Crossfade Duration Slider */}
+            <div className="p-3.5 rounded-lg bg-[var(--bg-tertiary)] col-span-1 sm:col-span-2 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Sliders className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-xs text-[var(--text-primary)]">Audio Crossfade Duration</div>
+                    <div className="text-[11px] text-[var(--text-muted)]">
+                      Smoothly blends the ending and beginning of consecutive songs (visualized as a transition zone on the waveform)
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold ${
+                    (currentSettings.crossfadeDuration || 0) > 0
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-neutral-800 text-[var(--text-muted)] border border-neutral-700'
+                  }`}>
+                    {(currentSettings.crossfadeDuration || 0) === 0 ? '0s (Off / Gapless)' : `${currentSettings.crossfadeDuration}s Crossfade`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">0s</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="1"
+                  value={currentSettings.crossfadeDuration ?? 0}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10) || 0;
+                    useScanStore.getState().setSettings({ ...currentSettings, crossfadeDuration: val });
+                  }}
+                  onPointerUp={(e) => {
+                    const val = parseInt((e.target as HTMLInputElement).value, 10) || 0;
+                    saveSettings({ ...currentSettings, crossfadeDuration: val });
+                  }}
+                  onKeyUp={(e) => {
+                    const val = parseInt((e.target as HTMLInputElement).value, 10) || 0;
+                    saveSettings({ ...currentSettings, crossfadeDuration: val });
+                  }}
+                  className="flex-1 cursor-pointer"
+                />
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">10s</span>
+              </div>
             </div>
           </div>
 
