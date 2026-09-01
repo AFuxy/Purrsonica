@@ -45,11 +45,12 @@ export const MiniPlayerView: React.FC<MiniPlayerViewProps> = ({ onSeek }) => {
     toggleShuffle,
     cycleRepeat,
     toggleMiniPlayer,
+    crossfadeState,
   } = usePlayerStore();
 
+  const { toggleLikeTrack } = useLibraryStore();
   const { logoPath } = useThemeStore();
   const { settings } = useScanStore();
-  const { toggleLikeTrack } = useLibraryStore();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   const handleMinimize = () => {
@@ -193,15 +194,39 @@ export const MiniPlayerView: React.FC<MiniPlayerViewProps> = ({ onSeek }) => {
         {/* Top Row: Cover Art, Metadata, and Primary Transport Controls */}
         <div className="flex items-center gap-3 min-w-0">
           {/* Cover Art */}
-          <div className="relative w-11 h-11 rounded-lg bg-[var(--bg-tertiary)] overflow-hidden flex-shrink-0 border border-white/10 shadow-md">
+          <div className={`relative w-11 h-11 rounded-lg bg-[var(--bg-tertiary)] overflow-hidden flex-shrink-0 border border-white/10 shadow-md ${
+            crossfadeState?.isCrossfading ? 'ring-2 ring-purple-500/70' : ''
+          }`}>
             {currentTrack ? (
-              <TrackCover
-                coverPath={currentTrack.cover_art_path}
-                mediaType={currentTrack.media_type}
-                alt={currentTrack.title}
-                fallbackIconClassName="w-5 h-5 text-[var(--text-muted)]"
-                className="w-full h-full object-cover"
-              />
+              <>
+                <div
+                  className="w-full h-full transition-opacity"
+                  style={{ opacity: crossfadeState?.isCrossfading ? 1 - crossfadeState.progress : 1 }}
+                >
+                  <TrackCover
+                    coverPath={currentTrack.cover_art_path}
+                    mediaType={currentTrack.media_type}
+                    alt={currentTrack.title}
+                    fallbackIconClassName="w-5 h-5 text-[var(--text-muted)]"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {crossfadeState?.isCrossfading && crossfadeState.incomingTrack && (
+                  <div
+                    className="absolute inset-0 transition-opacity"
+                    style={{ opacity: crossfadeState.progress }}
+                  >
+                    <TrackCover
+                      coverPath={crossfadeState.incomingTrack.cover_art_path}
+                      mediaType={crossfadeState.incomingTrack.media_type}
+                      alt={crossfadeState.incomingTrack.title}
+                      fallbackIconClassName="w-5 h-5 text-[var(--text-muted)]"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Music className="w-5 h-5 text-[var(--text-muted)]" />
@@ -212,10 +237,14 @@ export const MiniPlayerView: React.FC<MiniPlayerViewProps> = ({ onSeek }) => {
           {/* Center: Track Metadata */}
           <div className="flex-1 min-w-0 pr-1">
             <div className="text-xs font-bold text-white truncate leading-tight">
-              {currentTrack ? currentTrack.title || currentTrack.file_name : 'No track playing'}
+              {crossfadeState?.isCrossfading && crossfadeState.incomingTrack && crossfadeState.progress > 0.5
+                ? crossfadeState.incomingTrack.title || crossfadeState.incomingTrack.file_name
+                : currentTrack ? currentTrack.title || currentTrack.file_name : 'No track playing'}
             </div>
             <div className="text-[10px] text-[var(--text-muted)] truncate leading-tight mt-0.5">
-              {currentTrack ? currentTrack.artist || 'Unknown Artist' : 'Purrsonica'}
+              {crossfadeState?.isCrossfading && crossfadeState.incomingTrack && crossfadeState.progress > 0.5
+                ? crossfadeState.incomingTrack.artist || 'Unknown Artist'
+                : currentTrack ? currentTrack.artist || 'Unknown Artist' : 'Purrsonica'}
             </div>
           </div>
 

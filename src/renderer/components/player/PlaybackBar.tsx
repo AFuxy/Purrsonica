@@ -49,6 +49,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
     toggleRightSidebar,
     toggleMiniPlayer,
     setVideoModalOpen,
+    crossfadeState,
   } = usePlayerStore();
 
   const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail } = useLibraryStore();
@@ -82,18 +83,41 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
                   selectTrackDetail(currentTrack);
                 }
               }}
-              className="relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 group shadow-md cursor-pointer ring-1 ring-white/5 hover:ring-emerald-500/50 transition-all"
+              className={`relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 group shadow-md cursor-pointer ring-1 ring-white/5 hover:ring-emerald-500/50 transition-all ${
+                crossfadeState?.isCrossfading ? 'ring-2 ring-purple-500/70 shadow-[0_0_12px_rgba(168,85,247,0.4)]' : ''
+              }`}
               title="Click to View Song Info & Play Page"
             >
-              <TrackCover
-                coverPath={currentTrack.cover_art_path}
-                mediaType={currentTrack.media_type}
-                alt={currentTrack.title}
-                fallbackIconClassName="w-6 h-6 text-[var(--text-muted)]"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-              />
+              <div
+                className="w-full h-full transition-opacity"
+                style={{ opacity: crossfadeState?.isCrossfading ? 1 - crossfadeState.progress : 1 }}
+              >
+                <TrackCover
+                  coverPath={currentTrack.cover_art_path}
+                  mediaType={currentTrack.media_type}
+                  alt={currentTrack.title}
+                  fallbackIconClassName="w-6 h-6 text-[var(--text-muted)]"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                />
+              </div>
 
-              {currentTrack.media_type === 'video' && (
+              {/* Incoming Track Cover Blend Overlay during Crossfade */}
+              {crossfadeState?.isCrossfading && crossfadeState.incomingTrack && (
+                <div
+                  className="absolute inset-0 transition-opacity"
+                  style={{ opacity: crossfadeState.progress }}
+                >
+                  <TrackCover
+                    coverPath={crossfadeState.incomingTrack.cover_art_path}
+                    mediaType={crossfadeState.incomingTrack.media_type}
+                    alt={crossfadeState.incomingTrack.title}
+                    fallbackIconClassName="w-6 h-6 text-[var(--text-muted)]"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
+              {currentTrack.media_type === 'video' && !crossfadeState?.isCrossfading && (
                 <div
                   className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
                   title="Click to Open Video Player"
@@ -104,13 +128,23 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
             </div>
 
             <div className="flex flex-col min-w-0 pr-1 flex-1">
-              <span
-                onClick={() => selectTrackDetail(currentTrack)}
-                className="text-xs font-semibold text-[var(--text-primary)] truncate hover:text-emerald-400 hover:underline cursor-pointer leading-tight transition-colors"
-                title={`Song: ${currentTrack.title} (Click to open song play page)`}
-              >
-                {currentTrack.title}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span
+                  onClick={() => selectTrackDetail(currentTrack)}
+                  className="text-xs font-semibold text-[var(--text-primary)] truncate hover:text-emerald-400 hover:underline cursor-pointer leading-tight transition-colors"
+                  title={`Song: ${currentTrack.title} (Click to open song play page)`}
+                >
+                  {crossfadeState?.isCrossfading && crossfadeState.incomingTrack && crossfadeState.progress > 0.5
+                    ? crossfadeState.incomingTrack.title
+                    : currentTrack.title}
+                </span>
+
+                {crossfadeState?.isCrossfading && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 animate-pulse flex-shrink-0">
+                    Blend {Math.round(crossfadeState.progress * 100)}%
+                  </span>
+                )}
+              </div>
 
               <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] truncate leading-tight mt-0.5">
                 <span
@@ -118,7 +152,9 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
                   className="truncate hover:text-emerald-400 hover:underline cursor-pointer transition-colors"
                   title={`Artist: ${currentTrack.artist} (Click to view artist's songs)`}
                 >
-                  {currentTrack.artist}
+                  {crossfadeState?.isCrossfading && crossfadeState.incomingTrack && crossfadeState.progress > 0.5
+                    ? crossfadeState.incomingTrack.artist
+                    : currentTrack.artist}
                 </span>
                 {currentTrack.album && (
                   <>

@@ -4,6 +4,12 @@ import { Track } from '../../shared/types.js';
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
+export interface CrossfadeAnimationState {
+  isCrossfading: boolean;
+  progress: number; // 0.0 to 1.0
+  incomingTrack: Track | null;
+}
+
 interface PlayerState {
   currentTrack: Track | null;
   isPlaying: boolean;
@@ -18,6 +24,7 @@ interface PlayerState {
   isVideoModalOpen: boolean;
   isRightSidebarOpen: boolean;
   isMiniPlayer: boolean;
+  crossfadeState: CrossfadeAnimationState | null;
 
   // Actions
   setTrack: (track: Track, newQueue?: Track[]) => void;
@@ -41,6 +48,7 @@ interface PlayerState {
   toggleMiniPlayer: (enable?: boolean) => Promise<void>;
   updateCurrentTrackMetadata: (updated: Partial<Track>) => void;
   updateTrackLikeState: (trackId: string, isLiked: boolean) => void;
+  setCrossfadeState: (state: CrossfadeAnimationState | null) => void;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -59,6 +67,7 @@ export const usePlayerStore = create<PlayerState>()(
   isVideoModalOpen: false,
   isRightSidebarOpen: false,
   isMiniPlayer: false,
+  crossfadeState: null,
 
   toggleMiniPlayer: async (enable?: boolean) => {
     const currentState = get().isMiniPlayer;
@@ -279,6 +288,8 @@ export const usePlayerStore = create<PlayerState>()(
       history: state.history.map((t) => (t.id === trackId ? { ...t, is_liked: isLiked } : t)),
     }));
   },
+
+  setCrossfadeState: (crossfadeState: CrossfadeAnimationState | null) => set({ crossfadeState }),
 }),
     {
       name: 'purrsonica_player_session',

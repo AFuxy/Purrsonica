@@ -48,6 +48,7 @@ export function seekAudioTo(newTime: number): void {
     clearInterval(crossfadeTimer);
     crossfadeTimer = null;
     isCrossfading = false;
+    usePlayerStore.getState().setCrossfadeState(null);
     const curMaster = usePlayerStore.getState().isMuted ? 0 : usePlayerStore.getState().volume;
     getActiveDeck().volume = curMaster;
     getStandbyDeck().pause();
@@ -180,6 +181,12 @@ export function useAudioPlayer() {
         console.warn('Crossfade incoming deck play error:', err);
       });
 
+      usePlayerStore.getState().setCrossfadeState({
+        isCrossfading: true,
+        progress: 0,
+        incomingTrack: nextTrack,
+      });
+
       if (crossfadeTimer) clearInterval(crossfadeTimer);
 
       crossfadeTimer = setInterval(() => {
@@ -190,6 +197,12 @@ export function useAudioPlayer() {
         // Equal-power crossfade curve
         active.volume = curMaster * Math.cos(progress * 0.5 * Math.PI);
         standby.volume = curMaster * Math.sin(progress * 0.5 * Math.PI);
+
+        usePlayerStore.getState().setCrossfadeState({
+          isCrossfading: true,
+          progress,
+          incomingTrack: nextTrack,
+        });
 
         if (progress >= 1) {
           clearInterval(crossfadeTimer);
@@ -208,6 +221,7 @@ export function useAudioPlayer() {
           const ongoingTime = standby.currentTime;
           usePlayerStore.getState().playNext();
           usePlayerStore.getState().setCurrentTime(ongoingTime);
+          usePlayerStore.getState().setCrossfadeState(null);
 
           isCrossfading = false;
           isGaplessTransitioning = false;

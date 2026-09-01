@@ -2,6 +2,7 @@ import React, { useRef, useState, useMemo } from 'react';
 import { formatDuration } from '../../../shared/formatters.js';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useScanStore } from '../../store/scanStore.js';
+import { usePlayerStore } from '../../store/playerStore.js';
 
 interface WaveformBarProps {
   waveformData?: number[];
@@ -24,6 +25,7 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
   const accentColor = propAccentColor || storeAccent || '#10b981';
   const settingsCrossfade = useScanStore((s) => s.settings?.crossfadeDuration ?? 0);
   const crossfadeDuration = propCrossfadeDuration !== undefined ? propCrossfadeDuration : settingsCrossfade;
+  const crossfadeState = usePlayerStore((s) => s.crossfadeState);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -133,13 +135,24 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
         />
       )}
 
-      {/* Visual Crossfade Transition Zone: Fade-Out (End) */}
+      {/* Visual Crossfade Transition Zone: Fade-Out (End with Live Blend Animation) */}
       {crossfadeRatio > 0 && (
         <div
-          className="absolute right-0 top-0.5 bottom-0.5 bg-gradient-to-l from-white/25 via-white/10 to-transparent border-l border-dashed border-white/40 rounded-r-md pointer-events-none z-10"
+          className={`absolute right-0 top-0.5 bottom-0.5 rounded-r-md pointer-events-none z-10 transition-all duration-200 overflow-hidden ${
+            crossfadeState?.isCrossfading
+              ? 'bg-gradient-to-l from-purple-500/30 via-white/30 to-transparent border-l-2 border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.5)]'
+              : 'bg-gradient-to-l from-white/25 via-white/10 to-transparent border-l border-dashed border-white/40'
+          }`}
           style={{ width: `${crossfadeRatio * 100}%` }}
           title={`Fade-Out Transition Zone: ${crossfadeDuration}s`}
-        />
+        >
+          {crossfadeState?.isCrossfading && (
+            <div
+              className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-purple-400 to-emerald-400 opacity-60 transition-all duration-75"
+              style={{ width: `${(crossfadeState.progress || 0) * 100}%` }}
+            />
+          )}
+        </div>
       )}
 
       {/* Waveform Bars Container */}
@@ -164,9 +177,13 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
                   : isHovered
                   ? 'rgba(255, 255, 255, 0.65)'
                   : isInCrossfadeZone
-                  ? 'rgba(255, 255, 255, 0.4)'
+                  ? (crossfadeState?.isCrossfading && barRatio >= 1 - crossfadeRatio ? '#c084fc' : 'rgba(255, 255, 255, 0.4)')
                   : 'rgba(128, 128, 128, 0.3)',
-                boxShadow: isPlayed ? `0 0 6px ${accentColor}40` : 'none',
+                boxShadow: isPlayed
+                  ? `0 0 6px ${accentColor}40`
+                  : crossfadeState?.isCrossfading && barRatio >= 1 - crossfadeRatio
+                  ? '0 0 6px rgba(192, 132, 252, 0.6)'
+                  : 'none',
               }}
             />
           );
