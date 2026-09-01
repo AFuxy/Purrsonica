@@ -17,6 +17,7 @@ import {
   Check,
   Sparkles,
   RefreshCw,
+  Radio,
 } from 'lucide-react';
 import { Track } from '../../../shared/types.js';
 import { usePlayerStore } from '../../store/playerStore.js';
@@ -249,6 +250,17 @@ export const TrackDetailView: React.FC<TrackDetailViewProps> = ({ track }) => {
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Edit Metadata</span>
               </button>
+
+              {track.media_type === 'audio' && isDjMode && (
+                <button
+                  onClick={() => useLibraryStore.getState().openDjMatcher(track)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                  title="Find Harmonically Compatible DJ Tracks"
+                >
+                  <Radio className="w-3.5 h-3.5 text-amber-400" />
+                  <span>DJ Matches</span>
+                </button>
+              )}
 
               <button
                 onClick={handleRevealInFolder}

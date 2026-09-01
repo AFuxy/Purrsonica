@@ -19,6 +19,7 @@ import { TrackCover } from '../common/TrackCover.js';
 import { PlaylistEditModal } from '../modals/PlaylistEditModal.js';
 import { SettingsView } from './SettingsView.js';
 import { TrackDetailView } from './TrackDetailView.js';
+import { DjMatcherView } from './DjMatcherView.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 
 export const MainContent: React.FC = () => {
@@ -60,6 +61,11 @@ export const MainContent: React.FC = () => {
   // Render Dedicated Track Play & Info Page
   if (currentView === 'track_detail' && selectedTrackDetail) {
     return <TrackDetailView track={selectedTrackDetail} />;
+  }
+
+  // Render DJ Matcher & Harmonic Mix Assistant
+  if (currentView === 'dj_matcher') {
+    return <DjMatcherView />;
   }
 
   return (

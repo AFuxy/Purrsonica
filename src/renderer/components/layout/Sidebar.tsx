@@ -11,6 +11,7 @@ import {
   FolderInput,
   Trash2,
   Settings as SettingsIcon,
+  Radio,
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
@@ -33,7 +34,8 @@ export const Sidebar: React.FC = () => {
     refreshAll,
   } = useLibraryStore();
 
-  const { setModalOpen } = useScanStore();
+  const { settings, setModalOpen } = useScanStore();
+  const isDjMode = !!settings?.enableDjMode;
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [draggedOverPlaylistId, setDraggedOverPlaylistId] = useState<string | null>(null);
@@ -170,6 +172,25 @@ export const Sidebar: React.FC = () => {
               <span>Albums</span>
             </div>
           </button>
+
+          {isDjMode && (
+            <button
+              onClick={() => setView('dj_matcher')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all ${
+                currentView === 'dj_matcher'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold shadow-md'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Radio className="w-4 h-4 text-amber-400" />
+                <span>DJ Matcher</span>
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                DJ
+              </span>
+            </button>
+          )}
 
           <button
             onClick={() => setView('settings')}

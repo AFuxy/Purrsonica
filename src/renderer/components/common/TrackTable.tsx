@@ -13,6 +13,7 @@ import {
   Trash2,
   Folder,
   Sparkles,
+  Radio,
 } from 'lucide-react';
 import { Track, Playlist } from '../../../shared/types.js';
 import { usePlayerStore } from '../../store/playerStore.js';
@@ -353,30 +354,43 @@ const TrackTableRow = memo<TrackTableRowProps>(
                   <span>Edit Track Info</span>
                 </button>
 
-                {track.media_type === 'audio' && (
-                  <button
-                    onClick={async () => {
-                      onCloseMenu();
-                      try {
-                        const res = await analyzeAudioTrack(track);
-                        if (res && window.api?.updateMetadata) {
-                          await window.api.updateMetadata({
-                            id: track.id,
-                            bpm: res.bpm,
-                            musical_key: res.musical_key,
-                            camelot_key: res.camelot_key,
-                          });
-                          useLibraryStore.getState().refreshAll();
+                {track.media_type === 'audio' && isDjMode && (
+                  <>
+                    <button
+                      onClick={() => {
+                        onCloseMenu();
+                        useLibraryStore.getState().openDjMatcher(track);
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-amber-300 flex items-center gap-2 border-t border-[var(--border-color)]"
+                    >
+                      <Radio className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Find DJ Harmonic Matches</span>
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        onCloseMenu();
+                        try {
+                          const res = await analyzeAudioTrack(track);
+                          if (res && window.api?.updateMetadata) {
+                            await window.api.updateMetadata({
+                              id: track.id,
+                              bpm: res.bpm,
+                              musical_key: res.musical_key,
+                              camelot_key: res.camelot_key,
+                            });
+                            useLibraryStore.getState().refreshAll();
+                          }
+                        } catch (err) {
+                          console.error('Failed to analyze track:', err);
                         }
-                      } catch (err) {
-                        console.error('Failed to analyze track:', err);
-                      }
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-amber-400 flex items-center gap-2 border-t border-[var(--border-color)]"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Analyze BPM & Key</span>
-                  </button>
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-[var(--bg-hover)] text-amber-400 flex items-center gap-2"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Analyze BPM & Key</span>
+                    </button>
+                  </>
                 )}
               </div>
             </>

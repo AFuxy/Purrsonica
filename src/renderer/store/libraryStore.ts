@@ -14,7 +14,8 @@ export type LibraryViewType =
   | 'playlist_detail'
   | 'videos'
   | 'search'
-  | 'settings';
+  | 'settings'
+  | 'dj_matcher';
 
 export interface NavigationEntry {
   view: LibraryViewType;
@@ -23,6 +24,7 @@ export interface NavigationEntry {
   selectedPlaylist: Playlist | null;
   selectedArtist: string | null;
   selectedTrackDetail: Track | null;
+  selectedDjAnchorTrack?: Track | null;
 }
 
 interface LibraryState {
@@ -32,6 +34,7 @@ interface LibraryState {
   selectedPlaylist: Playlist | null;
   selectedArtist: string | null;
   selectedTrackDetail: Track | null;
+  selectedDjAnchorTrack: Track | null;
 
   // Navigation History
   navHistory: NavigationEntry[];
@@ -65,6 +68,7 @@ interface LibraryState {
   selectArtist: (artistName: string) => void;
   selectTrackDetail: (track: Track) => void;
   selectPlaylist: (playlist: Playlist) => void;
+  openDjMatcher: (anchorTrack?: Track) => void;
   goBack: () => void;
   goForward: () => void;
   pushNav: (entry: NavigationEntry) => void;
@@ -103,8 +107,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   selectedPlaylist: null,
   selectedArtist: null,
   selectedTrackDetail: null,
+  selectedDjAnchorTrack: null,
 
-  navHistory: [{ view: 'all', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null }],
+  navHistory: [{ view: 'all', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null, selectedDjAnchorTrack: null }],
   navIndex: 0,
   canGoBack: false,
   canGoForward: false,
@@ -169,13 +174,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedPlaylist: prev.selectedPlaylist,
       selectedArtist: prev.selectedArtist,
       selectedTrackDetail: prev.selectedTrackDetail,
+      selectedDjAnchorTrack: prev.selectedDjAnchorTrack || null,
     });
 
     if (prev.view === 'albums') {
       get().fetchAlbums();
     } else if (prev.view === 'playlists') {
       get().fetchPlaylists();
-    } else if (prev.view === 'settings' || prev.view === 'track_detail') {
+    } else if (prev.view === 'settings' || prev.view === 'track_detail' || prev.view === 'dj_matcher') {
       // no track list query needed
     } else {
       get().fetchTracks();
@@ -199,13 +205,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedPlaylist: next.selectedPlaylist,
       selectedArtist: next.selectedArtist,
       selectedTrackDetail: next.selectedTrackDetail,
+      selectedDjAnchorTrack: next.selectedDjAnchorTrack || null,
     });
 
     if (next.view === 'albums') {
       get().fetchAlbums();
     } else if (next.view === 'playlists') {
       get().fetchPlaylists();
-    } else if (next.view === 'settings' || next.view === 'track_detail') {
+    } else if (next.view === 'settings' || next.view === 'track_detail' || next.view === 'dj_matcher') {
       // no track list query needed
     } else {
       get().fetchTracks();
@@ -218,6 +225,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const selectedPlaylist = view === 'playlist_detail' ? get().selectedPlaylist : null;
     const selectedArtist = view === 'artist_detail' ? get().selectedArtist : null;
     const selectedTrackDetail = view === 'track_detail' ? get().selectedTrackDetail : null;
+    const selectedDjAnchorTrack = view === 'dj_matcher' ? get().selectedDjAnchorTrack : null;
     const searchQuery = view === 'search' ? get().searchQuery : '';
 
     set({
@@ -228,15 +236,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedPlaylist,
       selectedArtist,
       selectedTrackDetail,
+      selectedDjAnchorTrack,
     });
 
-    get().pushNav({ view, selectedDrive, selectedAlbum, selectedPlaylist, selectedArtist, selectedTrackDetail });
+    get().pushNav({ view, selectedDrive, selectedAlbum, selectedPlaylist, selectedArtist, selectedTrackDetail, selectedDjAnchorTrack });
 
     if (view === 'albums') {
       get().fetchAlbums();
     } else if (view === 'playlists') {
       get().fetchPlaylists();
-    } else if (view === 'settings' || view === 'track_detail') {
+    } else if (view === 'settings' || view === 'track_detail' || view === 'dj_matcher') {
       // no track list query needed
     } else {
       get().fetchTracks();
@@ -320,6 +329,24 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
     get().pushNav({ view: 'playlist_detail', selectedDrive: null, selectedAlbum: null, selectedPlaylist: playlist, selectedArtist: null, selectedTrackDetail: null });
     get().fetchTracks();
+  },
+
+  openDjMatcher: (anchorTrack?: Track) => {
+    const target = anchorTrack || get().selectedDjAnchorTrack || usePlayerStore.getState().currentTrack;
+    set({
+      currentView: 'dj_matcher',
+      selectedDjAnchorTrack: target || null,
+    });
+
+    get().pushNav({
+      view: 'dj_matcher',
+      selectedDrive: null,
+      selectedAlbum: null,
+      selectedPlaylist: null,
+      selectedArtist: null,
+      selectedTrackDetail: null,
+      selectedDjAnchorTrack: target || null,
+    });
   },
 
   setSearchQuery: (query: string) => {
