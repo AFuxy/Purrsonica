@@ -116,7 +116,8 @@ export const electronAPI = {
   },
   wipeLibrary: (): Promise<boolean> => ipcRenderer.invoke('system:wipeLibrary'),
   factoryReset: (): Promise<boolean> => ipcRenderer.invoke('system:factoryReset'),
-  cleanDeadTracks: (): Promise<{ removedCount: number }> => ipcRenderer.invoke('system:cleanDeadTracks'),
+  cleanDeadTracks: (): Promise<{ removedCount: number; missingCount?: number; excludedCount?: number }> =>
+    ipcRenderer.invoke('system:cleanDeadTracks'),
   onCleanDeadTracksProgress: (callback: (progress: { current: number; total: number }) => void) => {
     const handler = (_event: any, data: any) => callback(data);
     ipcRenderer.on('maintenance:cleanDeadTracksProgress', handler);

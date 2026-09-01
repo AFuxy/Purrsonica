@@ -165,8 +165,13 @@ export function shouldExcludeFolder(folderPath: string, customExclusions: string
   // 3. Check user-defined custom exclusions
   for (const custom of customExclusions) {
     const normCustom = custom.toLowerCase().replace(/\//g, '\\').trim();
-    if (normCustom && (normalized === normCustom || normalized.startsWith(normCustom + '\\'))) {
-      return true;
+    if (normCustom) {
+      if (normalized === normCustom || normalized.startsWith(normCustom + '\\')) {
+        return true;
+      }
+      if (segments.includes(normCustom)) {
+        return true;
+      }
     }
   }
 
@@ -181,6 +186,12 @@ export function shouldExcludeFolder(folderPath: string, customExclusions: string
   } catch {}
 
   return false;
+}
+
+export function shouldExcludeFilePath(filePath: string, customExclusions: string[] = []): boolean {
+  if (!filePath) return false;
+  const dir = path.dirname(filePath);
+  return shouldExcludeFolder(dir, customExclusions);
 }
 
 export function getMediaType(filePath: string): 'audio' | 'video' | null {

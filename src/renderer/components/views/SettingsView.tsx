@@ -255,11 +255,15 @@ export const SettingsView: React.FC = () => {
     try {
       const result = await window.api.cleanDeadTracks();
       await refreshAll();
-      showToast(
-        result.removedCount > 0
-          ? `Cleanup complete: Removed ${result.removedCount} missing/dead tracks`
-          : 'Library verified: No missing/dead tracks found'
-      );
+      if (result.removedCount > 0) {
+        const details = [];
+        if (result.missingCount && result.missingCount > 0) details.push(`${result.missingCount} missing`);
+        if (result.excludedCount && result.excludedCount > 0) details.push(`${result.excludedCount} in excluded folders`);
+        const detailStr = details.length > 0 ? ` (${details.join(', ')})` : '';
+        showToast(`Cleanup complete: Removed ${result.removedCount} tracks${detailStr}`);
+      } else {
+        showToast('Library verified: All indexed tracks exist and match exclusion settings');
+      }
     } catch {
       showToast('Error cleaning dead tracks');
     } finally {
@@ -1188,7 +1192,7 @@ export const SettingsView: React.FC = () => {
                   <span>Verify Library & Clean Missing Files</span>
                 </div>
                 <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                  Scans all indexed file paths in the database and prunes stale records for audio/video files that were moved, deleted, or renamed outside Purrsonica.
+                  Scans all indexed file paths in the database and prunes stale records for audio/video files that were moved, deleted, renamed, or located within excluded folders.
                 </div>
               </div>
               <button

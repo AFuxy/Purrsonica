@@ -1,5 +1,7 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { getDB } from './database.js';
+import { shouldExcludeFilePath } from '../scanner/exclusions.js';
 import {
   Track,
   Album,
@@ -562,21 +564,35 @@ export function wipeLibraryOnly(): void {
 
 export async function cleanDeadTracks(
   onProgress?: (current: number, total: number) => void
-): Promise<{ removedCount: number }> {
+): Promise<{ removedCount: number; missingCount: number; excludedCount: number }> {
   const db = getDB();
+  const settings = getScanSettings();
+  const customExclusions = settings.excludedPaths || [];
+
   const rows = db.prepare('SELECT id, file_path FROM tracks').all() as { id: string; file_path: string }[];
   const total = rows.length;
   const deadIds: string[] = [];
+  let missingCount = 0;
+  let excludedCount = 0;
 
   const chunkSize = 250;
   for (let i = 0; i < total; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
     await Promise.all(
       chunk.map(async (r) => {
+        // 1. Check if track belongs to an excluded folder or directory pattern
+        if (shouldExcludeFilePath(r.file_path, customExclusions)) {
+          deadIds.push(r.id);
+          excludedCount++;
+          return;
+        }
+
+        // 2. Check if track still exists on disk
         try {
           await fs.promises.access(r.file_path, fs.constants.F_OK);
         } catch {
           deadIds.push(r.id);
+          missingCount++;
         }
       })
     );
@@ -604,7 +620,7 @@ export async function cleanDeadTracks(
     removedCount = deadIds.length;
   }
 
-  return { removedCount };
+  return { removedCount, missingCount, excludedCount };
 }
 
 export async function findDuplicateTracks(): Promise<DuplicateScanResult> {
