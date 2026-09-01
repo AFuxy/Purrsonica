@@ -26,6 +26,7 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
   const settingsCrossfade = useScanStore((s) => s.settings?.crossfadeDuration ?? 0);
   const crossfadeDuration = propCrossfadeDuration !== undefined ? propCrossfadeDuration : settingsCrossfade;
   const crossfadeState = usePlayerStore((s) => s.crossfadeState);
+  const repeatMode = usePlayerStore((s) => s.repeatMode);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -51,7 +52,7 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
   }, [waveformData]);
 
   const progressRatio = duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0;
-  const crossfadeRatio = duration > 0 && crossfadeDuration > 0
+  const crossfadeRatio = duration > 0 && crossfadeDuration > 0 && repeatMode !== 'one'
     ? Math.min(0.4, crossfadeDuration / duration)
     : 0;
 

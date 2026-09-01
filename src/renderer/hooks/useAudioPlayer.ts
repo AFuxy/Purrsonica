@@ -106,6 +106,8 @@ export function useAudioPlayer() {
     if (!isGaplessEnabled) return;
 
     const state = usePlayerStore.getState();
+    if (state.repeatMode === 'one') return;
+
     const nextTrack = state.queue.length > 0
       ? state.queue[0]
       : (state.repeatMode === 'all' && state.history.length > 0 ? state.history[state.history.length - 1] : null);
@@ -146,15 +148,6 @@ export function useAudioPlayer() {
     if (precisionTimer) {
       clearInterval(precisionTimer);
       precisionTimer = null;
-    }
-
-    if (state.repeatMode === 'one' && state.currentTrack) {
-      active.currentTime = 0;
-      active.play().catch(() => {});
-      setCurrentTime(0);
-      setIsPlaying(true);
-      handoffFiredForTrackId = null;
-      return;
     }
 
     const nextTrack = state.queue.length > 0
@@ -254,15 +247,6 @@ export function useAudioPlayer() {
       precisionTimer = null;
     }
 
-    if (state.repeatMode === 'one' && state.currentTrack) {
-      active.currentTime = 0;
-      active.play().catch(() => {});
-      setCurrentTime(0);
-      setIsPlaying(true);
-      handoffFiredForTrackId = null;
-      return;
-    }
-
     const nextTrack = state.queue.length > 0
       ? state.queue[0]
       : (state.repeatMode === 'all' && state.history.length > 0 ? state.history[state.history.length - 1] : null);
@@ -314,6 +298,12 @@ export function useAudioPlayer() {
   // Monitor end of track for Crossfade or 0ms Gapless Handoff
   const checkTransition = (deck: HTMLAudioElement) => {
     const { isGaplessEnabled, crossfadeDuration } = getPlayerConfig();
+    const { repeatMode } = usePlayerStore.getState();
+
+    // When Repeat One is active, do not execute premature crossfades.
+    // Let the song play fully to its very end, and loop seamlessly.
+    if (repeatMode === 'one') return;
+
     if (!isGaplessEnabled || isCrossfading || isGaplessTransitioning) return;
 
     if (crossfadeDuration > 0) {
@@ -387,6 +377,14 @@ export function useAudioPlayer() {
       deck.addEventListener('ended', () => {
         if (deckIdx !== activeDeckIndex) return;
         pendingRestoreTime = null;
+        const { repeatMode } = usePlayerStore.getState();
+        if (repeatMode === 'one') {
+          deck.currentTime = 0;
+          deck.play().catch(() => {});
+          setCurrentTime(0);
+          setIsPlaying(true);
+          return;
+        }
         if (!isCrossfading) {
           executeHandoff();
         }
