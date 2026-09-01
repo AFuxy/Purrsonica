@@ -38,6 +38,8 @@ import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 import { DuplicateCleanerModal } from '../modals/DuplicateCleanerModal.js';
+import { ActionConfirmModal, ActionConfirmConfig } from '../modals/ActionConfirmModal.js';
+import { ActionReportModal, ActionReportData } from '../modals/ActionReportModal.js';
 import { APP_CHANGELOGS, fetchGitHubReleases, isPrereleaseVersion, GitHubReleaseInfo } from '../../data/changelogs.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 import { ScanSettings } from '../../../shared/types.js';
@@ -238,6 +240,13 @@ export const SettingsView: React.FC = () => {
   const [cleanDeadProgress, setCleanDeadProgress] = useState<{ current: number; total: number } | null>(null);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
+  // Confirmation modal state
+  const [confirmConfig, setConfirmConfig] = useState<ActionConfirmConfig | null>(null);
+
+  // After Action Reports state (keyed by taskType/action)
+  const [actionReports, setActionReports] = useState<Record<string, ActionReportData>>({});
+  const [activeReport, setActiveReport] = useState<ActionReportData | null>(null);
+
   useEffect(() => {
     if (!window.api?.onCleanDeadTracksProgress) return;
     const unsub = window.api.onCleanDeadTracksProgress((p) => {
@@ -248,19 +257,69 @@ export const SettingsView: React.FC = () => {
     };
   }, []);
 
-  const handleCleanDeadTracks = async () => {
+  const requestCleanDeadTracks = () => {
+    if (isCleaningGhostTracks) return;
+    setConfirmConfig({
+      title: 'Verify Library & Clean Missing Files',
+      description: 'Scans all indexed tracks in the database against your physical disks and active Excluded Folders list.',
+      points: [
+        'Removes tracks whose files no longer exist on disk (deleted, renamed, or moved)',
+        'Purges tracks located within your currently Excluded Folders',
+        'Does not delete or modify your physical files on disk',
+        'Preserves your custom playlists, tags, and verified tracks',
+      ],
+      confirmLabel: 'Verify & Clean',
+      isDestructive: true,
+      onConfirm: executeCleanDeadTracks,
+    });
+  };
+
+  const executeCleanDeadTracks = async () => {
     if (!window.api || isCleaningGhostTracks) return;
     setIsCleaningGhostTracks(true);
     setCleanDeadProgress(null);
+    const startTime = Date.now();
     try {
       const result = await window.api.cleanDeadTracks();
       await refreshAll();
+      const durationMs = Date.now() - startTime;
+      const total = stats?.totalTracks || 0;
+
+      const report: ActionReportData = {
+        id: `clean_dead_${Date.now()}`,
+        taskType: 'clean_dead',
+        title: 'Verify Library & Clean Missing Files',
+        timestamp: Date.now(),
+        durationMs,
+        status: 'completed',
+        statusMessage: result.removedCount > 0
+          ? `Cleaned ${result.removedCount} tracks from the library (${result.missingCount || 0} missing on disk, ${result.excludedCount || 0} in excluded folders).`
+          : 'Library verified: All indexed tracks exist on disk and match your exclusion settings.',
+        stats: [
+          { label: 'Total Scanned', value: total },
+          { label: 'Removed Tracks', value: result.removedCount, color: result.removedCount > 0 ? 'text-rose-400' : 'text-emerald-400' },
+          { label: 'Missing on Disk', value: result.missingCount || 0 },
+          { label: 'Excluded Folders', value: result.excludedCount || 0 },
+          { label: 'Healthy Records', value: total - result.removedCount, color: 'text-emerald-400' },
+        ],
+        sections: [
+          {
+            title: 'Verification Summary',
+            items: [
+              `Evaluated library records against active file system paths.`,
+              `Validated against ${settings?.excludedPaths.length || 0} active Excluded Folder rules.`,
+              result.removedCount > 0
+                ? `Purged ${result.removedCount} stale track entries from SQLite database.`
+                : `All indexed tracks are verified and valid.`,
+            ],
+          },
+        ],
+      };
+
+      setActionReports((prev) => ({ ...prev, clean_dead: report }));
+
       if (result.removedCount > 0) {
-        const details = [];
-        if (result.missingCount && result.missingCount > 0) details.push(`${result.missingCount} missing`);
-        if (result.excludedCount && result.excludedCount > 0) details.push(`${result.excludedCount} in excluded folders`);
-        const detailStr = details.length > 0 ? ` (${details.join(', ')})` : '';
-        showToast(`Cleanup complete: Removed ${result.removedCount} tracks${detailStr}`);
+        showToast(`Cleanup complete: Removed ${result.removedCount} tracks. Click "View Report" to see details.`);
       } else {
         showToast('Library verified: All indexed tracks exist and match exclusion settings');
       }
@@ -272,69 +331,220 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  const handleRecacheArtwork = async () => {
+  const requestRecacheArtwork = () => {
     if (artworkTask.isActive) {
-      await cancelArtworkRecache();
+      cancelArtworkRecache();
       showToast('Artwork caching cancelled');
       return;
     }
+    setConfirmConfig({
+      title: 'Re-extract & Cache Album Artwork',
+      description: 'Re-scans all audio and video tracks in your library to extract embedded ID3 picture tags and local folder cover images (folder.jpg, cover.jpg).',
+      points: [
+        'Extracts high-resolution embedded ID3 picture tags from files',
+        'Finds local folder.jpg and cover.jpg images for multi-track albums',
+        'Generates optimized webp thumbnails in the local Purrsonica cache',
+        'Can be cancelled at any time without losing already cached artwork',
+      ],
+      estimatedTime: '~30 seconds to 2 minutes',
+      confirmLabel: 'Start Re-caching',
+      isDestructive: false,
+      onConfirm: executeRecacheArtwork,
+    });
+  };
+
+  const executeRecacheArtwork = async () => {
+    const startTime = Date.now();
     try {
       const result = await startArtworkRecache();
       await refreshAll();
-      if (result.cancelled) {
-        showToast('Artwork caching stopped');
-      } else if (result.updatedCount > 0) {
-        showToast(`Artwork updated: ${result.updatedCount} new covers cached (${result.total} total ready)`);
-      } else {
-        showToast(`Artwork is up to date: All ${result.total} tracks already have cover art cached!`);
+      const durationMs = Date.now() - startTime;
+
+      const report: ActionReportData = {
+        id: `artwork_${Date.now()}`,
+        taskType: 'artwork',
+        title: 'Album Artwork Re-extraction & Caching',
+        timestamp: Date.now(),
+        durationMs,
+        status: result.cancelled ? 'cancelled' : 'completed',
+        statusMessage: result.cancelled
+          ? 'Artwork caching process was cancelled.'
+          : result.updatedCount > 0
+          ? `Successfully cached ${result.updatedCount} new album covers.`
+          : `All ${result.total} tracks in your library already have cover art cached!`,
+        stats: [
+          { label: 'Total Tracks', value: result.total },
+          { label: 'New Covers Cached', value: result.updatedCount, color: 'text-emerald-400' },
+          { label: 'Already Ready', value: Math.max(0, result.total - result.updatedCount) },
+        ],
+        sections: [
+          {
+            title: 'Extraction Overview',
+            items: [
+              `Scanned ${result.total} media files for embedded picture tags and folder images.`,
+              result.updatedCount > 0
+                ? `Generated and cached ${result.updatedCount} webp album covers.`
+                : `All existing tracks were already up-to-date in cache.`,
+            ],
+          },
+        ],
+      };
+
+      setActionReports((prev) => ({ ...prev, artwork: report }));
+      if (!result.cancelled) {
+        showToast(`Artwork updated: ${result.updatedCount} new covers cached (${result.total} total ready).`);
       }
     } catch (err) {
       showToast('Error re-caching artwork');
     }
   };
 
-  const handleRecacheWaveforms = async () => {
+  const requestRecacheWaveforms = () => {
     if (waveformTask.isActive) {
-      await cancelWaveformRecache();
+      cancelWaveformRecache();
       showToast('Waveform generation cancelled');
       return;
     }
+    setConfirmConfig({
+      title: 'Re-generate Audio Waveforms',
+      description: 'Pre-computes 128-bar energy amplitude waveform visualization peaks for all audio tracks across your library.',
+      points: [
+        'Computes audio waveform visualization arrays using parallel decoders',
+        'Enables instant seek bar and visual transition zone rendering',
+        'Stores peak amplitudes directly in the SQLite database',
+        'Can be cancelled at any time without losing already generated waveforms',
+      ],
+      estimatedTime: '~1 to 4 minutes depending on library size',
+      confirmLabel: 'Start Generation',
+      isDestructive: false,
+      onConfirm: executeRecacheWaveforms,
+    });
+  };
+
+  const executeRecacheWaveforms = async () => {
+    const startTime = Date.now();
     try {
       const result = await startWaveformRecache();
       await refreshAll();
-      if (result.cancelled) {
-        showToast('Waveform generation stopped');
-      } else if (result.generatedCount > 0) {
-        showToast(`Waveforms generated: ${result.generatedCount} new tracks computed (${result.total} total ready)`);
-      } else {
-        showToast(`Waveforms are up to date: All ${result.total} audio tracks already have waveforms ready!`);
+      const durationMs = Date.now() - startTime;
+
+      const report: ActionReportData = {
+        id: `waveforms_${Date.now()}`,
+        taskType: 'waveforms',
+        title: 'Audio Waveform Pre-Computation',
+        timestamp: Date.now(),
+        durationMs,
+        status: result.cancelled ? 'cancelled' : 'completed',
+        statusMessage: result.cancelled
+          ? 'Waveform generation process was cancelled.'
+          : result.generatedCount > 0
+          ? `Successfully generated ${result.generatedCount} waveforms.`
+          : `All ${result.total} audio tracks already have waveforms ready!`,
+        stats: [
+          { label: 'Total Audio Tracks', value: result.total },
+          { label: 'Waveforms Generated', value: result.generatedCount, color: 'text-cyan-400' },
+          { label: 'Already Ready', value: Math.max(0, result.total - result.generatedCount) },
+        ],
+        sections: [
+          {
+            title: 'Generation Overview',
+            items: [
+              `Calculated 128-band peak amplitude curves for visualization.`,
+              `Stored directly in SQLite database for instant seek bar rendering.`,
+            ],
+          },
+        ],
+      };
+
+      setActionReports((prev) => ({ ...prev, waveforms: report }));
+      if (!result.cancelled) {
+        showToast(`Waveforms generated: ${result.generatedCount} new tracks computed.`);
       }
     } catch (err) {
       showToast('Error generating waveforms');
     }
   };
 
-  const handleBatchAnalyzeAudio = async (reanalyzeAll = false) => {
+  const requestBatchAnalyzeAudio = (reanalyzeAll = false) => {
     if (audioAnalysisTask.isActive) {
       cancelAudioAnalysis();
       showToast('Audio analysis stopped');
       return;
     }
+    setConfirmConfig({
+      title: reanalyzeAll ? 'Re-Analyze All BPM & Musical Keys' : 'Analyze Unanalyzed Audio Tracks',
+      description: 'Runs high-precision EDMA HPCP 36-bin harmonic key detection and tempo peak analysis across your music tracks.',
+      points: [
+        'Calculates exact Camelot Key (e.g. 8A, 11B) and OpenKey notations',
+        'Detects tempo BPM with high accuracy',
+        'Saves analyzed metadata to database tags for DJ Matcher & Harmonic Mixing',
+        'Can be stopped at any time without losing already analyzed tracks',
+      ],
+      estimatedTime: reanalyzeAll ? '~2 to 8 minutes' : 'Varies based on unanalyzed count',
+      confirmLabel: reanalyzeAll ? 'Re-Analyze All' : 'Start Analysis',
+      isDestructive: false,
+      onConfirm: () => executeBatchAnalyzeAudio(reanalyzeAll),
+    });
+  };
+
+  const executeBatchAnalyzeAudio = async (reanalyzeAll = false) => {
+    const startTime = Date.now();
     try {
       const result = await startAudioAnalysis({ reanalyzeAll });
-      if (result.cancelled) {
-        showToast('Audio analysis cancelled');
-      } else if (result.analyzedCount > 0) {
+      const durationMs = Date.now() - startTime;
+
+      const report: ActionReportData = {
+        id: `audio_analysis_${Date.now()}`,
+        taskType: 'audio_analysis',
+        title: 'BPM & Camelot Key Analysis',
+        timestamp: Date.now(),
+        durationMs,
+        status: result.cancelled ? 'cancelled' : 'completed',
+        statusMessage: result.cancelled
+          ? 'Audio analysis process was cancelled.'
+          : result.analyzedCount > 0
+          ? `Successfully analyzed ${result.analyzedCount} audio tracks!`
+          : 'All audio tracks in the library are already analyzed.',
+        stats: [
+          { label: 'Tracks Analyzed', value: result.analyzedCount, color: 'text-amber-400' },
+          { label: 'DSP Engine', value: 'EDMA HPCP 36-bin' },
+        ],
+        sections: [
+          {
+            title: 'Analysis Details',
+            items: [
+              `Calculated Camelot Keys (1A-12B), Musical Keys, and BPM tempo.`,
+              `Integrated with Purrsonica DJ Suite & DJ Matcher.`,
+            ],
+          },
+        ],
+      };
+
+      setActionReports((prev) => ({ ...prev, audio_analysis: report }));
+      if (!result.cancelled && result.analyzedCount > 0) {
         showToast(`Analysis complete: Successfully analyzed ${result.analyzedCount} audio tracks!`);
-      } else {
-        showToast(reanalyzeAll ? 'No audio tracks found to analyze' : 'All audio tracks are already analyzed!');
       }
     } catch (err) {
       showToast('Error analyzing audio tracks');
     }
   };
 
-  const handleClearCache = async () => {
+  const requestClearCache = () => {
+    setConfirmConfig({
+      title: 'Clear Artwork & Thumbnail Cache',
+      description: 'This will purge all pre-rendered album cover art images from your local cache directory on disk.',
+      points: [
+        'Frees up disk space in the Purrsonica cache directory',
+        'Thumbnails will be re-extracted on-demand as you browse tracks',
+        'Does not delete tracks or metadata from the database',
+      ],
+      confirmLabel: 'Clear Cache',
+      isDestructive: true,
+      onConfirm: executeClearCache,
+    });
+  };
+
+  const executeClearCache = async () => {
     if (!window.api) return;
     setIsProcessingDangerAction(true);
     try {
@@ -970,8 +1180,19 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0 flex-wrap sm:flex-nowrap">
+                  {actionReports['audio_analysis'] && !audioAnalysisTask.isActive && (
+                    <button
+                      onClick={() => setActiveReport(actionReports['audio_analysis'])}
+                      className="px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in"
+                      title="View results from the last analysis run"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-amber-400" />
+                      <span>View Report</span>
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => handleBatchAnalyzeAudio(false)}
+                    onClick={() => requestBatchAnalyzeAudio(false)}
                     disabled={audioAnalysisTask.isActive}
                     className={`flex items-center justify-center gap-1.5 px-3.5 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all cursor-pointer disabled:opacity-50 ${
                       audioAnalysisTask.isActive
@@ -989,7 +1210,7 @@ export const SettingsView: React.FC = () => {
 
                   {!audioAnalysisTask.isActive && (
                     <button
-                      onClick={() => handleBatchAnalyzeAudio(true)}
+                      onClick={() => requestBatchAnalyzeAudio(true)}
                       className="px-3 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-xs font-semibold rounded-md transition-colors cursor-pointer"
                       title="Force re-analyze all audio songs regardless of existing BPM/key"
                     >
@@ -1085,9 +1306,20 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {actionReports['artwork'] && !artworkTask.isActive && (
+                <button
+                  onClick={() => setActiveReport(actionReports['artwork'])}
+                  className="px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in flex-shrink-0"
+                  title="View results from the last artwork caching run"
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>View Report</span>
+                </button>
+              )}
+
               <button
-                onClick={handleRecacheArtwork}
+                onClick={requestRecacheArtwork}
                 disabled={waveformTask.isActive}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 ${
                   artworkTask.isActive
@@ -1129,9 +1361,20 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {actionReports['waveforms'] && !waveformTask.isActive && (
+                <button
+                  onClick={() => setActiveReport(actionReports['waveforms'])}
+                  className="px-3 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in flex-shrink-0"
+                  title="View results from the last waveform generation run"
+                >
+                  <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>View Report</span>
+                </button>
+              )}
+
               <button
-                onClick={handleRecacheWaveforms}
+                onClick={requestRecacheWaveforms}
                 disabled={artworkTask.isActive}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 ${
                   waveformTask.isActive
@@ -1195,20 +1438,33 @@ export const SettingsView: React.FC = () => {
                   Scans all indexed file paths in the database and prunes stale records for audio/video files that were moved, deleted, renamed, or located within excluded folders.
                 </div>
               </div>
-              <button
-                onClick={handleCleanDeadTracks}
-                disabled={isCleaningGhostTracks}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isCleaningGhostTracks ? 'animate-spin text-emerald-400' : ''}`} />
-                <span>
-                  {isCleaningGhostTracks
-                    ? cleanDeadProgress && cleanDeadProgress.total > 0
-                      ? `Verifying (${cleanDeadProgress.current}/${cleanDeadProgress.total})...`
-                      : 'Verifying...'
-                    : 'Clean Missing Tracks'}
-                </span>
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {actionReports['clean_dead'] && !isCleaningGhostTracks && (
+                  <button
+                    onClick={() => setActiveReport(actionReports['clean_dead'])}
+                    className="px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in flex-shrink-0"
+                    title="View results from the last library verification and cleanup"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>View Report</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={requestCleanDeadTracks}
+                  disabled={isCleaningGhostTracks}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCleaningGhostTracks ? 'animate-spin text-emerald-400' : ''}`} />
+                  <span>
+                    {isCleaningGhostTracks
+                      ? cleanDeadProgress && cleanDeadProgress.total > 0
+                        ? `Verifying (${cleanDeadProgress.current}/${cleanDeadProgress.total})...`
+                        : 'Verifying...'
+                      : 'Clean Missing Tracks'}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1603,9 +1859,9 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={handleClearCache}
+              onClick={requestClearCache}
               disabled={isProcessingDangerAction}
-              className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0 disabled:opacity-50"
+              className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0 disabled:opacity-50 cursor-pointer"
             >
               Clear Cache
             </button>
@@ -1625,13 +1881,13 @@ export const SettingsView: React.FC = () => {
                 <button
                   onClick={handleWipeLibrary}
                   disabled={isProcessingDangerAction}
-                  className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors"
+                  className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
                 >
                   Yes, Wipe All
                 </button>
                 <button
                   onClick={() => setConfirmWipe(false)}
-                  className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold"
+                  className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1639,7 +1895,7 @@ export const SettingsView: React.FC = () => {
             ) : (
               <button
                 onClick={() => setConfirmWipe(true)}
-                className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0"
+                className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0 cursor-pointer"
               >
                 Wipe Library
               </button>
@@ -1663,13 +1919,13 @@ export const SettingsView: React.FC = () => {
                 <button
                   onClick={handleFactoryReset}
                   disabled={isProcessingDangerAction}
-                  className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors animate-pulse"
+                  className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors animate-pulse cursor-pointer"
                 >
                   Confirm Reset
                 </button>
                 <button
                   onClick={() => setConfirmFactoryReset(false)}
-                  className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold"
+                  className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1677,7 +1933,7 @@ export const SettingsView: React.FC = () => {
             ) : (
               <button
                 onClick={() => setConfirmFactoryReset(true)}
-                className="px-3 py-1.5 rounded-md bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition-colors flex-shrink-0 shadow-sm"
+                className="px-3 py-1.5 rounded-md bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition-colors flex-shrink-0 shadow-sm cursor-pointer"
               >
                 Factory Reset
               </button>
@@ -1686,6 +1942,18 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
       </div>
+
+      {/* Confirmation Dialog Modal */}
+      <ActionConfirmModal
+        config={confirmConfig}
+        onClose={() => setConfirmConfig(null)}
+      />
+
+      {/* After Action Report Modal */}
+      <ActionReportModal
+        report={activeReport}
+        onClose={() => setActiveReport(null)}
+      />
 
       {/* Duplicate File Manager Modal */}
       <DuplicateCleanerModal
