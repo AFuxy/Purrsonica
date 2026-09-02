@@ -263,6 +263,7 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
       {
         heading: 'Improvements & Updates',
         items: [
+          'Full-Width DJ Performance Console: Expanded the DJ Performance Deck to span 100% of the screen width with responsive hardware module scaling, giving the pitch fader, beat looper, and filter sweep generous room to breathe.',
           'Matched Track SYNC Quick-Actions: Added direct 1-click SYNC buttons across all matched song cards in the DJ Matcher view to instantly pitch-match prospective tracks.',
           'Playlist Header DJ Crate Export: Added 1-click DJ Crate export directly inside custom playlist headers when DJ Mode is enabled.',
           'Sub-Frame Audio Turnaround: Implemented requestAnimationFrame audio position monitoring for zero-latency, click-free beat roll looping.',
