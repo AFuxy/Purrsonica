@@ -73,33 +73,41 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
   // Pioneer CDJ CUE button behavior:
   // - If playing: clicking CUE pauses playback and snaps playhead back to main cue (or 0)
   // - If paused:
-  //   - onMouseDown: sets cue if unset, seeks to cue, starts audio playback temporarily
-  //   - onMouseUp / onMouseLeave: pauses playback and snaps back to main cue
+  //   - If no cue exists or playhead moved away from cue (> 0.25s): sets cue at current position!
+  //   - If already at cue point: hold to audition momentarily; releasing snaps back to cue point
   const handleCueMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || !currentTrack) return;
 
+    const dj = useDjStore.getState();
+    const currentCue = dj.getMainCue(currentTrack.id);
+
     if (isPlaying) {
       togglePlay();
-      seekAudioTo(trackMainCue ?? 0);
+      seekAudioTo(currentCue ?? 0);
       return;
     }
 
-    const targetCue = trackMainCue ?? currentTime;
-    if (trackMainCue === undefined) {
-      setMainCue(currentTrack.id, currentTime);
+    // When paused:
+    // If no cue exists or if user scrubbed/paused at a new location away from the cue:
+    // Set the cue point right at the current position!
+    if (currentCue === null || Math.abs(currentTime - currentCue) > 0.25) {
+      dj.setMainCue(currentTrack.id, currentTime);
+      return;
     }
 
-    seekAudioTo(targetCue);
+    // If already at the cue point: hold to audition
+    seekAudioTo(currentCue);
     togglePlay();
     setIsAuditioningCue(true);
   };
 
   const handleCueMouseUp = () => {
     if (isAuditioningCue && currentTrack) {
-      if (isPlaying) {
+      const currentCue = useDjStore.getState().getMainCue(currentTrack.id);
+      if (usePlayerStore.getState().isPlaying) {
         togglePlay();
       }
-      seekAudioTo(trackMainCue ?? 0);
+      seekAudioTo(currentCue ?? 0);
       setIsAuditioningCue(false);
     }
   };

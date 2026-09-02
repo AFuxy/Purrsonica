@@ -108,7 +108,7 @@ export const App: React.FC = () => {
           player.togglePlay();
           seekAudioTo(mainCue ?? 0);
         } else {
-          if (mainCue === null) {
+          if (mainCue === null || Math.abs(player.currentTime - mainCue) > 0.25) {
             djStore.setMainCue(currentTrack.id, player.currentTime);
           } else {
             seekAudioTo(mainCue);
