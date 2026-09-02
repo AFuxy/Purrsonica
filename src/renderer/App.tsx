@@ -92,6 +92,31 @@ export const App: React.FC = () => {
         return;
       }
 
+      // Pioneer CDJ Main Cue (Key C / Shift+C)
+      if (isDjMode && e.code === 'KeyC' && currentTrack && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        const djStore = useDjStore.getState();
+        const mainCue = djStore.getMainCue(currentTrack.id);
+        const player = usePlayerStore.getState();
+
+        if (e.shiftKey) {
+          djStore.clearMainCue(currentTrack.id);
+          return;
+        }
+
+        if (player.isPlaying) {
+          player.togglePlay();
+          seekAudioTo(mainCue ?? 0);
+        } else {
+          if (mainCue === null) {
+            djStore.setMainCue(currentTrack.id, player.currentTime);
+          } else {
+            seekAudioTo(mainCue);
+          }
+        }
+        return;
+      }
+
       // Hot Cues 1..4 (Active when DJ mode is enabled AND (DJ Deck is open OR with Alt+1..4))
       const isDjDeckActive = useDjStore.getState().isDeckExpanded;
       const cueMatch = e.code.match(/^(?:Digit|Numpad)([1-4])$/);

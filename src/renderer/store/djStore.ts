@@ -18,6 +18,9 @@ interface DjState {
   // Hot Cues: trackId -> { 1: sec, 2: sec, 3: sec, 4: sec }
   hotCues: Record<string, HotCueData>;
 
+  // Primary Pioneer CDJ Main Cue: trackId -> timestamp in seconds
+  mainCues: Record<string, number>;
+
   // Tap Tempo state
   tapTimestamps: number[];
   tappedBpm: number | null;
@@ -35,6 +38,11 @@ interface DjState {
   clearHotCue: (trackId: string, cueNumber: 1 | 2 | 3 | 4) => void;
   clearAllHotCues: (trackId: string) => void;
   getTrackHotCues: (trackId: string) => HotCueData;
+
+  // Pioneer CDJ Main Cue Actions
+  setMainCue: (trackId: string, time: number) => void;
+  clearMainCue: (trackId: string) => void;
+  getMainCue: (trackId: string) => number | null;
 
   // Tap-Tempo Actions
   registerTap: () => number | null;
@@ -81,6 +89,7 @@ export const useDjStore = create<DjState>()(
       isMasterTempo: true,
       isDeckExpanded: false,
       hotCues: {},
+      mainCues: {},
       tapTimestamps: [],
       tappedBpm: null,
 
@@ -155,6 +164,30 @@ export const useDjStore = create<DjState>()(
         return get().hotCues[trackId] || {};
       },
 
+      setMainCue: (trackId: string, time: number) => {
+        if (!trackId) return;
+        set((state) => ({
+          mainCues: {
+            ...state.mainCues,
+            [trackId]: Math.max(0, Number(time.toFixed(2))),
+          },
+        }));
+      },
+
+      clearMainCue: (trackId: string) => {
+        if (!trackId) return;
+        set((state) => {
+          const updated = { ...state.mainCues };
+          delete updated[trackId];
+          return { mainCues: updated };
+        });
+      },
+
+      getMainCue: (trackId: string) => {
+        if (!trackId) return null;
+        return get().mainCues[trackId] ?? null;
+      },
+
       registerTap: () => {
         const now = Date.now();
         const existing = get().tapTimestamps;
@@ -200,6 +233,7 @@ export const useDjStore = create<DjState>()(
         isMasterTempo: state.isMasterTempo,
         isDeckExpanded: state.isDeckExpanded,
         hotCues: state.hotCues,
+        mainCues: state.mainCues,
       }),
     }
   )

@@ -11,6 +11,8 @@ import {
   Check,
   Music,
   ChevronDown,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useDjStore, CUE_COLORS, PitchRange } from '../../store/djStore.js';
@@ -39,6 +41,9 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
     clearHotCue,
     clearAllHotCues,
     hotCues,
+    mainCues,
+    setMainCue,
+    clearMainCue,
     registerTap,
     resetTap,
     tappedBpm,
@@ -50,6 +55,42 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
   const [tapSuccessMessage, setTapSuccessMessage] = useState<string | null>(null);
 
   const trackCues = currentTrack?.id ? hotCues[currentTrack.id] || {} : {};
+  const trackMainCue = currentTrack?.id ? mainCues[currentTrack.id] : undefined;
+  const [isAuditioningCue, setIsAuditioningCue] = useState(false);
+
+  // Pioneer CDJ CUE button behavior:
+  // - If playing: clicking CUE pauses playback and snaps playhead back to main cue (or 0)
+  // - If paused:
+  //   - onMouseDown: sets cue if unset, seeks to cue, starts audio playback temporarily
+  //   - onMouseUp / onMouseLeave: pauses playback and snaps back to main cue
+  const handleCueMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0 || !currentTrack) return;
+
+    if (isPlaying) {
+      togglePlay();
+      seekAudioTo(trackMainCue ?? 0);
+      return;
+    }
+
+    const targetCue = trackMainCue ?? currentTime;
+    if (trackMainCue === undefined) {
+      setMainCue(currentTrack.id, currentTime);
+    }
+
+    seekAudioTo(targetCue);
+    togglePlay();
+    setIsAuditioningCue(true);
+  };
+
+  const handleCueMouseUp = () => {
+    if (isAuditioningCue && currentTrack) {
+      if (isPlaying) {
+        togglePlay();
+      }
+      seekAudioTo(trackMainCue ?? 0);
+      setIsAuditioningCue(false);
+    }
+  };
 
   // Calculate adjusted target BPM based on effective playback rate
   const baseBpm = currentTrack?.bpm ? Number(currentTrack.bpm) : null;
@@ -120,25 +161,71 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
       }`}
     >
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-        {/* Left: Hot Cues (1..4) */}
-        <div className="flex-1 space-y-1.5 min-w-[280px]">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
-            <div className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-[var(--text-secondary)]">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Hot Cues (1–4)</span>
-            </div>
-            {currentTrack && Object.keys(trackCues).length > 0 && (
-              <button
-                onClick={() => clearAllHotCues(currentTrack.id)}
-                className="text-[10px] text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
-                title="Clear all hot cues for this track"
-              >
-                Clear All
-              </button>
-            )}
+        {/* Left: Pioneer CDJ Transport (CUE + PLAY) & Hot Cues (1..4) */}
+        <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 min-w-[340px]">
+          {/* Pioneer CDJ Primary Transport */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Pioneer CDJ CUE Button */}
+            <button
+              onMouseDown={handleCueMouseDown}
+              onMouseUp={handleCueMouseUp}
+              onMouseLeave={handleCueMouseUp}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (currentTrack) clearMainCue(currentTrack.id);
+              }}
+              className={`w-13 h-13 rounded-2xl flex flex-col items-center justify-center font-mono font-black border-2 transition-all cursor-pointer select-none active:scale-95 ${
+                isAuditioningCue || (isPlaying && trackMainCue !== undefined)
+                  ? 'bg-amber-500 text-black border-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.7)]'
+                  : trackMainCue !== undefined
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.3)] hover:bg-amber-500/30'
+                  : 'bg-[var(--bg-tertiary)] text-neutral-400 border-neutral-700 hover:border-neutral-500 hover:text-white'
+              }`}
+              title={
+                trackMainCue !== undefined
+                  ? `Pioneer CUE: ${formatDuration(trackMainCue)} (Press when playing to snap back; Hold when paused to audition; Right-click to clear)`
+                  : 'Pioneer CUE: Unset (Press while paused to set at current position)'
+              }
+            >
+              <span className="text-[11px] tracking-wider leading-none">CUE</span>
+              <span className="text-[9px] opacity-75 mt-0.5 leading-none">
+                {trackMainCue !== undefined ? formatDuration(trackMainCue) : 'SET'}
+              </span>
+            </button>
+
+            {/* Pioneer CDJ PLAY / PAUSE Button */}
+            <button
+              onClick={() => togglePlay()}
+              className={`w-13 h-13 rounded-2xl flex flex-col items-center justify-center font-mono font-black border-2 transition-all cursor-pointer select-none active:scale-95 ${
+                isPlaying
+                  ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.7)]'
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/60 shadow-[0_0_8px_rgba(16,185,129,0.3)] hover:bg-emerald-500/30'
+              }`}
+              title={isPlaying ? 'Pause Playback (Space / CUE)' : 'Start Playback'}
+            >
+              {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+            </button>
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
+          {/* Hot Cues (1..4) */}
+          <div className="flex-1 space-y-1.5 min-w-[220px]">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
+              <div className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-[var(--text-secondary)]">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Hot Cues (1–4)</span>
+              </div>
+              {currentTrack && Object.keys(trackCues).length > 0 && (
+                <button
+                  onClick={() => clearAllHotCues(currentTrack.id)}
+                  className="text-[10px] text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                  title="Clear all hot cues for this track"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
             {([1, 2, 3, 4] as const).map((cueNum) => {
               const cueTime = trackCues[cueNum];
               const isSet = cueTime !== undefined;
@@ -211,6 +298,7 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
             })}
           </div>
         </div>
+      </div>
 
         {/* Center: Pitch & Tempo Performance Fader */}
         <div className="flex-1 bg-[var(--bg-tertiary)]/60 border border-[var(--border-color)] rounded-xl p-2.5 space-y-2 min-w-[320px]">

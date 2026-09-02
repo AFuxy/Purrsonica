@@ -32,6 +32,8 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const hotCues = useDjStore((s) => s.hotCues);
   const trackHotCues = currentTrack?.id ? hotCues[currentTrack.id] : undefined;
+  const mainCues = useDjStore((s) => s.mainCues);
+  const trackMainCue = currentTrack?.id ? mainCues[currentTrack.id] : undefined;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -239,6 +241,24 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
             </div>
           );
         })}
+
+      {/* Primary Pioneer CDJ Main Cue Marker */}
+      {isDjMode && duration > 0 && trackMainCue !== undefined && trackMainCue >= 0 && trackMainCue <= duration && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onSeek(trackMainCue);
+          }}
+          className="absolute top-0 bottom-0 z-20 flex flex-col items-center pointer-events-auto cursor-pointer group/maincue"
+          style={{ left: `${(trackMainCue / duration) * 100}%` }}
+          title={`Main Cue: ${formatDuration(trackMainCue)} (Click to jump)`}
+        >
+          <div className="-translate-x-1/2 -top-3 absolute px-1.5 py-0.5 rounded text-[8px] font-black font-mono leading-none border border-amber-400 bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.6)] transition-transform group-hover/maincue:scale-125">
+            CUE
+          </div>
+          <div className="w-[2px] h-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)] opacity-90 group-hover/maincue:opacity-100" />
+        </div>
+      )}
     </div>
   );
 };
