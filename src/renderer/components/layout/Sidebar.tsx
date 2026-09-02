@@ -12,9 +12,11 @@ import {
   Trash2,
   Settings as SettingsIcon,
   Radio,
+  FlaskConical,
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
+import { useFeatureFlagStore } from '../../store/featureFlagStore.js';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -25,6 +27,7 @@ export const Sidebar: React.FC = () => {
     playlists,
     stats,
     setView,
+    openSettings,
     selectDrive,
     selectPlaylist,
     createPlaylist,
@@ -35,6 +38,7 @@ export const Sidebar: React.FC = () => {
   } = useLibraryStore();
 
   const { settings, setModalOpen } = useScanStore();
+  const { isDevMode } = useFeatureFlagStore();
   const isDjMode = !!settings?.enableDjMode;
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
@@ -193,7 +197,7 @@ export const Sidebar: React.FC = () => {
           )}
 
           <button
-            onClick={() => setView('settings')}
+            onClick={() => openSettings()}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all ${
               currentView === 'settings'
                 ? 'bg-emerald-500 text-black font-bold shadow-sm'
@@ -205,6 +209,26 @@ export const Sidebar: React.FC = () => {
               <span>Settings</span>
             </div>
           </button>
+
+          {/* Developer Labs (Strictly visible only when isDevMode is active) */}
+          {isDevMode && (
+            <button
+              onClick={() => setView('labs')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all ${
+                currentView === 'labs'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-md'
+                  : 'text-purple-300 hover:bg-purple-950/30 hover:text-purple-200'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <FlaskConical className="w-4 h-4 text-purple-400" />
+                <span>Labs</span>
+              </div>
+              <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                DEV
+              </span>
+            </button>
+          )}
         </div>
 
         {/* System Drives Section */}

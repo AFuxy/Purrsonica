@@ -15,7 +15,16 @@ export type LibraryViewType =
   | 'videos'
   | 'search'
   | 'settings'
-  | 'dj_matcher';
+  | 'dj_matcher'
+  | 'labs';
+
+export type SettingsTabId =
+  | 'appearance'
+  | 'library'
+  | 'dj'
+  | 'maintenance'
+  | 'system'
+  | 'danger';
 
 export interface NavigationEntry {
   view: LibraryViewType;
@@ -25,6 +34,7 @@ export interface NavigationEntry {
   selectedArtist: string | null;
   selectedTrackDetail: Track | null;
   selectedDjAnchorTrack?: Track | null;
+  selectedSettingsTab?: SettingsTabId | null;
 }
 
 interface LibraryState {
@@ -35,6 +45,7 @@ interface LibraryState {
   selectedArtist: string | null;
   selectedTrackDetail: Track | null;
   selectedDjAnchorTrack: Track | null;
+  activeSettingsTab: SettingsTabId;
 
   // Navigation History
   navHistory: NavigationEntry[];
@@ -69,6 +80,8 @@ interface LibraryState {
   selectTrackDetail: (track: Track) => void;
   selectPlaylist: (playlist: Playlist) => void;
   openDjMatcher: (anchorTrack?: Track) => void;
+  openSettings: (tab?: SettingsTabId) => void;
+  setActiveSettingsTab: (tab: SettingsTabId) => void;
   goBack: () => void;
   goForward: () => void;
   pushNav: (entry: NavigationEntry) => void;
@@ -100,6 +113,8 @@ interface LibraryState {
   removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
 }
 
+const STORAGE_SETTINGS_TAB_KEY = 'purrsonica:active_settings_tab';
+
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   currentView: 'all',
   selectedDrive: null,
@@ -108,8 +123,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   selectedArtist: null,
   selectedTrackDetail: null,
   selectedDjAnchorTrack: null,
+  activeSettingsTab: (localStorage.getItem(STORAGE_SETTINGS_TAB_KEY) as SettingsTabId) || 'appearance',
 
-  navHistory: [{ view: 'all', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null, selectedDjAnchorTrack: null }],
+  navHistory: [{ view: 'all', selectedDrive: null, selectedAlbum: null, selectedPlaylist: null, selectedArtist: null, selectedTrackDetail: null, selectedDjAnchorTrack: null, selectedSettingsTab: 'appearance' }],
   navIndex: 0,
   canGoBack: false,
   canGoForward: false,
@@ -212,7 +228,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       get().fetchAlbums();
     } else if (next.view === 'playlists') {
       get().fetchPlaylists();
-    } else if (next.view === 'settings' || next.view === 'track_detail' || next.view === 'dj_matcher') {
+    } else if (
+      next.view === 'settings' ||
+      next.view === 'track_detail' ||
+      next.view === 'dj_matcher' ||
+      next.view === 'labs'
+    ) {
       // no track list query needed
     } else {
       get().fetchTracks();
@@ -245,7 +266,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       get().fetchAlbums();
     } else if (view === 'playlists') {
       get().fetchPlaylists();
-    } else if (view === 'settings' || view === 'track_detail' || view === 'dj_matcher') {
+    } else if (
+      view === 'settings' ||
+      view === 'track_detail' ||
+      view === 'dj_matcher' ||
+      view === 'labs'
+    ) {
       // no track list query needed
     } else {
       get().fetchTracks();
@@ -346,6 +372,31 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       selectedArtist: null,
       selectedTrackDetail: null,
       selectedDjAnchorTrack: target || null,
+    });
+  },
+
+  setActiveSettingsTab: (tab: SettingsTabId) => {
+    try {
+      localStorage.setItem(STORAGE_SETTINGS_TAB_KEY, tab);
+    } catch {}
+    set({ activeSettingsTab: tab });
+  },
+
+  openSettings: (tab?: SettingsTabId) => {
+    if (tab) {
+      get().setActiveSettingsTab(tab);
+    }
+    const currentTab = tab || get().activeSettingsTab;
+    set({ currentView: 'settings' });
+    get().pushNav({
+      view: 'settings',
+      selectedDrive: null,
+      selectedAlbum: null,
+      selectedPlaylist: null,
+      selectedArtist: null,
+      selectedTrackDetail: null,
+      selectedDjAnchorTrack: null,
+      selectedSettingsTab: currentTab,
     });
   },
 

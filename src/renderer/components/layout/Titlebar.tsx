@@ -9,7 +9,7 @@ import { useScanStore } from '../../store/scanStore.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
-  const { searchQuery, setSearchQuery, currentView, setView, goBack, goForward, canGoBack, canGoForward } = useLibraryStore();
+  const { searchQuery, setSearchQuery, currentView, setView, openSettings, goBack, goForward, canGoBack, canGoForward } = useLibraryStore();
   const toggleMiniPlayer = usePlayerStore((s) => s.toggleMiniPlayer);
   const { settings } = useScanStore();
   const { status: updateStatus } = useUpdateStore();
@@ -115,7 +115,7 @@ export const Titlebar: React.FC = () => {
           {settings?.enableDjMode && (
             <div
               className="relative -ml-1 -top-2 flex flex-col items-center rotate-12 hover:rotate-6 hover:scale-110 transition-all cursor-pointer select-none"
-              onClick={() => setView('settings')}
+              onClick={() => openSettings('dj')}
               title="DJ Mode Active (Click to view DJ settings)"
             >
               <div className="w-1.5 h-1.5 rounded-full bg-neutral-900 border border-white/70 -mb-0.5 z-10 shadow-sm" />
@@ -162,9 +162,9 @@ export const Titlebar: React.FC = () => {
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] shadow-sm">
             <RefreshCw className="w-3 h-3 animate-spin flex-shrink-0" />
             <button
-              onClick={() => setView('settings')}
+              onClick={() => openSettings('maintenance')}
               className="hover:underline font-medium cursor-pointer"
-              title="Caching artwork. Click to open Settings."
+              title="Caching artwork. Click to open Maintenance Settings."
             >
               Art ({artworkTask.current}/{artworkTask.total})
             </button>
@@ -186,9 +186,9 @@ export const Titlebar: React.FC = () => {
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-[11px] shadow-sm">
             <Activity className="w-3 h-3 animate-pulse flex-shrink-0" />
             <button
-              onClick={() => setView('settings')}
+              onClick={() => openSettings('maintenance')}
               className="hover:underline font-medium cursor-pointer"
-              title="Generating waveforms. Click to open Settings."
+              title="Generating waveforms. Click to open Maintenance Settings."
             >
               Waveforms ({waveformTask.current}/{waveformTask.total})
             </button>
@@ -208,13 +208,13 @@ export const Titlebar: React.FC = () => {
         {/* Compact Navbar Update Pill Notification */}
         {updateStatus.state === 'downloaded' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
-            onClick={() => setView('settings')}
+            onClick={() => openSettings('system')}
             className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer animate-pulse ${
               updateStatus.isPrerelease
                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30'
                 : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30'
             }`}
-            title="Update downloaded and ready to install! Click to open Settings."
+            title="Update downloaded and ready to install! Click to open Updates Settings."
           >
             <span className={`w-1.5 h-1.5 rounded-full animate-ping ${updateStatus.isPrerelease ? 'bg-purple-400' : 'bg-emerald-400'}`} />
             <Sparkles className={`w-3 h-3 ${updateStatus.isPrerelease ? 'text-purple-300' : 'text-emerald-300'}`} />
@@ -224,7 +224,7 @@ export const Titlebar: React.FC = () => {
 
         {updateStatus.state === 'downloading' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
-            onClick={() => setView('settings')}
+            onClick={() => openSettings('system')}
             className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[11px] font-semibold transition-all cursor-pointer"
             title={`Downloading update (${updateStatus.percent || 0}%)... Click to view.`}
           >
@@ -235,7 +235,7 @@ export const Titlebar: React.FC = () => {
 
         {updateStatus.state === 'available' && !artworkTask.isActive && !waveformTask.isActive && (
           <button
-            onClick={() => setView('settings')}
+            onClick={() => openSettings('system')}
             className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
               updateStatus.isPrerelease
                 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30'
@@ -289,7 +289,7 @@ export const Titlebar: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setView(currentView === 'settings' ? 'all' : 'settings')}
+          onClick={() => (currentView === 'settings' ? setView('all') : openSettings())}
           style={{ WebkitAppRegion: 'no-drag' } as any}
           title="Settings"
           className={`p-1.5 rounded-md transition-colors mr-1 cursor-pointer ${

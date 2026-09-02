@@ -1,16 +1,206 @@
+export interface ChangelogItem {
+  text: string;
+  isExperiment?: boolean;
+  flagId?: string;
+}
+
+export interface ChangelogSection {
+  heading: string;
+  isExperiment?: boolean;
+  items: (string | ChangelogItem)[];
+}
+
 export interface ChangelogRelease {
   version: string;
   title: string;
   isPrerelease?: boolean;
-  sections: {
-    heading: string;
-    items: string[];
-  }[];
+  sections: ChangelogSection[];
+}
+
+export interface ParsedChangelogItem {
+  title: string;
+  description: string;
+  isExperiment: boolean;
+  flagId?: string;
+  experimentLabel: string;
+}
+
+export function parseChangelogItem(
+  rawItem: string | ChangelogItem,
+  sectionIsExperiment?: boolean
+): ParsedChangelogItem {
+  let text = typeof rawItem === 'string' ? rawItem : rawItem.text;
+  let isExperiment = !!sectionIsExperiment || (typeof rawItem === 'object' && !!rawItem.isExperiment);
+  let flagId = typeof rawItem === 'object' ? rawItem.flagId : undefined;
+  let experimentLabel = 'Experiment';
+
+  // Match leading tag like [Experiment], [Labs], [Experimental]
+  const tagMatch = text.match(/^\[(Experiment|Labs|Experimental|Beta Experiment)\]\s*/i);
+  if (tagMatch) {
+    isExperiment = true;
+    experimentLabel = tagMatch[1];
+    text = text.slice(tagMatch[0].length);
+  } else {
+    // Match trailing tag like (Experiment) or (Labs)
+    const endMatch = text.trim().match(/\s*\((Experiment|Labs|Experimental)\)$/i);
+    if (endMatch) {
+      isExperiment = true;
+      experimentLabel = endMatch[1];
+      text = text.replace(/\s*\((Experiment|Labs|Experimental)\)$/i, '');
+    }
+  }
+
+  const parts = text.split(': ');
+  const title = parts.length > 1 ? parts[0] : '';
+  const description = parts.length > 1 ? parts.slice(1).join(': ') : text;
+
+  return {
+    title,
+    description,
+    isExperiment,
+    flagId,
+    experimentLabel: experimentLabel.charAt(0).toUpperCase() + experimentLabel.slice(1),
+  };
 }
 
 export function isPrereleaseVersion(versionStr?: string): boolean {
   if (!versionStr) return false;
   return /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(versionStr);
+}
+
+export interface ReleaseTagInfo {
+  label: string;
+  badgeClass: string;
+  dotClass: string;
+  borderClass: string;
+  isPrerelease: boolean;
+}
+
+export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): ReleaseTagInfo | null {
+  if (!versionStr) return null;
+
+  const dashIndex = versionStr.indexOf('-');
+  if (dashIndex !== -1) {
+    const rawSuffix = versionStr.slice(dashIndex + 1).toLowerCase();
+
+    // 1. Beta (e.g., -beta, -beta.1, -beta-2)
+    if (/^beta([.-]|$)/i.test(rawSuffix) || rawSuffix === 'beta') {
+      return {
+        label: 'Beta',
+        badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+        dotClass: 'text-purple-400',
+        borderClass: 'border-purple-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 2. Pre-Release (e.g., -prerelease, -pre, -pre-release)
+    if (/^pre(-?release)?([.-]|$)/i.test(rawSuffix) || rawSuffix === 'pre' || rawSuffix === 'prerelease') {
+      return {
+        label: 'Pre Release',
+        badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+        dotClass: 'text-indigo-400',
+        borderClass: 'border-indigo-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 3. Alpha (e.g., -alpha, -alpha.1)
+    if (/^alpha([.-]|$)/i.test(rawSuffix) || rawSuffix === 'alpha') {
+      return {
+        label: 'Alpha',
+        badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+        dotClass: 'text-amber-400',
+        borderClass: 'border-amber-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 4. Release Candidate (e.g., -rc, -rc.1)
+    if (/^rc([.-]|$)/i.test(rawSuffix) || rawSuffix === 'rc') {
+      return {
+        label: 'RC',
+        badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+        dotClass: 'text-cyan-400',
+        borderClass: 'border-cyan-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 5. Canary (e.g., -canary)
+    if (/^canary([.-]|$)/i.test(rawSuffix) || rawSuffix === 'canary') {
+      return {
+        label: 'Canary',
+        badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+        dotClass: 'text-yellow-400',
+        borderClass: 'border-yellow-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 6. Dev (e.g., -dev)
+    if (/^dev([.-]|$)/i.test(rawSuffix) || rawSuffix === 'dev') {
+      return {
+        label: 'Dev',
+        badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+        dotClass: 'text-rose-400',
+        borderClass: 'border-rose-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 7. Preview (e.g., -preview)
+    if (/^preview([.-]|$)/i.test(rawSuffix) || rawSuffix === 'preview') {
+      return {
+        label: 'Preview',
+        badgeClass: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30',
+        dotClass: 'text-fuchsia-400',
+        borderClass: 'border-fuchsia-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 8. Nightly (e.g., -nightly)
+    if (/^nightly([.-]|$)/i.test(rawSuffix) || rawSuffix === 'nightly') {
+      return {
+        label: 'Nightly',
+        badgeClass: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
+        dotClass: 'text-teal-400',
+        borderClass: 'border-teal-500/25',
+        isPrerelease: true,
+      };
+    }
+
+    // 9. Generic Fallback for any other custom suffix
+    const cleanWord = rawSuffix.split(/[0-9.]/)[0].replace(/[-_]/g, ' ').trim();
+    const formatted = cleanWord
+      ? cleanWord
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')
+      : 'Pre Release';
+
+    return {
+      label: formatted,
+      badgeClass: 'bg-neutral-500/20 text-neutral-300 border-neutral-500/30',
+      dotClass: 'text-neutral-400',
+      borderClass: 'border-neutral-500/25',
+      isPrerelease: true,
+    };
+  }
+
+  // If marked isPrerelease without hyphen
+  if (isPrerelease) {
+    return {
+      label: 'Pre Release',
+      badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+      dotClass: 'text-indigo-400',
+      borderClass: 'border-indigo-500/25',
+      isPrerelease: true,
+    };
+  }
+
+  return null;
 }
 
 export interface GitHubReleaseInfo {
@@ -55,6 +245,38 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 }
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
+  {
+    version: '1.6.0-beta.2',
+    title: 'Developer Labs & Feature Flag Infrastructure, Modern Vertical Side-Nav Settings Layout & Deep-Linking Engine',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'Developer Labs & Feature Flag Architecture: Full enterprise-grade feature flag engine allowing seamless experimentation, live parameter tuning, and zero-breakage rollout gating.',
+          'Secure DevTools Console Activation: Stealth developer portal unlocked exclusively via console command (purrsonica.enableDevMode) with cryptographic passkey rotation and auto-lock security.',
+          '[Experiment] Developer Labs UI: Dedicated testing panel with category filters (Audio, DJ, UI, Performance, Connectivity, Experimental), maturity stage badges, JSON config import/export, and instant state overrides.',
+          '[Experiment] Modern Vertical Side-Rail Settings Layout: Re-architected the Settings hub into a scalable two-column layout featuring a vertical left navigation rail with grouped categories (Preferences, System & Maintenance, Danger).',
+          'Global Deep-Linking & Persistent Tab Memory: Any element in the app can direct-route to specific Settings tabs (e.g., Titlebar DJ badge routes to DJ Suite, live maintenance task pills route to Maintenance, update pills route to System & Updates). Remembers your active tab across sessions.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Case-Resilient Feature Flag Lookup: Dynamic flag resolver engine synchronizes dictionary keys, flag identifiers, and localStorage overrides with real-time reactivity.',
+          'Classic Layout Preservation: Full backward compatibility preserving the original single-page scroll experience when the Tabbed Settings flag is disabled.',
+          'Multi-Version Changelog Accordion: Enhanced changelog history with current version indicators, pre-release beta tags, and instant collapsible release notes.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Flag Override Synchronization: Resolved key-casing mismatch between feature flag definitions and override stores, ensuring flags toggle and persist reliably.',
+          'Settings Side Navigation Scaling: Eliminated awkward top horizontal scrollbars by transitioning tab navigation to a responsive vertical side rail.',
+        ],
+      },
+    ],
+  },
   {
     version: '1.6.0-beta.1',
     title: 'WASM Key & BPM Analyzer, DJ Harmonic Matcher, Gapless Audio Crossfader, Exclusion Cleaner & After-Action Reports',

@@ -24,6 +24,9 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  FlaskConical,
   Share2,
   Radio,
   Palette,
@@ -33,14 +36,15 @@ import {
   Sliders,
 } from 'lucide-react';
 import { useThemeStore, ACCENT_PRESETS } from '../../store/themeStore.js';
-import { useLibraryStore } from '../../store/libraryStore.js';
+import { useLibraryStore, SettingsTabId } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
+import { useFeatureFlag, useFeatureFlagStore } from '../../store/featureFlagStore.js';
 import { DuplicateCleanerModal } from '../modals/DuplicateCleanerModal.js';
 import { ActionConfirmModal, ActionConfirmConfig } from '../modals/ActionConfirmModal.js';
 import { ActionReportModal, ActionReportData } from '../modals/ActionReportModal.js';
-import { APP_CHANGELOGS, fetchGitHubReleases, isPrereleaseVersion, GitHubReleaseInfo } from '../../data/changelogs.js';
+import { APP_CHANGELOGS, fetchGitHubReleases, isPrereleaseVersion, getReleaseTag, parseChangelogItem, GitHubReleaseInfo } from '../../data/changelogs.js';
 import { formatDuration, formatFileSize } from '../../../shared/formatters.js';
 import { ScanSettings } from '../../../shared/types.js';
 
@@ -51,7 +55,15 @@ export const SettingsView: React.FC = () => {
   useEffect(() => {
     setCustomHexInput(accentColor);
   }, [accentColor]);
-  const { drives, stats, refreshAll } = useLibraryStore();
+
+  const { drives, stats, fetchStats, refreshAll, activeSettingsTab, setActiveSettingsTab, setView } = useLibraryStore();
+  const { isDevMode } = useFeatureFlagStore();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const isTabbedLayoutEnabled = useFeatureFlag('SETTINGS_TABBED_LAYOUT');
   const {
     settings,
     fetchSettings,
@@ -88,10 +100,20 @@ export const SettingsView: React.FC = () => {
   }, []);
 
   // Dynamic App Version
-  const [appVersion, setAppVersion] = useState('1.4.0-beta.2');
+  const [appVersion, setAppVersion] = useState('1.0.0');
 
-  // Multi-version changelog accordion state
-  const [expandedChangelogs, setExpandedChangelogs] = useState<Record<string, boolean>>({});
+  // Multi-version changelog accordion state (latest version open by default)
+  const [expandedChangelogs, setExpandedChangelogs] = useState<Record<string, boolean>>({
+    [APP_CHANGELOGS[0]?.version || '1.6.0-beta.2']: true,
+  });
+  const [changelogPage, setChangelogPage] = useState(1);
+  const CHANGELOGS_PER_PAGE = 10;
+  const totalChangelogPages = Math.ceil(APP_CHANGELOGS.length / CHANGELOGS_PER_PAGE);
+
+  const paginatedChangelogs = useMemo(() => {
+    const startIdx = (changelogPage - 1) * CHANGELOGS_PER_PAGE;
+    return APP_CHANGELOGS.slice(startIdx, startIdx + CHANGELOGS_PER_PAGE);
+  }, [changelogPage]);
 
   const toggleChangelog = (ver: string) => {
     setExpandedChangelogs((prev) => ({
@@ -123,6 +145,20 @@ export const SettingsView: React.FC = () => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
+  useEffect(() => {
+    const handleDevModeChanged = (e: any) => {
+      if (e.detail?.enabled) {
+        showToast('Developer Mode Activated! Labs section unlocked.');
+      } else {
+        showToast('Developer Mode Disabled.');
+      }
+    };
+    window.addEventListener('purrsonica:devmode_changed', handleDevModeChanged);
+    return () => {
+      window.removeEventListener('purrsonica:devmode_changed', handleDevModeChanged);
+    };
+  }, []);
 
   const currentSettings: ScanSettings = settings || {
     customFolders: [],
@@ -587,731 +623,918 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  return (
-    <div className="flex-1 w-full h-full overflow-y-auto min-h-0 bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative">
-      <div className="max-w-4xl mx-auto p-8 space-y-8 pb-24">
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed bottom-24 right-8 bg-neutral-900 border border-emerald-500/50 text-emerald-400 px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>{toastMessage}</span>
-          </div>
-        )}
+  const SETTINGS_TAB_GROUPS: {
+    label: string;
+    tabs: {
+      id: SettingsTabId;
+      label: string;
+      description: string;
+      icon: React.ComponentType<{ className?: string }>;
+      badge?: string;
+      badgeClass?: string;
+      danger?: boolean;
+    }[];
+  }[] = [
+    {
+      label: 'Preferences',
+      tabs: [
+        {
+          id: 'appearance',
+          label: 'Appearance',
+          description: 'Themes, accent colors & styling',
+          icon: Palette,
+        },
+        {
+          id: 'library',
+          label: 'Library & Audio',
+          description: 'Scan folders, formats & crossfade',
+          icon: Music,
+        },
+        {
+          id: 'dj',
+          label: 'DJ Suite',
+          description: 'Harmonic keys & BPM inspection',
+          icon: Radio,
+          badge: currentSettings.enableDjMode ? 'Active' : undefined,
+          badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+        },
+      ],
+    },
+    {
+      label: 'System & Maintenance',
+      tabs: [
+        {
+          id: 'maintenance',
+          label: 'Maintenance',
+          description: 'Verification, artwork & waveforms',
+          icon: Database,
+          badge:
+            artworkTask.isActive || waveformTask.isActive || audioAnalysisTask.isActive
+              ? 'Running'
+              : undefined,
+          badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse',
+        },
+        {
+          id: 'system',
+          label: 'System & Updates',
+          description: 'Discord RPC & release changelog',
+          icon: Info,
+          badge:
+            updateStatus.state === 'available' || updateStatus.state === 'downloaded'
+              ? 'Update'
+              : undefined,
+          badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+        },
+      ],
+    },
+    {
+      label: 'Danger',
+      tabs: [
+        {
+          id: 'danger',
+          label: 'Danger Zone',
+          description: 'Cache wipe & factory reset',
+          icon: Flame,
+          danger: true,
+        },
+      ],
+    },
+  ];
 
-      {/* Settings Header */}
-      <div className="border-b border-[var(--border-color)] pb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
-            <SettingsIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">Settings</h1>
-            <p className="text-xs text-[var(--text-muted)]">
-              Configure Purrsonica preferences, scanning rules, and storage
-            </p>
-          </div>
+  const renderHeader = () => (
+    <div className="border-b border-[var(--border-color)] pb-4 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
+          <SettingsIcon className="w-6 h-6" />
         </div>
-        <div className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
-          v{appVersion}
+        <div>
+          <h1 className="text-2xl font-black tracking-tight">Settings</h1>
+          <p className="text-xs text-[var(--text-muted)]">
+            Configure Purrsonica preferences, scanning rules, and storage
+          </p>
+        </div>
+      </div>
+      <div className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
+        v{appVersion}
+      </div>
+    </div>
+  );
+
+  const renderSideTabs = () => (
+    <aside className="w-64 flex-shrink-0 h-full border-r border-[var(--border-color)] bg-[var(--bg-secondary)]/40 flex flex-col justify-between select-none">
+      <div className="p-4 space-y-4 overflow-y-auto">
+        {/* Settings Sidebar Branding */}
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
+              <SettingsIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <h1 className="text-sm font-black tracking-tight text-[var(--text-primary)]">Settings</h1>
+              <p className="text-[10px] text-[var(--text-muted)]">Purrsonica Preferences</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
+            v{appVersion}
+          </span>
+        </div>
+
+        {/* Tab Groups List */}
+        <nav className="space-y-4">
+          {SETTINGS_TAB_GROUPS.map((group, gIdx) => (
+            <div key={gIdx} className="space-y-1">
+              <div className="px-2 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
+                {group.label}
+              </div>
+              <div className="space-y-1">
+                {group.tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeSettingsTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveSettingsTab(tab.id)}
+                      className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer text-left ${
+                        isActive
+                          ? tab.danger
+                            ? 'bg-rose-600 text-white font-bold shadow-md'
+                            : 'bg-emerald-500 text-black font-bold shadow-md'
+                          : tab.danger
+                          ? 'text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/10'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                        <div
+                          className={`p-1.5 rounded-lg flex-shrink-0 ${
+                            isActive
+                              ? 'bg-black/20 text-current'
+                              : tab.danger
+                              ? 'bg-rose-500/15 text-rose-400'
+                              : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold truncate leading-tight">{tab.label}</div>
+                          <div
+                            className={`text-[10px] truncate leading-tight mt-0.5 ${
+                              isActive ? 'text-current opacity-80' : 'text-[var(--text-muted)]'
+                            }`}
+                          >
+                            {tab.description}
+                          </div>
+                        </div>
+                      </div>
+                      {tab.badge && (
+                        <span
+                          className={`text-[9px] font-mono font-black uppercase px-1.5 py-0.2 rounded border flex-shrink-0 ${
+                            isActive
+                              ? 'bg-black/30 text-current border-black/40'
+                              : tab.badgeClass || ''
+                          }`}
+                        >
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </div>
+
+      {/* Footer in the side tab rail */}
+      <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-secondary)]/60 text-[10px] text-[var(--text-muted)] flex items-center justify-between">
+        <span className="font-semibold">Purrsonica Labs</span>
+        <span className="font-mono text-emerald-400 font-bold">V2 Tab Rail</span>
+      </div>
+    </aside>
+  );
+
+  const renderAppearanceSection = () => (
+    <section className="space-y-4 animate-in fade-in duration-150">
+      <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+        <Sun className="w-4 h-4 text-emerald-400" />
+        <span>Appearance & Theme</span>
+      </h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Dark Mode Card */}
+        <div
+          onClick={() => setTheme('dark')}
+          className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+            theme === 'dark'
+              ? 'bg-neutral-900 border-emerald-500 shadow-lg ring-1 ring-emerald-500/50'
+              : 'bg-[var(--bg-secondary)] border-[var(--border-color)] hover:border-neutral-600'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-neutral-800 text-purple-400">
+              <Moon className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-sm text-white">Dark Theme</div>
+              <div className="text-xs text-neutral-400">Deep obsidian background & glowing accents</div>
+            </div>
+          </div>
+          {theme === 'dark' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
+        </div>
+
+        {/* Light Mode Card */}
+        <div
+          onClick={() => setTheme('light')}
+          className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+            theme === 'light'
+              ? 'bg-neutral-100 text-black border-emerald-500 shadow-lg ring-1 ring-emerald-500/50'
+              : 'bg-[var(--bg-secondary)] border-[var(--border-color)] hover:border-neutral-600'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-neutral-200 text-amber-500">
+              <Sun className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-sm text-[var(--text-primary)]">Light Theme</div>
+              <div className="text-xs text-[var(--text-muted)]">Clean, high-contrast daylight aesthetic</div>
+            </div>
+          </div>
+          {theme === 'light' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
         </div>
       </div>
 
-      {/* Section 1: Appearance */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
-          <Sun className="w-4 h-4 text-emerald-400" />
-          <span>Appearance & Theme</span>
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Dark Mode Card */}
-          <div
-            onClick={() => setTheme('dark')}
-            className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-              theme === 'dark'
-                ? 'bg-neutral-900 border-emerald-500 shadow-lg ring-1 ring-emerald-500/50'
-                : 'bg-[var(--bg-secondary)] border-[var(--border-color)] hover:border-neutral-600'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-neutral-800 text-purple-400">
-                <Moon className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="font-bold text-sm text-white">Dark Theme</div>
-                <div className="text-xs text-neutral-400">Deep obsidian background & glowing accents</div>
-              </div>
-            </div>
-            {theme === 'dark' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-          </div>
-
-          {/* Light Mode Card */}
-          <div
-            onClick={() => setTheme('light')}
-            className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-              theme === 'light'
-                ? 'bg-neutral-100 text-black border-emerald-500 shadow-lg ring-1 ring-emerald-500/50'
-                : 'bg-[var(--bg-secondary)] border-[var(--border-color)] hover:border-neutral-600'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-neutral-200 text-amber-500">
-                <Sun className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="font-bold text-sm text-[var(--text-primary)]">Light Theme</div>
-                <div className="text-xs text-[var(--text-muted)]">Clean, high-contrast daylight aesthetic</div>
-              </div>
-            </div>
-            {theme === 'light' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-          </div>
-        </div>
-
-        {/* Accent Color Palette & Custom Hex Picker */}
-        <div className="p-5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center border shadow-sm transition-all"
-                style={{
-                  backgroundColor: `${accentColor}20`,
-                  borderColor: `${accentColor}50`,
-                  color: accentColor,
-                }}
-              >
-                <Palette className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
-                  <span>Custom Accent Color</span>
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider"
-                    style={{
-                      backgroundColor: `${accentColor}20`,
-                      color: accentColor,
-                      border: `1px solid ${accentColor}40`,
-                    }}
-                  >
-                    {accentColor.toUpperCase()}
-                  </span>
-                </div>
-                <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                  Choose a signature accent palette or input any custom hex color for player buttons, waveforms, and highlights.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Preset Color Swatches */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5 pt-1">
-            {ACCENT_PRESETS.map((preset) => {
-              const isSelected = accentPreset === preset.id || accentColor.toLowerCase() === preset.color.toLowerCase();
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => setAccentColor(preset.color, preset.id)}
-                  className={`flex flex-col items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-[var(--bg-tertiary)] shadow-md ring-1'
-                      : 'bg-[var(--bg-tertiary)]/50 border-[var(--border-color)] hover:border-neutral-500/50 hover:bg-[var(--bg-hover)]'
-                  }`}
-                  style={{
-                    borderColor: isSelected ? preset.color : undefined,
-                    boxShadow: isSelected ? `0 0 12px ${preset.color}30` : undefined,
-                  }}
-                >
-                  <div
-                    className="w-7 h-7 rounded-full shadow-inner flex items-center justify-center transition-transform hover:scale-110"
-                    style={{ backgroundColor: preset.color }}
-                  >
-                    {isSelected && <Check className="w-4 h-4 text-white drop-shadow" />}
-                  </div>
-                  <span className="text-[11px] font-semibold text-[var(--text-secondary)] text-center leading-tight truncate w-full">
-                    {preset.name.replace(/^[A-Za-z]+ /, '')}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Custom Hex Color Input Row */}
-          <div className="pt-3 border-t border-[var(--border-color)] flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-[var(--text-primary)]">Custom Hex Color:</span>
-              <div className="flex items-center gap-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1.5 focus-within:border-[var(--accent)] transition-colors">
-                <input
-                  type="color"
-                  value={accentColor.startsWith('#') && accentColor.length === 7 ? accentColor : '#10b981'}
-                  onChange={(e) => {
-                    setAccentColor(e.target.value, 'custom');
-                    setCustomHexInput(e.target.value);
-                  }}
-                  className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
-                  title="Pick a color from wheel"
-                />
-                <input
-                  type="text"
-                  value={customHexInput}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCustomHexInput(val);
-                    if (/^#?([0-9A-F]{3}){1,2}$/i.test(val)) {
-                      setAccentColor(val.startsWith('#') ? val : `#${val}`, 'custom');
-                    }
-                  }}
-                  placeholder="#10B981"
-                  className="bg-transparent text-xs font-mono text-[var(--text-primary)] outline-none w-20 uppercase"
-                  maxLength={7}
-                />
-              </div>
-
-              <button
-                onClick={() => {
-                  if (/^#?([0-9A-F]{3}){1,2}$/i.test(customHexInput)) {
-                    setAccentColor(customHexInput.startsWith('#') ? customHexInput : `#${customHexInput}`, 'custom');
-                  }
-                }}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-color)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all cursor-pointer"
-              >
-                Apply Color
-              </button>
-
-              <button
-                onClick={() => {
-                  setAccentColor('#10b981', 'emerald');
-                  setCustomHexInput('#10B981');
-                }}
-                className="px-2.5 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-                title="Reset to default Emerald Green"
-              >
-                Reset
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-[11px] text-[var(--text-muted)]">Live Preview:</span>
-              <button
-                className="px-3 py-1 text-xs font-bold text-black rounded-md shadow transition-transform hover:scale-105"
-                style={{ backgroundColor: accentColor }}
-              >
-                Sample Button
-              </button>
-              <div
-                className="px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                style={{
-                  backgroundColor: `${accentColor}20`,
-                  color: accentColor,
-                  border: `1px solid ${accentColor}40`,
-                }}
-              >
-                Active Badge
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 2: Library & Scanner Rules */}
-      <section className="space-y-4">
+      {/* Accent Color Customizer */}
+      <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
-            <HardDrive className="w-4 h-4 text-emerald-400" />
-            <span>Library & Scanner Preferences</span>
-          </h2>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black shadow-md transition-all hover:scale-105 cursor-pointer"
-          >
-            <Zap className="w-3.5 h-3.5 fill-black" />
-            <span>Scan PC / Drives</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <Palette className="w-4 h-4 text-emerald-400" />
+            <h3 className="font-bold text-xs text-[var(--text-primary)] uppercase tracking-wider">
+              Accent Color Palette
+            </h3>
+          </div>
+          <span className="text-[11px] text-[var(--text-muted)]">
+            Controls buttons, progress bars, active badges & glowing UI highlights
+          </span>
         </div>
 
-        {/* Quick Scanner Action Card */}
-        <div className="p-4 bg-gradient-to-r from-emerald-950/40 via-emerald-900/15 to-transparent border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-sm">
-              <Zap className="w-5 h-5 fill-emerald-400" />
-            </div>
-            <div>
-              <div className="font-bold text-xs text-white">Scan Computer for New Media</div>
-              <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                Scan your whole PC, internal/external drives, or selected folders to index new audio and video tracks.
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-xs shadow-md transition-all hover:scale-105 flex-shrink-0 cursor-pointer"
-          >
-            <Zap className="w-4 h-4 fill-black" />
-            <span>Start PC Scan</span>
-          </button>
+        {/* Preset Swatches Grid */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+          {ACCENT_PRESETS.map((preset) => {
+            const isSelected = accentPreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                onClick={() => {
+                  setAccentColor(preset.color, preset.id);
+                  setCustomHexInput(preset.color);
+                }}
+                className={`p-2.5 rounded-lg border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-[var(--bg-tertiary)] shadow-md ring-1'
+                    : 'bg-[var(--bg-tertiary)]/50 border-[var(--border-color)] hover:border-neutral-500/50 hover:bg-[var(--bg-hover)]'
+                }`}
+                style={{
+                  borderColor: isSelected ? preset.color : undefined,
+                  boxShadow: isSelected ? `0 0 12px ${preset.color}30` : undefined,
+                }}
+              >
+                <div
+                  className="w-7 h-7 rounded-full shadow-inner flex items-center justify-center transition-transform hover:scale-110"
+                  style={{ backgroundColor: preset.color }}
+                >
+                  {isSelected && <Check className="w-4 h-4 text-white drop-shadow" />}
+                </div>
+                <span className="text-[11px] font-semibold text-[var(--text-secondary)] text-center leading-tight truncate w-full">
+                  {preset.name.replace(/^[A-Za-z]+ /, '')}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Audio Toggle */}
-            <div
-              onClick={handleToggleAudio}
-              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0 pr-2">
-                <Music className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Index Audio Files</div>
-                  <div className="text-[11px] text-[var(--text-muted)] truncate">MP3, FLAC, WAV, M4A, AAC, OGG, OPUS</div>
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleAudio();
+        {/* Custom Hex Color Input Row */}
+        <div className="pt-3 border-t border-[var(--border-color)] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[var(--text-primary)]">Custom Hex Color:</span>
+            <div className="flex items-center gap-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1.5 focus-within:border-[var(--accent)] transition-colors">
+              <input
+                type="color"
+                value={accentColor.startsWith('#') && accentColor.length === 7 ? accentColor : '#10b981'}
+                onChange={(e) => {
+                  setAccentColor(e.target.value, 'custom');
+                  setCustomHexInput(e.target.value);
                 }}
-                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
-                  currentSettings.scanAudio ? 'bg-emerald-500' : 'bg-neutral-600'
-                }`}
-                title="Toggle Audio Indexing"
-              >
-                <div
-                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
-                    currentSettings.scanAudio ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Video Toggle */}
-            <div
-              onClick={handleToggleVideo}
-              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0 pr-2">
-                <Tv className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Index Video Files</div>
-                  <div className="text-[11px] text-[var(--text-muted)] truncate">MP4, MKV, WEBM, MOV, AVI</div>
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleVideo();
-                }}
-                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
-                  currentSettings.scanVideo ? 'bg-purple-500' : 'bg-neutral-600'
-                }`}
-                title="Toggle Video Indexing"
-              >
-                <div
-                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
-                    currentSettings.scanVideo ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Waveforms Toggle */}
-            <div
-              onClick={handleToggleWaveforms}
-              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0 pr-2">
-                <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Generate Waveform Data</div>
-                  <div className="text-[11px] text-[var(--text-muted)] truncate">128-bar loudness amplitude curves</div>
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleWaveforms();
-                }}
-                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
-                  currentSettings.generateWaveforms ? 'bg-cyan-500' : 'bg-neutral-600'
-                }`}
-                title="Toggle Waveform Generation"
-              >
-                <div
-                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
-                    currentSettings.generateWaveforms ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* BPM & Camelot Key Tag Recognition Toggle */}
-            <div
-              onClick={handleToggleKeyBpm}
-              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0 pr-2">
-                <Layers className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">BPM & Key Tag Recognition</div>
-                  <div className="text-[11px] text-[var(--text-muted)] truncate">Extracts BPM & Camelot keys from ID3 metadata</div>
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleKeyBpm();
-                }}
-                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
-                  currentSettings.autoDetectKeyBpm ? 'bg-amber-500' : 'bg-neutral-600'
-                }`}
-                title="Toggle BPM & Camelot Key Tag Recognition"
-              >
-                <div
-                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
-                    currentSettings.autoDetectKeyBpm ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Gapless Audio Playback Toggle */}
-            <div
-              onClick={handleToggleGapless}
-              className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0 pr-2">
-                <AudioWaveform className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Gapless Audio Playback</div>
-                  <div className="text-[11px] text-[var(--text-muted)] truncate">Pre-buffers upcoming songs for seamless, zero-delay transitions</div>
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleGapless();
-                }}
-                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
-                  currentSettings.enableGaplessPlayback !== false ? 'bg-emerald-500' : 'bg-neutral-600'
-                }`}
-                title="Toggle Gapless Playback"
-              >
-                <div
-                  className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
-                    currentSettings.enableGaplessPlayback !== false ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Audio Crossfade Duration Slider */}
-            <div className="p-3.5 rounded-lg bg-[var(--bg-tertiary)] col-span-1 sm:col-span-2 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Sliders className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-xs text-[var(--text-primary)]">Audio Crossfade Duration</div>
-                    <div className="text-[11px] text-[var(--text-muted)]">
-                      Smoothly blends the ending and beginning of consecutive songs (visualized as a transition zone on the waveform)
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold ${
-                    (currentSettings.crossfadeDuration || 0) > 0
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'bg-neutral-800 text-[var(--text-muted)] border border-neutral-700'
-                  }`}>
-                    {(currentSettings.crossfadeDuration || 0) === 0 ? '0s (Off / Gapless)' : `${currentSettings.crossfadeDuration}s Crossfade`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 pt-1">
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">0s</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="1"
-                  value={currentSettings.crossfadeDuration ?? 0}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10) || 0;
-                    useScanStore.getState().setSettings({ ...currentSettings, crossfadeDuration: val });
-                  }}
-                  onPointerUp={(e) => {
-                    const val = parseInt((e.target as HTMLInputElement).value, 10) || 0;
-                    saveSettings({ ...currentSettings, crossfadeDuration: val });
-                  }}
-                  onKeyUp={(e) => {
-                    const val = parseInt((e.target as HTMLInputElement).value, 10) || 0;
-                    saveSettings({ ...currentSettings, crossfadeDuration: val });
-                  }}
-                  className="flex-1 cursor-pointer"
-                />
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">10s</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Exclusions Manager */}
-          <div className="pt-4 border-t border-[var(--border-color)] space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-[var(--text-secondary)]">
-                Excluded Folders & Patterns
-              </label>
-              <span className="text-[11px] text-[var(--text-muted)]">
-                Windows system paths are skipped by default
-              </span>
-            </div>
-
-            <form onSubmit={handleAddExclusion} className="flex gap-2">
+                className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                title="Pick a color from wheel"
+              />
               <input
                 type="text"
-                value={newExclusion}
-                onChange={(e) => setNewExclusion(e.target.value)}
-                placeholder="e.g. C:\Users\User\Downloads or games..."
-                className="flex-1 bg-[var(--bg-tertiary)] border border-[var(--border-color)] focus:border-emerald-500 rounded-md px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none"
+                value={customHexInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomHexInput(val);
+                  if (/^#?([0-9A-F]{3}){1,2}$/i.test(val)) {
+                    setAccentColor(val.startsWith('#') ? val : `#${val}`, 'custom');
+                  }
+                }}
+                placeholder="#10B981"
+                className="bg-transparent text-xs font-mono text-[var(--text-primary)] outline-none w-20 uppercase"
+                maxLength={7}
               />
-              <button
-                type="submit"
-                className="px-4 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-primary)] cursor-pointer"
-              >
-                Add Rule
-              </button>
-            </form>
-
-            <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-              {currentSettings.excludedPaths.map((rule: string, idx: number) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-tertiary)] rounded text-xs text-[var(--text-secondary)] group font-mono"
-                >
-                  <span className="truncate">{rule}</span>
-                  <button
-                    onClick={() => removeExclusion(rule)}
-                    className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 p-1 transition-opacity cursor-pointer"
-                    title="Remove rule"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 3: DJ Suite & Performance Mode */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
-            <Radio className="w-4 h-4 text-amber-400" />
-            <span>DJ Suite & Performance Mode</span>
-          </h2>
-          {currentSettings.enableDjMode && (
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold shadow-sm">
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              <span>DJ Mode Active</span>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
-          {/* Master DJ Mode Toggle Card */}
-          <div
-            onClick={handleToggleDjMode}
-            className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
-              currentSettings.enableDjMode
-                ? 'bg-gradient-to-r from-amber-950/40 via-amber-900/20 to-transparent border-amber-500/50 shadow-lg ring-1 ring-amber-500/40'
-                : 'bg-[var(--bg-tertiary)] border-[var(--border-color)] hover:border-neutral-600'
-            }`}
-          >
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className={`p-3 rounded-xl border flex items-center justify-center transition-all flex-shrink-0 ${
-                currentSettings.enableDjMode
-                  ? 'bg-amber-500 text-black border-amber-400 shadow-md'
-                  : 'bg-neutral-800 text-[var(--text-muted)] border-neutral-700'
-              }`}>
-                <Radio className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-bold text-xs sm:text-sm text-[var(--text-primary)] flex items-center gap-2">
-                  <span>Enable DJ Suite & Performance Mode</span>
-                  {currentSettings.enableDjMode && (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500 text-black shadow-sm">
-                      DJ
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] sm:text-xs text-[var(--text-muted)] mt-0.5">
-                  Unlocks BPM and Camelot Harmonic Key columns in track tables, Camelot Wheel harmonic mixing tools, and detailed tempo inspection.
-                </div>
-              </div>
             </div>
 
             <button
+              onClick={() => {
+                if (/^#?([0-9A-F]{3}){1,2}$/i.test(customHexInput)) {
+                  setAccentColor(customHexInput.startsWith('#') ? customHexInput : `#${customHexInput}`, 'custom');
+                }
+              }}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-color)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all cursor-pointer"
+            >
+              Apply Color
+            </button>
+
+            <button
+              onClick={() => {
+                setAccentColor('#10b981', 'emerald');
+                setCustomHexInput('#10B981');
+              }}
+              className="px-2.5 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              title="Reset to default Emerald Green"
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-[11px] text-[var(--text-muted)]">Live Preview:</span>
+            <button
+              className="px-3 py-1 text-xs font-bold text-black rounded-md shadow transition-transform hover:scale-105"
+              style={{ backgroundColor: accentColor }}
+            >
+              Sample Button
+            </button>
+            <div
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+              style={{
+                backgroundColor: `${accentColor}20`,
+                color: accentColor,
+                border: `1px solid ${accentColor}40`,
+              }}
+            >
+              Active Badge
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderLibrarySection = () => (
+    <section className="space-y-4 animate-in fade-in duration-150">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+          <HardDrive className="w-4 h-4 text-emerald-400" />
+          <span>Library & Scanner Preferences</span>
+        </h2>
+        <button
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black shadow-md transition-all hover:scale-105 cursor-pointer"
+        >
+          <Zap className="w-3.5 h-3.5 fill-black" />
+          <span>Scan PC / Drives</span>
+        </button>
+      </div>
+
+      {/* Quick Scanner Action Card */}
+      <div className="p-4 bg-gradient-to-r from-emerald-950/40 via-emerald-900/15 to-transparent border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-sm">
+            <Zap className="w-5 h-5 fill-emerald-400" />
+          </div>
+          <div>
+            <div className="font-bold text-sm text-[var(--text-primary)]">Fast Background Scanner</div>
+            <div className="text-xs text-[var(--text-muted)]">
+              Multithreaded scanner indexes newly added FLAC, MP3, and WAV audio tracks in seconds.
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setModalOpen(true)}
+          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-xs shadow-md transition-all cursor-pointer"
+        >
+          Launch Scanner
+        </button>
+      </div>
+
+      <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Audio Toggle */}
+          <div
+            onClick={handleToggleAudio}
+            className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <Music className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Index Audio Files</div>
+                <div className="text-[11px] text-[var(--text-muted)] truncate">MP3, FLAC, WAV, M4A, AAC, OGG, OPUS</div>
+              </div>
+            </div>
+            <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleToggleDjMode();
+                handleToggleAudio();
               }}
               className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
-                currentSettings.enableDjMode ? 'bg-amber-500' : 'bg-neutral-600'
+                currentSettings.scanAudio ? 'bg-emerald-500' : 'bg-neutral-600'
               }`}
-              title="Toggle DJ Suite & Performance Mode"
+              title="Toggle Audio Indexing"
             >
               <div
                 className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
-                  currentSettings.enableDjMode ? 'translate-x-5' : 'translate-x-0.5'
+                  currentSettings.scanAudio ? 'translate-x-5' : 'translate-x-0.5'
                 }`}
               />
             </button>
           </div>
 
-          {/* WASM Audio Key & BPM Batch Analyzer Card (DJ Mode Only) */}
-          {currentSettings.enableDjMode && (
-            <div className="p-4 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Video Toggle */}
+          <div
+            onClick={handleToggleVideo}
+            className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <Tv className="w-4 h-4 text-purple-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Index Video Files</div>
+                <div className="text-[11px] text-[var(--text-muted)] truncate">MP4, MKV, WEBM, MOV, AVI</div>
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleVideo();
+              }}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                currentSettings.scanVideo ? 'bg-purple-500' : 'bg-neutral-600'
+              }`}
+              title="Toggle Video Indexing"
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                  currentSettings.scanVideo ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Waveforms Toggle */}
+          <div
+            onClick={handleToggleWaveforms}
+            className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Generate Waveform Data</div>
+                <div className="text-[11px] text-[var(--text-muted)] truncate">128-bar loudness amplitude curves</div>
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleWaveforms();
+              }}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                currentSettings.generateWaveforms ? 'bg-cyan-500' : 'bg-neutral-600'
+              }`}
+              title="Toggle Waveform Generation"
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                  currentSettings.generateWaveforms ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* BPM & Camelot Key Tag Recognition Toggle */}
+          <div
+            onClick={handleToggleKeyBpm}
+            className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <Layers className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-xs text-[var(--text-primary)] truncate">BPM & Key Tag Recognition</div>
+                <div className="text-[11px] text-[var(--text-muted)] truncate">Extracts BPM & Camelot keys from ID3 metadata</div>
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleKeyBpm();
+              }}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                currentSettings.autoDetectKeyBpm ? 'bg-amber-500' : 'bg-neutral-600'
+              }`}
+              title="Toggle BPM & Camelot Key Tag Recognition"
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                  currentSettings.autoDetectKeyBpm ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Gapless Audio Playback Toggle */}
+          <div
+            onClick={handleToggleGapless}
+            className="flex items-center justify-between p-3.5 rounded-lg bg-[var(--bg-tertiary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <AudioWaveform className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Gapless Audio Playback</div>
+                <div className="text-[11px] text-[var(--text-muted)] truncate">Pre-buffers upcoming songs for seamless, zero-delay transitions</div>
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleGapless();
+              }}
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+                currentSettings.enableGaplessPlayback !== false ? 'bg-emerald-500' : 'bg-neutral-600'
+              }`}
+              title="Toggle Gapless Playback"
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                  currentSettings.enableGaplessPlayback !== false ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Audio Crossfade Duration Slider */}
+          <div className="p-3.5 rounded-lg bg-[var(--bg-tertiary)] col-span-1 sm:col-span-2 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <Sliders className="w-4 h-4 text-purple-400 flex-shrink-0" />
                 <div>
-                  <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span>WASM Key & BPM Batch Analyzer</span>
-                  </div>
-                  <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                    Analyzes audio songs with the high-precision WebAssembly DSP engine to extract BPM tempo and 1A–12B Camelot harmonic keys (audio files only, videos are skipped).
+                  <div className="font-semibold text-xs text-[var(--text-primary)]">Audio Crossfade Duration</div>
+                  <div className="text-[11px] text-[var(--text-muted)]">
+                    Smoothly blends the ending and beginning of consecutive songs (visualized as a transition zone on the waveform)
                   </div>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold ${
+                    (currentSettings.crossfadeDuration || 0) > 0
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-neutral-800 text-[var(--text-muted)] border border-neutral-700'
+                  }`}
+                >
+                  {(currentSettings.crossfadeDuration || 0) === 0
+                    ? '0s (Off / Gapless)'
+                    : `${currentSettings.crossfadeDuration}s Crossfade`}
+                </span>
+              </div>
+            </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0 flex-wrap sm:flex-nowrap">
-                  {actionReports['audio_analysis'] && !audioAnalysisTask.isActive && (
-                    <button
-                      onClick={() => setActiveReport(actionReports['audio_analysis'])}
-                      className="px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in"
-                      title="View results from the last analysis run"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-amber-400" />
-                      <span>View Report</span>
-                    </button>
-                  )}
+            <div className="flex items-center gap-3 pt-1">
+              <span className="text-[10px] font-mono text-[var(--text-muted)]">0s</span>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                value={currentSettings.crossfadeDuration ?? 0}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 0;
+                  useScanStore.getState().setSettings({ ...currentSettings, crossfadeDuration: val });
+                }}
+                onPointerUp={(e) => {
+                  const val = parseInt((e.target as HTMLInputElement).value, 10) || 0;
+                  saveSettings({ ...currentSettings, crossfadeDuration: val });
+                }}
+                onKeyUp={(e) => {
+                  const val = parseInt((e.target as HTMLInputElement).value, 10) || 0;
+                  saveSettings({ ...currentSettings, crossfadeDuration: val });
+                }}
+                className="flex-1 cursor-pointer"
+              />
+              <span className="text-[10px] font-mono text-[var(--text-muted)]">10s</span>
+            </div>
+          </div>
+        </div>
 
-                  <button
-                    onClick={() => requestBatchAnalyzeAudio(false)}
-                    disabled={audioAnalysisTask.isActive}
-                    className={`flex items-center justify-center gap-1.5 px-3.5 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all cursor-pointer disabled:opacity-50 ${
-                      audioAnalysisTask.isActive
-                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-                        : 'bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold border-amber-400 hover:opacity-90'
-                    }`}
-                  >
-                    <Sparkles className={`w-3.5 h-3.5 ${audioAnalysisTask.isActive ? 'animate-spin' : ''}`} />
-                    <span>
-                      {audioAnalysisTask.isActive
-                        ? `Analyzing (${audioAnalysisTask.current}/${audioAnalysisTask.total})...`
-                        : 'Analyze Unanalyzed'}
-                    </span>
-                  </button>
+        {/* Exclusions Manager */}
+        <div className="pt-4 border-t border-[var(--border-color)] space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[var(--text-secondary)]">
+              Excluded Folders & Patterns
+            </label>
+            <span className="text-[11px] text-[var(--text-muted)]">
+              Windows system paths are skipped by default
+            </span>
+          </div>
 
-                  {!audioAnalysisTask.isActive && (
-                    <button
-                      onClick={() => requestBatchAnalyzeAudio(true)}
-                      className="px-3 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-xs font-semibold rounded-md transition-colors cursor-pointer"
-                      title="Force re-analyze all audio songs regardless of existing BPM/key"
-                    >
-                      Re-Analyze All
-                    </button>
-                  )}
+          <form onSubmit={handleAddExclusion} className="flex gap-2">
+            <input
+              type="text"
+              value={newExclusion}
+              onChange={(e) => setNewExclusion(e.target.value)}
+              placeholder="e.g. C:\Users\User\Downloads or games..."
+              className="flex-1 bg-[var(--bg-tertiary)] border border-[var(--border-color)] focus:border-emerald-500 rounded-md px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none"
+            />
+            <button
+              type="submit"
+              className="px-4 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-primary)] cursor-pointer"
+            >
+              Add Rule
+            </button>
+          </form>
 
-                  {audioAnalysisTask.isActive && (
-                    <button
-                      onClick={cancelAudioAnalysis}
-                      className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-md transition-colors cursor-pointer"
-                      title="Cancel Audio Analysis"
-                    >
-                      Cancel
-                    </button>
-                  )}
+          <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+            {currentSettings.excludedPaths.map((rule: string, idx: number) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-tertiary)] rounded text-xs text-[var(--text-secondary)] group font-mono"
+              >
+                <span className="truncate">{rule}</span>
+                <button
+                  onClick={() => removeExclusion(rule)}
+                  className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 p-1 transition-opacity cursor-pointer"
+                  title="Remove rule"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderDjSection = () => (
+    <section className="space-y-4 animate-in fade-in duration-150">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+          <Radio className="w-4 h-4 text-amber-400" />
+          <span>DJ Suite & Performance Mode</span>
+        </h2>
+        {currentSettings.enableDjMode && (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold shadow-sm">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>DJ Mode Active</span>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+        {/* Master DJ Mode Toggle Card */}
+        <div
+          onClick={handleToggleDjMode}
+          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
+            currentSettings.enableDjMode
+              ? 'bg-gradient-to-r from-amber-950/40 via-amber-900/20 to-transparent border-amber-500/50 shadow-lg ring-1 ring-amber-500/40'
+              : 'bg-[var(--bg-tertiary)] border-[var(--border-color)] hover:border-neutral-600'
+          }`}
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div
+              className={`p-3 rounded-xl border flex items-center justify-center transition-all flex-shrink-0 ${
+                currentSettings.enableDjMode
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-md'
+                  : 'bg-neutral-800 text-[var(--text-muted)] border-neutral-700'
+              }`}
+            >
+              <Radio className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-bold text-xs sm:text-sm text-[var(--text-primary)] flex items-center gap-2">
+                <span>Enable DJ Suite & Performance Mode</span>
+                {currentSettings.enableDjMode && (
+                  <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500 text-black shadow-sm">
+                    DJ
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] sm:text-xs text-[var(--text-muted)] mt-0.5">
+                Unlocks BPM and Camelot Harmonic Key columns in track tables, Camelot Wheel harmonic mixing tools, and detailed tempo inspection.
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleDjMode();
+            }}
+            className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
+              currentSettings.enableDjMode ? 'bg-amber-500' : 'bg-neutral-600'
+            }`}
+            title="Toggle DJ Suite & Performance Mode"
+          >
+            <div
+              className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
+                currentSettings.enableDjMode ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* WASM Audio Key & BPM Batch Analyzer Card (DJ Mode Only) */}
+        {currentSettings.enableDjMode && (
+          <div className="p-4 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] space-y-3 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs text-[var(--text-primary)]">
+                    Harmonic Key & BPM DSP Analysis Engine
+                  </div>
+                  <div className="text-[11px] text-[var(--text-muted)]">
+                    High-performance multithreaded WASM analyzer to extract musical key and tempo for seamless DJ blending.
+                  </div>
                 </div>
               </div>
 
-              {audioAnalysisTask.isActive && (
-                <div className="space-y-1.5 pt-2 border-t border-[var(--border-color)]">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-[var(--text-muted)] truncate max-w-xs sm:max-w-md">
-                      Current: {audioAnalysisTask.currentTrackTitle || 'Processing...'}
-                    </span>
-                    <span className="text-amber-400 font-mono font-bold">
-                      {Math.round((audioAnalysisTask.current / Math.max(1, audioAnalysisTask.total)) * 100)}%
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-200"
-                      style={{
-                        width: `${Math.round((audioAnalysisTask.current / Math.max(1, audioAnalysisTask.total)) * 100)}%`,
-                      }}
-                    />
-                  </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => requestBatchAnalyzeAudio(false)}
+                  disabled={audioAnalysisTask.isActive}
+                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 text-black text-xs font-bold rounded-md shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Analyze tracks that are missing BPM or Key tags"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${audioAnalysisTask.isActive ? 'animate-spin' : ''}`} />
+                  <span>
+                    {audioAnalysisTask.isActive
+                      ? `Analyzing (${audioAnalysisTask.current}/${audioAnalysisTask.total})...`
+                      : 'Analyze Unanalyzed'}
+                  </span>
+                </button>
+
+                {!audioAnalysisTask.isActive && (
+                  <button
+                    onClick={() => requestBatchAnalyzeAudio(true)}
+                    className="px-3 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                    title="Force re-analyze all audio songs regardless of existing BPM/key"
+                  >
+                    Re-Analyze All
+                  </button>
+                )}
+
+                {audioAnalysisTask.isActive && (
+                  <button
+                    onClick={cancelAudioAnalysis}
+                    className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                    title="Cancel Audio Analysis"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {audioAnalysisTask.isActive && (
+              <div className="space-y-1.5 pt-2 border-t border-[var(--border-color)]">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-[var(--text-muted)] truncate max-w-xs sm:max-w-md">
+                    Current: {audioAnalysisTask.currentTrackTitle || 'Processing...'}
+                  </span>
+                  <span className="text-amber-400 font-mono font-bold">
+                    {Math.round((audioAnalysisTask.current / Math.max(1, audioAnalysisTask.total)) * 100)}%
+                  </span>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Section 4: Storage & Maintenance */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
-          <Database className="w-4 h-4 text-emerald-400" />
-          <span>Storage & Maintenance</span>
-        </h2>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
-            <div className="text-[11px] text-[var(--text-muted)] font-semibold">Total Indexed Media</div>
-            <div className="text-xl font-black mt-1 text-[var(--text-primary)] font-mono">
-              {stats?.totalTracks || 0}
-            </div>
+                <div className="w-full h-1.5 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-200"
+                    style={{
+                      width: `${Math.round((audioAnalysisTask.current / Math.max(1, audioAnalysisTask.total)) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
+        )}
+      </div>
+    </section>
+  );
 
-          <div className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
-            <div className="text-[11px] text-[var(--text-muted)] font-semibold">Audio Tracks</div>
-            <div className="text-xl font-black mt-1 text-emerald-400 font-mono">
-              {stats?.totalAudio || 0}
-            </div>
-          </div>
+  const renderMaintenanceSection = () => (
+    <section className="space-y-4 animate-in fade-in duration-150">
+      <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+        <Database className="w-4 h-4 text-emerald-400" />
+        <span>Storage & Maintenance</span>
+      </h2>
 
-          <div className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
-            <div className="text-[11px] text-[var(--text-muted)] font-semibold">Video Files</div>
-            <div className="text-xl font-black mt-1 text-purple-400 font-mono">
-              {stats?.totalVideo || 0}
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
-            <div className="text-[11px] text-[var(--text-muted)] font-semibold">Estimated Library Size</div>
-            <div className="text-xl font-black mt-1 text-[var(--text-primary)] font-mono">
-              {stats ? formatFileSize(stats.totalSize) : '0 B'}
-            </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+          <div className="text-[11px] text-[var(--text-muted)] font-semibold">Total Indexed Media</div>
+          <div className="text-xl font-black mt-1 text-[var(--text-primary)] font-mono">
+            {stats?.totalTracks || 0}
           </div>
         </div>
 
-        {/* Maintenance Action Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Artwork Re-Caching Card */}
-          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3">
-            <div>
-              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-emerald-400" />
-                <span>Re-extract & Cache Artwork</span>
+        <div className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+          <div className="text-[11px] text-[var(--text-muted)] font-semibold">Audio Tracks</div>
+          <div className="text-xl font-black mt-1 text-emerald-400 font-mono">
+            {stats?.totalAudio || 0}
+          </div>
+        </div>
+
+        <div className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+          <div className="text-[11px] text-[var(--text-muted)] font-semibold">Video Media</div>
+          <div className="text-xl font-black mt-1 text-purple-400 font-mono">
+            {stats?.totalVideo || 0}
+          </div>
+        </div>
+
+        <div
+          className="p-3.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl"
+          title={stats?.totalDuration ? `Total Playtime: ${formatDuration(stats.totalDuration)}` : undefined}
+        >
+          <div className="text-[11px] text-[var(--text-muted)] font-semibold">Library Size</div>
+          <div className="text-xl font-black mt-1 text-cyan-400 font-mono truncate">
+            {formatFileSize(stats?.totalSize || 0)}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+        {/* Verify Library & Prune Dead Tracks Card */}
+        <div className="p-4 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0 pr-2">
+              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Verify Library & Clean Missing Files</span>
               </div>
               <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                Re-scans embedded ID3 picture tags and local folder cover files (folder.jpg, cover.jpg) without wiping your library.
+                Scans all indexed file paths in the database and prunes stale records for audio/video files that were moved, deleted, renamed, or located within excluded folders.
               </div>
             </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {actionReports['clean_dead'] && !isCleaningGhostTracks && (
+                <button
+                  onClick={() => setActiveReport(actionReports['clean_dead'])}
+                  className="px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in flex-shrink-0"
+                  title="View results from the last library verification and cleanup"
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>View Report</span>
+                </button>
+              )}
 
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <button
+                onClick={requestCleanDeadTracks}
+                disabled={isCleaningGhostTracks}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCleaningGhostTracks ? 'animate-spin text-emerald-400' : ''}`} />
+                <span>
+                  {isCleaningGhostTracks
+                    ? cleanDeadProgress && cleanDeadProgress.total > 0
+                      ? `Verifying (${cleanDeadProgress.current}/${cleanDeadProgress.total})...`
+                      : 'Verifying...'
+                    : 'Clean Missing Tracks'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Re-cache Artwork Card */}
+        <div className="p-4 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0 pr-2">
+              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+                <ImageIcon className="w-4 h-4 text-emerald-400" />
+                <span>Re-cache Album Artwork</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                Re-extracts embedded cover art for all indexed albums and saves high-performance webp thumbnails to app cache.
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
               {actionReports['artwork'] && !artworkTask.isActive && (
                 <button
                   onClick={() => setActiveReport(actionReports['artwork'])}
                   className="px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in flex-shrink-0"
-                  title="View results from the last artwork caching run"
+                  title="View results from the last artwork recache session"
                 >
                   <FileText className="w-3.5 h-3.5 text-emerald-400" />
                   <span>View Report</span>
@@ -1320,53 +1543,62 @@ export const SettingsView: React.FC = () => {
 
               <button
                 onClick={requestRecacheArtwork}
-                disabled={waveformTask.isActive}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 ${
+                className={`flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all flex-shrink-0 cursor-pointer ${
                   artworkTask.isActive
-                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30'
                     : 'bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border-[var(--border-color)] text-[var(--text-primary)]'
                 }`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${artworkTask.isActive ? 'animate-spin text-emerald-400' : ''}`} />
                 <span>
                   {artworkTask.isActive
-                    ? artworkTask.total > 0
-                      ? `Re-caching (${artworkTask.current}/${artworkTask.total})...`
-                      : 'Re-caching...'
+                    ? `Caching (${artworkTask.current}/${artworkTask.total})...`
                     : 'Re-cache Artwork'}
                 </span>
               </button>
-
-              {artworkTask.isActive && (
-                <button
-                  onClick={cancelArtworkRecache}
-                  className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-md transition-colors"
-                  title="Cancel Artwork Caching"
-                >
-                  Cancel
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Waveforms Re-Generation Card */}
-          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3">
-            <div>
-              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
-                <Activity className="w-4 h-4 text-cyan-400" />
-                <span>Re-generate All Waveforms</span>
+          {artworkTask.isActive && (
+            <div className="space-y-1.5 pt-2 border-t border-[var(--border-color)]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[var(--text-muted)] truncate max-w-xs sm:max-w-md">
+                  Current: {artworkTask.currentTrackTitle || 'Processing...'}
+                </span>
+                <span className="text-emerald-400 font-mono font-bold">
+                  {Math.round((artworkTask.current / Math.max(1, artworkTask.total)) * 100)}%
+                </span>
               </div>
-              <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                Pre-computes 128-bar energy amplitude curves for all audio tracks for instant playback rendering.
+              <div className="w-full h-1.5 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-200"
+                  style={{
+                    width: `${Math.round((artworkTask.current / Math.max(1, artworkTask.total)) * 100)}%`,
+                  }}
+                />
               </div>
             </div>
+          )}
+        </div>
 
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              {actionReports['waveforms'] && !waveformTask.isActive && (
+        {/* Re-generate Waveforms Card */}
+        <div className="p-4 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0 pr-2">
+              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+                <Activity className="w-4 h-4 text-cyan-400" />
+                <span>Re-generate Audio Waveforms</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)] mt-1">
+                Re-analyzes audio tracks and creates 128-sample visual amplitude peak curves for accurate track scrubbing.
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {actionReports['waveform'] && !waveformTask.isActive && (
                 <button
-                  onClick={() => setActiveReport(actionReports['waveforms'])}
+                  onClick={() => setActiveReport(actionReports['waveform'])}
                   className="px-3 py-2 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in flex-shrink-0"
-                  title="View results from the last waveform generation run"
+                  title="View results from the last waveform generation session"
                 >
                   <FileText className="w-3.5 h-3.5 text-cyan-400" />
                   <span>View Report</span>
@@ -1375,102 +1607,70 @@ export const SettingsView: React.FC = () => {
 
               <button
                 onClick={requestRecacheWaveforms}
-                disabled={artworkTask.isActive}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 ${
+                className={`flex items-center justify-center gap-2 px-4 py-2 border text-xs font-semibold rounded-md shadow-sm transition-all flex-shrink-0 cursor-pointer ${
                   waveformTask.isActive
-                    ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/30'
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30'
                     : 'bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border-[var(--border-color)] text-[var(--text-primary)]'
                 }`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${waveformTask.isActive ? 'animate-spin text-cyan-400' : ''}`} />
                 <span>
                   {waveformTask.isActive
-                    ? waveformTask.total > 0
-                      ? `Generating (${waveformTask.current}/${waveformTask.total})...`
-                      : 'Generating...'
-                    : 'Re-generate Waveforms'}
+                    ? `Generating (${waveformTask.current}/${waveformTask.total})...`
+                    : 'Generate Waveforms'}
                 </span>
               </button>
-
-              {waveformTask.isActive && (
-                <button
-                  onClick={cancelWaveformRecache}
-                  className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-md transition-colors"
-                  title="Cancel Waveform Generation"
-                >
-                  Cancel
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Duplicate File Detector & Disk Cleaner Card */}
-          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3 sm:col-span-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
-                  <Copy className="w-4 h-4 text-purple-400" />
-                  <span>Duplicate File Detector & Disk Cleaner</span>
-                </div>
-                <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                  Identifies identical audio tracks stored across different folders and drives. Compare bitrates and safely move redundant copies to Trash to reclaim storage space.
-                </div>
+          {waveformTask.isActive && (
+            <div className="space-y-1.5 pt-2 border-t border-[var(--border-color)]">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[var(--text-muted)] truncate max-w-xs sm:max-w-md">
+                  Current: {waveformTask.currentTrackTitle || 'Processing...'}
+                </span>
+                <span className="text-cyan-400 font-mono font-bold">
+                  {Math.round((waveformTask.current / Math.max(1, waveformTask.total)) * 100)}%
+                </span>
               </div>
-              <button
-                onClick={() => setIsDuplicateModalOpen(true)}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all flex-shrink-0 cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5 text-purple-400" />
-                <span>Find & Clean Duplicates</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Clean Ghost / Moved Tracks Card */}
-          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex flex-col justify-between space-y-3 sm:col-span-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Verify Library & Clean Missing Files</span>
-                </div>
-                <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                  Scans all indexed file paths in the database and prunes stale records for audio/video files that were moved, deleted, renamed, or located within excluded folders.
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {actionReports['clean_dead'] && !isCleaningGhostTracks && (
-                  <button
-                    onClick={() => setActiveReport(actionReports['clean_dead'])}
-                    className="px-3 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-sm animate-in fade-in flex-shrink-0"
-                    title="View results from the last library verification and cleanup"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>View Report</span>
-                  </button>
-                )}
-
-                <button
-                  onClick={requestCleanDeadTracks}
-                  disabled={isCleaningGhostTracks}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isCleaningGhostTracks ? 'animate-spin text-emerald-400' : ''}`} />
-                  <span>
-                    {isCleaningGhostTracks
-                      ? cleanDeadProgress && cleanDeadProgress.total > 0
-                        ? `Verifying (${cleanDeadProgress.current}/${cleanDeadProgress.total})...`
-                        : 'Verifying...'
-                      : 'Clean Missing Tracks'}
-                  </span>
-                </button>
+              <div className="w-full h-1.5 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-cyan-500 transition-all duration-200"
+                  style={{
+                    width: `${Math.round((waveformTask.current / Math.max(1, waveformTask.total)) * 100)}%`,
+                  }}
+                />
               </div>
             </div>
-          </div>
+          )}
         </div>
-      </section>
 
-      {/* Section 4: Integrations & Social */}
+        {/* Duplicate Track Cleaner Card */}
+        <div className="p-4 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-color)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0 pr-2">
+            <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+              <Copy className="w-4 h-4 text-purple-400" />
+              <span>Duplicate File Cleaner</span>
+            </div>
+            <div className="text-[11px] text-[var(--text-muted)] mt-1">
+              Finds identical audio files indexed across multiple drives, folders, or formats and lets you prune unwanted duplicates.
+            </div>
+          </div>
+          <button
+            onClick={() => setIsDuplicateModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all flex-shrink-0 cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-purple-400" />
+            <span>Find Duplicates</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderSystemSection = () => (
+    <div className="space-y-8 animate-in fade-in duration-150">
+      {/* Integrations & Social */}
       <section className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
           <Share2 className="w-4 h-4 text-indigo-400" />
@@ -1539,7 +1739,7 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
 
-      {/* Section 5: Auto-Updates & About */}
+      {/* Auto-Updates & About */}
       <section className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-emerald-400" />
@@ -1583,39 +1783,39 @@ export const SettingsView: React.FC = () => {
                       : 'bg-emerald-500 hover:bg-emerald-400 text-black'
                   }`}
                 >
-                  {updateStatus.isDowngrade
-                    ? `Restart & Downgrade to v${updateStatus.version}`
-                    : updateStatus.isPrerelease
-                    ? 'Restart & Install Beta'
-                    : 'Restart & Install'}
+                  {updateStatus.isDowngrade ? 'Install Stable Downgrade & Restart' : 'Install & Restart'}
                 </button>
               ) : (
                 <button
                   onClick={checkForUpdates}
-                  disabled={isChecking}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50"
+                  disabled={isChecking || updateStatus.state === 'downloading'}
+                  className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-semibold rounded-md shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin text-emerald-400' : ''}`} />
                   <span>{isChecking ? 'Checking...' : 'Check for Updates'}</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Pre-release & Beta Channel Switch */}
-          <div className="flex items-center justify-between p-3.5 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl">
-            <div>
-              <div className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                <Flame className="w-4 h-4 text-purple-400" />
-                <span>Include Pre-release & Beta Updates</span>
-                {currentSettings.allowPrerelease && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 uppercase tracking-wider">
-                    Beta Channel
-                  </span>
-                )}
+          {/* Pre-Release Channel Toggle Card */}
+          <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
+                <Flame className="w-4 h-4" />
               </div>
-              <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                Opt in to experimental builds and preview upcoming features directly from GitHub Releases before general release.
+              <div>
+                <div className="font-semibold text-xs text-[var(--text-primary)] flex items-center gap-2">
+                  <span>Pre-Release & Beta Updates</span>
+                  {currentSettings.allowPrerelease && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 uppercase tracking-wider">
+                      Beta
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-[var(--text-muted)]">
+                  Receive experimental features, performance previews, and early beta builds.
+                </div>
               </div>
             </div>
 
@@ -1624,7 +1824,7 @@ export const SettingsView: React.FC = () => {
               className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
                 currentSettings.allowPrerelease ? 'bg-purple-600' : 'bg-neutral-600'
               }`}
-              title="Toggle Pre-release / Beta Channel"
+              title="Toggle Pre-Release Channel"
             >
               <div
                 className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
@@ -1634,155 +1834,63 @@ export const SettingsView: React.FC = () => {
             </button>
           </div>
 
-          {/* Dynamic Release Patch Notes Box (When update is available or downloaded) */}
-          {updateStatus.releaseNotes && (
-            <div className="pt-3 border-t border-[var(--border-color)] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold flex items-center gap-1.5 ${updateStatus.isPrerelease ? 'text-purple-400' : 'text-emerald-400'}`}>
-                  <FileText className="w-3.5 h-3.5" />
-                  {updateStatus.isPrerelease ? `What's New in Pre-release v${updateStatus.version}` : `What's New in v${updateStatus.version}`}
-                </span>
-                <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                  Release Notes
-                </span>
-              </div>
-              <div className="bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-lg p-3.5 max-h-56 overflow-y-auto select-text shadow-inner">
-                {(() => {
-                  let clean = updateStatus.releaseNotes
-                    .replace(/<\/h[1-6]>/gi, '\n\n')
-                    .replace(/<h[1-6][^>]*>/gi, '\n### ')
-                    .replace(/<\/p>/gi, '\n\n')
-                    .replace(/<p[^>]*>/gi, '')
-                    .replace(/<br\s*\/?>/gi, '\n')
-                    .replace(/<hr\s*\/?>/gi, '\n---\n')
-                    .replace(/<li[^>]*>/gi, '• ')
-                    .replace(/<\/li>/gi, '\n')
-                    .replace(/<\/?ul[^>]*>/gi, '\n')
-                    .replace(/<\/?ol[^>]*>/gi, '\n')
-                    .replace(/<[^>]+>/g, '')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#39;/g, "'")
-                    .replace(/&nbsp;/g, ' ');
-
-                  const lines = clean.split('\n').map((l) => l.trim()).filter(Boolean);
-
-                  return (
-                    <div className="space-y-1.5 text-xs">
-                      {lines.map((line, idx) => {
-                        if (line.startsWith('###') || line.startsWith('##') || line.startsWith('#')) {
-                          return (
-                            <div key={idx} className="font-bold text-xs text-[var(--text-primary)] pt-1 uppercase tracking-wide">
-                              {line.replace(/^#+\s*/, '')}
-                            </div>
-                          );
-                        }
-                        if (line === '---') {
-                          return <hr key={idx} className="border-[var(--border-color)] my-1" />;
-                        }
-                        if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
-                          const content = line.replace(/^[•\-*]\s*/, '');
-                          const colonIdx = content.indexOf(': ');
-                          return (
-                            <div key={idx} className="flex items-start gap-2 pl-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
-                              <span className="text-emerald-400 font-bold flex-shrink-0">•</span>
-                              <div>
-                                {colonIdx !== -1 ? (
-                                  <>
-                                    <strong className="text-[var(--text-secondary)] font-semibold">{content.substring(0, colonIdx)}:</strong>
-                                    <span>{content.substring(colonIdx + 1)}</span>
-                                  </>
-                                ) : (
-                                  <span>{content}</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        }
-                        return (
-                          <div key={idx} className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-                            {line}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Complete Version Changelog History List */}
-          <div className="pt-3 border-t border-[var(--border-color)] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+          {/* Dynamic Version Changelogs Accordion with Pagination */}
+          <div className="pt-4 border-t border-[var(--border-color)] space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="font-bold text-xs text-[var(--text-primary)] flex items-center gap-2">
                 <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                Release History & Changelogs
-              </span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                {visibleChangelogs.length} Versions {showPrereleases ? '(Includes Betas)' : '(Stable Channel)'}
-              </span>
+                <span>Version Changelogs & Release Notes</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)] font-mono">
+                <span>
+                  Showing {(changelogPage - 1) * CHANGELOGS_PER_PAGE + 1}–
+                  {Math.min(changelogPage * CHANGELOGS_PER_PAGE, APP_CHANGELOGS.length)} of {APP_CHANGELOGS.length} Releases
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2 mt-2">
-              {visibleChangelogs.map((rel) => {
+              {paginatedChangelogs.map((rel) => {
                 const isOpen = !!expandedChangelogs[rel.version];
-                const isBeta = rel.isPrerelease || isPrereleaseVersion(rel.version);
-                const isLatestStable = rel.version === latestStableVersion;
-                const isLatestBeta = isBeta && rel.version === latestBetaVersion;
+                const isCurrent = rel.version === appVersion;
+                const releaseTag = getReleaseTag(rel.version, rel.isPrerelease);
 
                 return (
                   <div
                     key={rel.version}
-                    className={`rounded-lg overflow-hidden transition-all ${
-                      isLatestBeta
-                        ? 'border border-purple-500/40 bg-purple-950/20 shadow-sm'
-                        : isBeta
-                        ? 'border border-purple-500/25 bg-purple-950/10'
-                        : isLatestStable
-                        ? 'border border-emerald-500/40 bg-emerald-950/20 shadow-sm'
-                        : 'border border-[var(--border-color)] bg-[var(--bg-tertiary)]'
+                    className={`rounded-xl border transition-all overflow-hidden ${
+                      isCurrent
+                        ? 'bg-[var(--bg-tertiary)] border-emerald-500/40 shadow-sm'
+                        : releaseTag
+                        ? `bg-[var(--bg-tertiary)] ${releaseTag.borderClass}`
+                        : isOpen
+                        ? 'bg-[var(--bg-tertiary)] border-[var(--border-color)]'
+                        : 'bg-[var(--bg-tertiary)]/50 border-[var(--border-color)] hover:border-neutral-700'
                     }`}
                   >
                     <button
                       onClick={() => toggleChangelog(rel.version)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                      className="w-full px-3.5 py-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
                     >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`text-xs font-bold font-mono px-2 py-0.5 rounded ${
-                            isBeta
-                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                              : isLatestStable
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                              : 'bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-color)]'
-                          }`}
-                        >
+                      <div className="flex items-center gap-2 min-w-0 pr-2 flex-wrap">
+                        <div className="font-bold text-xs text-[var(--text-primary)] font-mono">
                           v{rel.version}
+                        </div>
+                        {isCurrent && (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-500 text-black shadow-sm">
+                            Current
+                          </span>
+                        )}
+                        {releaseTag && (
+                          <span
+                            className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded border ${releaseTag.badgeClass}`}
+                          >
+                            {releaseTag.label}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-[var(--text-muted)] truncate hidden sm:inline">
+                          — {rel.title}
                         </span>
-                        <span className="text-xs font-semibold text-[var(--text-primary)]">
-                          {rel.title}
-                        </span>
-
-                        {isLatestBeta && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 uppercase tracking-wider flex items-center gap-1">
-                            <Flame className="w-3 h-3 text-purple-400" /> Active Beta
-                          </span>
-                        )}
-
-                        {isBeta && !isLatestBeta && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400/80 font-medium border border-purple-500/20 flex items-center gap-1">
-                            <Flame className="w-3 h-3 text-purple-400" /> Pre-Release
-                          </span>
-                        )}
-
-                        {isLatestStable && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 uppercase tracking-wider flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-emerald-400" /> Latest Stable
-                          </span>
-                        )}
                       </div>
                       {isOpen ? (
                         <ChevronUp className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0" />
@@ -1792,7 +1900,10 @@ export const SettingsView: React.FC = () => {
                     </button>
 
                     {isOpen && (
-                      <div className="px-3 pb-3 pt-1 border-t border-[var(--border-color)] space-y-2.5 text-xs">
+                      <div className="px-3.5 pb-3.5 pt-1 border-t border-[var(--border-color)] space-y-2.5 text-xs">
+                        <div className="sm:hidden text-[11px] font-semibold text-[var(--text-secondary)] pb-1 border-b border-[var(--border-color)]/50">
+                          {rel.title}
+                        </div>
                         {rel.sections.map((sec, sIdx) => (
                           <div key={sIdx} className="space-y-1">
                             <div className="font-bold text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
@@ -1800,17 +1911,48 @@ export const SettingsView: React.FC = () => {
                             </div>
                             <ul className="space-y-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
                               {sec.items.map((item, iIdx) => {
-                                const parts = item.split(': ');
+                                const parsed = parseChangelogItem(item, sec.isExperiment);
                                 return (
                                   <li key={iIdx} className="flex items-start gap-1.5">
-                                    <span className={isBeta ? 'text-purple-400 font-bold flex-shrink-0' : 'text-emerald-400 font-bold flex-shrink-0'}>•</span>
-                                    <div>
-                                      {parts.length > 1 ? (
+                                    <span
+                                      className={
+                                        parsed.isExperiment
+                                          ? 'text-purple-400 font-bold flex-shrink-0'
+                                          : releaseTag
+                                          ? `${releaseTag.dotClass} font-bold flex-shrink-0`
+                                          : 'text-emerald-400 font-bold flex-shrink-0'
+                                      }
+                                    >
+                                      •
+                                    </span>
+                                    <div className="leading-relaxed">
+                                      {parsed.isExperiment && (
+                                        <button
+                                          type="button"
+                                          onClick={isDevMode ? () => setView('labs') : undefined}
+                                          disabled={!isDevMode}
+                                          className={`inline-flex items-center gap-1 text-[9px] font-bold font-mono px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider mr-1.5 align-middle select-none shadow-sm transition-all ${
+                                            isDevMode ? 'hover:bg-purple-500/30 hover:border-purple-500/50 cursor-pointer' : 'cursor-default'
+                                          }`}
+                                          title={
+                                            isDevMode
+                                              ? 'Experimental feature: Click to configure in Developer Labs'
+                                              : 'Experimental feature: Managed via Developer Labs'
+                                          }
+                                        >
+                                          <FlaskConical className="w-2.5 h-2.5 text-purple-400 flex-shrink-0" />
+                                          <span>{parsed.experimentLabel || 'Experiment'}</span>
+                                        </button>
+                                      )}
+                                      {parsed.title ? (
                                         <>
-                                          <strong className="text-[var(--text-primary)]">{parts[0]}</strong>: {parts.slice(1).join(': ')}
+                                          <strong className="text-[var(--text-primary)] font-semibold">
+                                            {parsed.title}
+                                          </strong>
+                                          : {parsed.description}
                                         </>
                                       ) : (
-                                        item
+                                        parsed.description
                                       )}
                                     </div>
                                   </li>
@@ -1825,6 +1967,48 @@ export const SettingsView: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* Pagination Controls */}
+            {totalChangelogPages > 1 && (
+              <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">
+                <button
+                  onClick={() => setChangelogPage((p) => Math.max(1, p - 1))}
+                  disabled={changelogPage === 1}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Previous</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalChangelogPages }, (_, i) => i + 1).map((pageNum) => {
+                    const isActive = pageNum === changelogPage;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setChangelogPage(pageNum)}
+                        className={`w-7 h-7 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-emerald-500 text-black shadow-md'
+                            : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)]'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setChangelogPage((p) => Math.min(totalChangelogPages, p + 1))}
+                  disabled={changelogPage === totalChangelogPages}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="pt-4 border-t border-[var(--border-color)] flex items-center justify-between text-xs text-[var(--text-muted)]">
@@ -1841,121 +2025,173 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       </section>
+    </div>
+  );
 
-      {/* Section 5: Danger Zone */}
-      <section className="space-y-4 pb-16">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-rose-400 flex items-center gap-2">
-          <Flame className="w-4 h-4 text-rose-500" />
-          <span>Danger Zone</span>
-        </h2>
+  const renderDangerSection = () => (
+    <section className="space-y-4 pb-16 animate-in fade-in duration-150">
+      <h2 className="text-sm font-bold uppercase tracking-wider text-rose-400 flex items-center gap-2">
+        <Flame className="w-4 h-4 text-rose-500" />
+        <span>Danger Zone</span>
+      </h2>
 
-        <div className="border border-rose-500/30 bg-rose-500/5 rounded-xl p-5 space-y-4">
-          {/* Action 1: Clear Thumbnail Cache */}
-          <div className="flex items-center justify-between py-2 border-b border-rose-500/20">
-            <div className="pr-4">
-              <div className="font-bold text-xs text-[var(--text-primary)]">Clear Artwork Cache</div>
-              <div className="text-[11px] text-[var(--text-muted)]">
-                Deletes all cached album art thumbnails to reclaim storage. Artwork will re-cache on demand.
-              </div>
+      <div className="border border-rose-500/30 bg-rose-500/5 rounded-xl p-5 space-y-4">
+        {/* Action 1: Clear Thumbnail Cache */}
+        <div className="flex items-center justify-between py-2 border-b border-rose-500/20">
+          <div className="pr-4">
+            <div className="font-bold text-xs text-[var(--text-primary)]">Clear Artwork Cache</div>
+            <div className="text-[11px] text-[var(--text-muted)]">
+              Deletes all cached album art thumbnails to reclaim storage. Artwork will re-cache on demand.
             </div>
-            <button
-              onClick={requestClearCache}
-              disabled={isProcessingDangerAction}
-              className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0 disabled:opacity-50 cursor-pointer"
-            >
-              Clear Cache
-            </button>
           </div>
-
-          {/* Action 2: Wipe Library Index */}
-          <div className="flex items-center justify-between py-2 border-b border-rose-500/20">
-            <div className="pr-4">
-              <div className="font-bold text-xs text-[var(--text-primary)]">Wipe Library Index</div>
-              <div className="text-[11px] text-[var(--text-muted)]">
-                Removes all scanned tracks and albums from SQLite. Your local files and custom playlists remain safe.
-              </div>
-            </div>
-
-            {confirmWipe ? (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={handleWipeLibrary}
-                  disabled={isProcessingDangerAction}
-                  className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
-                >
-                  Yes, Wipe All
-                </button>
-                <button
-                  onClick={() => setConfirmWipe(false)}
-                  className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setConfirmWipe(true)}
-                className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0 cursor-pointer"
-              >
-                Wipe Library
-              </button>
-            )}
-          </div>
-
-          {/* Action 3: Factory Reset */}
-          <div className="flex items-center justify-between py-2">
-            <div className="pr-4">
-              <div className="font-bold text-xs text-rose-400 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Factory Reset Purrsonica</span>
-              </div>
-              <div className="text-[11px] text-[var(--text-muted)]">
-                Permanently wipes all indexed tracks, playlists, favorites, custom metadata tags, and settings.
-              </div>
-            </div>
-
-            {confirmFactoryReset ? (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={handleFactoryReset}
-                  disabled={isProcessingDangerAction}
-                  className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors animate-pulse cursor-pointer"
-                >
-                  Confirm Reset
-                </button>
-                <button
-                  onClick={() => setConfirmFactoryReset(false)}
-                  className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setConfirmFactoryReset(true)}
-                className="px-3 py-1.5 rounded-md bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition-colors flex-shrink-0 shadow-sm cursor-pointer"
-              >
-                Factory Reset
-              </button>
-            )}
-          </div>
+          <button
+            onClick={requestClearCache}
+            disabled={isProcessingDangerAction}
+            className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0 disabled:opacity-50 cursor-pointer"
+          >
+            Clear Cache
+          </button>
         </div>
-      </section>
+
+        {/* Action 2: Wipe Library Index */}
+        <div className="flex items-center justify-between py-2 border-b border-rose-500/20">
+          <div className="pr-4">
+            <div className="font-bold text-xs text-[var(--text-primary)]">Wipe Library Index</div>
+            <div className="text-[11px] text-[var(--text-muted)]">
+              Removes all scanned tracks and albums from SQLite. Your local files and custom playlists remain safe.
+            </div>
+          </div>
+
+          {confirmWipe ? (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleWipeLibrary}
+                disabled={isProcessingDangerAction}
+                className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
+              >
+                Yes, Wipe All
+              </button>
+              <button
+                onClick={() => setConfirmWipe(false)}
+                className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmWipe(true)}
+              className="px-3 py-1.5 rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-colors flex-shrink-0 cursor-pointer"
+            >
+              Wipe Library
+            </button>
+          )}
+        </div>
+
+        {/* Action 3: Factory Reset */}
+        <div className="flex items-center justify-between py-2">
+          <div className="pr-4">
+            <div className="font-bold text-xs text-rose-400 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Factory Reset Purrsonica</span>
+            </div>
+            <div className="text-[11px] text-[var(--text-muted)]">
+              Permanently wipes all indexed tracks, playlists, favorites, custom metadata tags, and settings.
+            </div>
+          </div>
+
+          {confirmFactoryReset ? (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleFactoryReset}
+                disabled={isProcessingDangerAction}
+                className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition-colors animate-pulse cursor-pointer"
+              >
+                Confirm Reset
+              </button>
+              <button
+                onClick={() => setConfirmFactoryReset(false)}
+                className="px-2.5 py-1.5 rounded-md bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmFactoryReset(true)}
+              className="px-3 py-1.5 rounded-md bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition-colors flex-shrink-0 shadow-sm cursor-pointer"
+            >
+              Factory Reset
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+
+  // Modern Two-Column Layout with Vertical Sidebar Tabs (when SETTINGS_TABBED_LAYOUT is enabled)
+  if (isTabbedLayoutEnabled) {
+    return (
+      <div className="flex-1 w-full h-full flex overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative">
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className="fixed bottom-24 right-8 bg-neutral-900 border border-emerald-500/50 text-emerald-400 px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Left Side Navigation Rail */}
+        {renderSideTabs()}
+
+        {/* Right Active Tab Content */}
+        <main className="flex-1 h-full overflow-y-auto p-8 min-h-0">
+          <div className="max-w-3xl mx-auto space-y-6 pb-24">
+            {activeSettingsTab === 'appearance' && renderAppearanceSection()}
+            {activeSettingsTab === 'library' && renderLibrarySection()}
+            {activeSettingsTab === 'dj' && renderDjSection()}
+            {activeSettingsTab === 'maintenance' && renderMaintenanceSection()}
+            {activeSettingsTab === 'system' && renderSystemSection()}
+            {activeSettingsTab === 'danger' && renderDangerSection()}
+          </div>
+        </main>
+
+        {/* Modals */}
+        <ActionConfirmModal config={confirmConfig} onClose={() => setConfirmConfig(null)} />
+        {activeReport && <ActionReportModal report={activeReport} onClose={() => setActiveReport(null)} />}
+        <DuplicateCleanerModal
+          isOpen={isDuplicateModalOpen}
+          onClose={() => setIsDuplicateModalOpen(false)}
+          onRefreshLibrary={refreshAll}
+        />
+      </div>
+    );
+  }
+
+  // Classic Single-Scroll All-in-One Layout (Default when SETTINGS_TABBED_LAYOUT is false)
+  return (
+    <div className="flex-1 w-full h-full overflow-y-auto min-h-0 bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative">
+      <div className="max-w-4xl mx-auto p-8 space-y-8 pb-24">
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className="fixed bottom-24 right-8 bg-neutral-900 border border-emerald-500/50 text-emerald-400 px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {renderHeader()}
+        {renderAppearanceSection()}
+        {renderLibrarySection()}
+        {renderDjSection()}
+        {renderMaintenanceSection()}
+        {renderSystemSection()}
+        {renderDangerSection()}
       </div>
 
-      {/* Confirmation Dialog Modal */}
-      <ActionConfirmModal
-        config={confirmConfig}
-        onClose={() => setConfirmConfig(null)}
-      />
-
-      {/* After Action Report Modal */}
-      <ActionReportModal
-        report={activeReport}
-        onClose={() => setActiveReport(null)}
-      />
-
-      {/* Duplicate File Manager Modal */}
+      {/* Modals */}
+      <ActionConfirmModal config={confirmConfig} onClose={() => setConfirmConfig(null)} />
+      {activeReport && <ActionReportModal report={activeReport} onClose={() => setActiveReport(null)} />}
       <DuplicateCleanerModal
         isOpen={isDuplicateModalOpen}
         onClose={() => setIsDuplicateModalOpen(false)}
