@@ -124,7 +124,7 @@ export function useAudioPlayer() {
   } = usePlayerStore();
 
   const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
-  const { pitchPercent, pitchBend, isMasterTempo, resetPitch, toggleDeckExpanded } = useDjStore();
+  const { pitchPercent, pitchBend, isMasterTempo, resetPitch, toggleDeckExpanded, activeLoop, exitLoop } = useDjStore();
 
   // Pre-buffer upcoming track on the standby deck
   const preloadUpcomingTrack = () => {
@@ -376,15 +376,27 @@ export function useAudioPlayer() {
       deck.addEventListener('timeupdate', () => {
         if (deckIdx === activeDeckIndex) {
           if (pendingRestoreTime !== null) return;
-          setCurrentTime(deck.currentTime);
 
-          const { crossfadeDuration } = getPlayerConfig();
-          const preBufferSec = crossfadeDuration > 0 ? crossfadeDuration + 8 : 12;
-          if (deck.duration > preBufferSec && deck.currentTime >= deck.duration - preBufferSec) {
-            preloadUpcomingTrack();
+          // Check Beat Looper
+          const djState = useDjStore.getState();
+          const loop = djState.activeLoop;
+          if (loop && deck.currentTime >= loop.end - 0.035) {
+            deck.currentTime = loop.start;
+            setCurrentTime(loop.start);
+            return;
           }
 
-          checkTransition(deck);
+          setCurrentTime(deck.currentTime);
+
+          if (!loop) {
+            const { crossfadeDuration } = getPlayerConfig();
+            const preBufferSec = crossfadeDuration > 0 ? crossfadeDuration + 8 : 12;
+            if (deck.duration > preBufferSec && deck.currentTime >= deck.duration - preBufferSec) {
+              preloadUpcomingTrack();
+            }
+
+            checkTransition(deck);
+          }
         }
       });
 
@@ -521,18 +533,39 @@ export function useAudioPlayer() {
   }, [volume, isMuted, isCrossfading]);
 
   // Handle DJ Pitch Fader, Pitch Bend & Master Tempo (Key Lock)
-  // Automatically reset tempo and close deck when DJ mode is disabled
+  // Automatically reset tempo, exit loop, and close deck when DJ mode is disabled
   useEffect(() => {
     if (!isDjMode) {
       if (pitchPercent !== 0 || pitchBend !== 0) {
         resetPitch();
+      }
+      if (activeLoop) {
+        exitLoop();
       }
       toggleDeckExpanded(false);
     }
     decks.forEach((deck) => {
       applyDeckPitch(deck);
     });
-  }, [isDjMode, pitchPercent, pitchBend, isMasterTempo]);
+  }, [isDjMode, pitchPercent, pitchBend, isMasterTempo, activeLoop]);
+
+  // High-precision sub-frame Beat Looper turnaround monitor
+  useEffect(() => {
+    if (!isDjMode || !activeLoop || !isPlaying) return;
+
+    let animId: number;
+    const checkLoop = () => {
+      const active = getActiveDeck();
+      if (active && !active.paused && active.currentTime >= activeLoop.end - 0.035) {
+        active.currentTime = activeLoop.start;
+        setCurrentTime(activeLoop.start);
+      }
+      animId = requestAnimationFrame(checkLoop);
+    };
+
+    animId = requestAnimationFrame(checkLoop);
+    return () => cancelAnimationFrame(animId);
+  }, [isDjMode, activeLoop, isPlaying]);
 
   // Media Session API integration
   useEffect(() => {

@@ -117,6 +117,20 @@ export const App: React.FC = () => {
         return;
       }
 
+      // Beat Looper (Key L) - Toggle 4-Beat Auto Loop / Exit Loop
+      if (isDjMode && e.code === 'KeyL' && currentTrack && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        const djStore = useDjStore.getState();
+        if (djStore.activeLoop) {
+          djStore.exitLoop();
+        } else {
+          const player = usePlayerStore.getState();
+          const bpm = currentTrack.bpm ? Number(currentTrack.bpm) : null;
+          djStore.setBeatLoop(4, player.currentTime, bpm, player.duration);
+        }
+        return;
+      }
+
       // Hot Cues 1..4 (Active when DJ mode is enabled AND (DJ Deck is open OR with Alt+1..4))
       const isDjDeckActive = useDjStore.getState().isDeckExpanded;
       const cueMatch = e.code.match(/^(?:Digit|Numpad)([1-4])$/);

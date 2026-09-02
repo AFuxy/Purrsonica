@@ -34,6 +34,7 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
   const trackHotCues = currentTrack?.id ? hotCues[currentTrack.id] : undefined;
   const mainCues = useDjStore((s) => s.mainCues);
   const trackMainCue = currentTrack?.id ? mainCues[currentTrack.id] : undefined;
+  const activeLoop = useDjStore((s) => s.activeLoop);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -257,6 +258,21 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
             CUE
           </div>
           <div className="w-[2px] h-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)] opacity-90 group-hover/maincue:opacity-100" />
+        </div>
+      )}
+
+      {/* Beat Looper Region Overlay */}
+      {isDjMode && activeLoop && duration > 0 && (
+        <div
+          className="absolute top-0 bottom-0 bg-amber-500/20 border-x-2 border-amber-400 pointer-events-none z-15 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+          style={{
+            left: `${Math.max(0, (activeLoop.start / duration) * 100)}%`,
+            width: `${Math.max(0.4, Math.min(100, ((activeLoop.end - activeLoop.start) / duration) * 100))}%`,
+          }}
+        >
+          <div className="absolute top-0 left-0 bg-amber-400 text-black font-mono font-black text-[8px] px-1 rounded-br">
+            {activeLoop.beats > 0 ? (activeLoop.beats === 0.5 ? '½B' : `${activeLoop.beats}B`) : 'LOOP'}
+          </div>
         </div>
       )}
     </div>

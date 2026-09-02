@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Play,
   Pause,
+  Repeat,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useDjStore, CUE_COLORS, PitchRange } from '../../store/djStore.js';
@@ -49,6 +50,11 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
     tappedBpm,
     tapTimestamps,
     syncBpmToTarget,
+    activeLoop,
+    setBeatLoop,
+    exitLoop,
+    halveLoop,
+    doubleLoop,
   } = useDjStore();
 
   const { openDjMatcher, updateTrackInStore, selectedDjAnchorTrack } = useLibraryStore();
@@ -314,6 +320,84 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
           </div>
         </div>
       </div>
+
+        {/* Middle-Left: Beat Looper */}
+        <div className="bg-[var(--bg-tertiary)]/50 border border-[var(--border-color)] rounded-xl p-2.5 space-y-1.5 min-w-[200px] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
+            <div className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-[var(--text-secondary)]">
+              <Repeat className="w-3.5 h-3.5 text-amber-400" />
+              <span>Beat Loop</span>
+            </div>
+            {activeLoop && (
+              <button
+                onClick={exitLoop}
+                className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-500 text-black shadow-[0_0_8px_rgba(245,158,11,0.5)] hover:bg-amber-400 transition-colors cursor-pointer"
+                title="Exit active loop"
+              >
+                EXIT
+              </button>
+            )}
+          </div>
+
+          {/* Top Row: 1/2, 1, 2, 4, 8 Beats */}
+          <div className="grid grid-cols-5 gap-1">
+            {([0.5, 1, 2, 4, 8] as const).map((beats) => {
+              const isActive = activeLoop?.beats === beats;
+              const label = beats === 0.5 ? '½' : `${beats}`;
+              return (
+                <button
+                  key={beats}
+                  onClick={() => setBeatLoop(beats, currentTime, baseBpm, currentTrack?.duration || 0)}
+                  className={`py-1 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer select-none active:scale-95 ${
+                    isActive
+                      ? 'bg-amber-500 text-black border-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.6)]'
+                      : 'bg-[var(--bg-secondary)] hover:bg-neutral-700 text-neutral-300 border-[var(--border-color)]'
+                  }`}
+                  title={`Loop ${label} beat${beats > 1 ? 's' : ''}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Bottom Row: 16, 32, /2, 2x */}
+          <div className="grid grid-cols-4 gap-1">
+            {[16, 32].map((beats) => {
+              const isActive = activeLoop?.beats === beats;
+              return (
+                <button
+                  key={beats}
+                  onClick={() => setBeatLoop(beats, currentTime, baseBpm, currentTrack?.duration || 0)}
+                  className={`py-1 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer select-none active:scale-95 ${
+                    isActive
+                      ? 'bg-amber-500 text-black border-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.6)]'
+                      : 'bg-[var(--bg-secondary)] hover:bg-neutral-700 text-neutral-300 border-[var(--border-color)]'
+                  }`}
+                  title={`Loop ${beats} beats`}
+                >
+                  {beats}
+                </button>
+              );
+            })}
+            <button
+              onClick={halveLoop}
+              disabled={!activeLoop}
+              className="py-1 rounded text-[10px] font-mono font-bold bg-[var(--bg-secondary)] hover:bg-neutral-700 disabled:opacity-40 disabled:hover:bg-[var(--bg-secondary)] text-neutral-300 border border-[var(--border-color)] transition-colors cursor-pointer"
+              title="Halve loop length (/2)"
+            >
+              ½x
+            </button>
+            <button
+              onClick={() => doubleLoop(currentTrack?.duration || 0)}
+              disabled={!activeLoop}
+              className="py-1 rounded text-[10px] font-mono font-bold bg-[var(--bg-secondary)] hover:bg-neutral-700 disabled:opacity-40 disabled:hover:bg-[var(--bg-secondary)] text-neutral-300 border border-[var(--border-color)] transition-colors cursor-pointer"
+              title="Double loop length (2x)"
+            >
+              2x
+            </button>
+          </div>
+        </div>
 
         {/* Center: Pitch & Tempo Performance Fader */}
         <div className="flex-1 bg-[var(--bg-tertiary)]/60 border border-[var(--border-color)] rounded-xl p-2.5 space-y-2 min-w-[320px]">
