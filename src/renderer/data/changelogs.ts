@@ -246,6 +246,38 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.6.0-beta.3',
+    title: 'Pioneer CDJ CUE Button, One-Click BPM SYNC, Beat Looper Suite, Transition Filter Sweep & DJ Crate Export',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'Pioneer CDJ-Style CUE Button: Full hardware-grade transport controls featuring instant pause-and-snap recall while playing, momentary audition upon hold when paused, primary amber CUE needle flags on the waveform bar, and "C" keyboard shortcut.',
+          'One-Click BPM Pitch SYNC: Intelligent pitch synchronizer automatically calculating target offset percent and expanding the pitch fader range (±4%, ±8%, ±16%, ±50%) to match playing tracks to anchor songs, tap-tempo, or matched tracks in 1 click.',
+          'Beat-Synchronized Auto Looper: Precision loop suite supporting 1/2, 1, 2, 4, 8, 16, and 32 beats, halve (/2) and double (2x) duration controls, sub-frame 60fps audio turnaround monitor, loop boundary brackets on the waveform bar, and "L" keyboard shortcut.',
+          'DJ Transition Filter & Instant Bass Kill: Web Audio Biquad filter pipeline with zipper-noise-free parameter ramping. Includes bi-directional Low-Pass (sweeps highs down to 200 Hz) and High-Pass (sweeps lows up to 5,000 Hz) slider, and a dedicated -36dB Bass Kill stomp button below 250 Hz.',
+          'DJ Crate & Rekordbox / Serato USB Export: Universal .m3u8 playlist export equipped with #EXTINF duration, artist and title tags, #EXT-X-PURRSONICA-BPM, #EXT-X-PURRSONICA-KEY, and extended comments for instant plug-and-play compatibility with Pioneer Rekordbox, Serato DJ Pro, Engine DJ (Denon), VirtualDJ, and standalone USB drives.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Matched Track SYNC Quick-Actions: Added direct 1-click SYNC buttons across all matched song cards in the DJ Matcher view to instantly pitch-match prospective tracks.',
+          'Playlist Header DJ Crate Export: Added 1-click DJ Crate export directly inside custom playlist headers when DJ Mode is enabled.',
+          'Sub-Frame Audio Turnaround: Implemented requestAnimationFrame audio position monitoring for zero-latency, click-free beat roll looping.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Crossfade Guard During Looping: Prevented background track transition and upcoming track handoffs from triggering while an active beat loop is engaged.',
+          'DJ Mode Comprehensive Cleanup: Guaranteed full audio filter neutralization, loop termination, and fader normalization when DJ mode is disabled.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.0-beta.2',
     title: 'DJ Deck Performance Suite (Pitch Fader, Master Tempo, Hot Cues, Tap-Tempo), Developer Labs & Modern Side-Nav Settings Layout',
     isPrerelease: true,
