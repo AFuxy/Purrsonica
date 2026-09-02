@@ -21,6 +21,7 @@ import { Track, Playlist } from '../../../shared/types.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useScanStore } from '../../store/scanStore.js';
+import { useDjStore } from '../../store/djStore.js';
 import { TrackCover } from '../common/TrackCover.js';
 import { DjDeckPanel } from '../player/DjDeckPanel.js';
 import { formatDuration } from '../../../shared/formatters.js';
@@ -641,7 +642,24 @@ export const DjMatcherView: React.FC = () => {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-center gap-1">
+                <div className="flex items-center justify-center gap-1.5">
+                  {currentTrack?.bpm && item.track.bpm && (
+                    <button
+                      onClick={() => {
+                        const curBpm = Number(currentTrack.bpm);
+                        const targetBpm = Number(item.track.bpm);
+                        const success = useDjStore.getState().syncBpmToTarget(targetBpm, curBpm);
+                        if (success) {
+                          showToast(`Synced Deck pitch to match ${Math.round(targetBpm)} BPM!`);
+                        }
+                      }}
+                      className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/30 transition-colors cursor-pointer"
+                      title={`Sync playing deck (${Math.round(Number(currentTrack.bpm))} BPM) to match this track's ${Math.round(Number(item.track.bpm))} BPM`}
+                    >
+                      SYNC
+                    </button>
+                  )}
+
                   <button
                     onClick={() => toggleLikeTrack(item.track.id)}
                     className={`p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors cursor-pointer ${

@@ -48,9 +48,10 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
     resetTap,
     tappedBpm,
     tapTimestamps,
+    syncBpmToTarget,
   } = useDjStore();
 
-  const { openDjMatcher, updateTrackInStore } = useLibraryStore();
+  const { openDjMatcher, updateTrackInStore, selectedDjAnchorTrack } = useLibraryStore();
 
   const [tapSuccessMessage, setTapSuccessMessage] = useState<string | null>(null);
 
@@ -96,6 +97,20 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
   const baseBpm = currentTrack?.bpm ? Number(currentTrack.bpm) : null;
   const effectiveRate = 1 + (pitchPercent + pitchBend) / 100;
   const adjustedBpm = baseBpm ? Number((baseBpm * effectiveRate).toFixed(1)) : null;
+
+  // Target BPM for One-Click SYNC
+  const anchorBpm = selectedDjAnchorTrack?.bpm ? Number(selectedDjAnchorTrack.bpm) : null;
+  const targetSyncBpm = anchorBpm || (tappedBpm ? Math.round(tappedBpm) : null);
+  const isBpmSynced = !!(baseBpm && targetSyncBpm && adjustedBpm !== null && Math.abs(adjustedBpm - targetSyncBpm) < 0.15);
+
+  const handleSyncClick = () => {
+    if (!baseBpm || !targetSyncBpm) return;
+    if (isBpmSynced) {
+      resetPitch();
+    } else {
+      syncBpmToTarget(targetSyncBpm, baseBpm);
+    }
+  };
 
   // Handle Hot Cue click:
   // If already set -> jump to timestamp and resume playback if paused
@@ -336,8 +351,26 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
               )}
             </div>
 
-            {/* Pitch Range Pills */}
-            <div className="flex items-center gap-1">
+            {/* SYNC Button & Pitch Range Pills */}
+            <div className="flex items-center gap-1.5">
+              {baseBpm && targetSyncBpm && (
+                <button
+                  onClick={handleSyncClick}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-black border transition-all cursor-pointer select-none active:scale-95 ${
+                    isBpmSynced
+                      ? 'bg-cyan-500 text-black border-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.7)]'
+                      : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/25'
+                  }`}
+                  title={
+                    isBpmSynced
+                      ? `SYNC Active (Matched to ${targetSyncBpm} BPM). Click to Reset to 0.00%`
+                      : `SYNC: Match tempo to ${targetSyncBpm} BPM (${selectedDjAnchorTrack ? selectedDjAnchorTrack.title : 'Target'})`
+                  }
+                >
+                  SYNC {targetSyncBpm}
+                </button>
+              )}
+
               {ranges.map((r) => (
                 <button
                   key={r}

@@ -31,6 +31,7 @@ interface DjState {
   setPitchBend: (bend: number) => void;
   toggleMasterTempo: () => void;
   resetPitch: () => void;
+  syncBpmToTarget: (targetBpm: number, trackBpm: number) => boolean;
   toggleDeckExpanded: (enable?: boolean) => void;
 
   // Hot Cue Actions
@@ -115,6 +116,28 @@ export const useDjStore = create<DjState>()(
 
       resetPitch: () => {
         set({ pitchPercent: 0, pitchBend: 0 });
+      },
+
+      syncBpmToTarget: (targetBpm: number, trackBpm: number) => {
+        if (!targetBpm || !trackBpm || targetBpm <= 0 || trackBpm <= 0) return false;
+
+        const rawPercent = ((targetBpm / trackBpm) - 1) * 100;
+        const absPercent = Math.abs(rawPercent);
+
+        let requiredRange: PitchRange = 8;
+        if (absPercent <= 4) requiredRange = 4;
+        else if (absPercent <= 8) requiredRange = 8;
+        else if (absPercent <= 16) requiredRange = 16;
+        else requiredRange = 50;
+
+        const clampedPercent = Math.min(50, Math.max(-50, Number(rawPercent.toFixed(2))));
+
+        set({
+          pitchRange: requiredRange,
+          pitchPercent: clampedPercent,
+          pitchBend: 0,
+        });
+        return true;
       },
 
       toggleDeckExpanded: (enable?: boolean) => {
