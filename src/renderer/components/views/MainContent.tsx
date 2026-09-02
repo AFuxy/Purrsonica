@@ -11,9 +11,12 @@ import {
   Sparkles,
   Edit3,
   User,
+  Download,
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
+import { useScanStore } from '../../store/scanStore.js';
+import { exportDjCrateM3U8 } from '../../services/crateExporter.js';
 import { TrackTable } from '../common/TrackTable.js';
 import { TrackCover } from '../common/TrackCover.js';
 import { PlaylistEditModal } from '../modals/PlaylistEditModal.js';
@@ -43,6 +46,7 @@ export const MainContent: React.FC = () => {
 
   const { setTrack } = usePlayerStore();
   const [isEditingPlaylist, setIsEditingPlaylist] = useState(false);
+  const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
 
   const handlePlayAll = () => {
     if (tracks.length > 0) {
@@ -324,15 +328,30 @@ export const MainContent: React.FC = () => {
               </div>
             </div>
 
-            {tracks.length > 0 && (
-              <button
-                onClick={handlePlayAll}
-                className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black flex items-center justify-center shadow-xl transition-all hover:scale-105"
-                title="Play All"
-              >
-                <Play className="w-6 h-6 fill-current ml-0.5" />
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {isDjMode && tracks.length > 0 && (
+                <button
+                  onClick={() => {
+                    exportDjCrateM3U8(selectedPlaylist.name, tracks);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 shadow-sm transition-all cursor-pointer"
+                  title="Export this playlist as a DJ Crate (.m3u8) with Key & BPM tags for Rekordbox, Serato & USB drives"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export DJ Crate (.m3u8)</span>
+                </button>
+              )}
+
+              {tracks.length > 0 && (
+                <button
+                  onClick={handlePlayAll}
+                  className="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black flex items-center justify-center shadow-xl transition-all hover:scale-105"
+                  title="Play All"
+                >
+                  <Play className="w-6 h-6 fill-current ml-0.5" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 

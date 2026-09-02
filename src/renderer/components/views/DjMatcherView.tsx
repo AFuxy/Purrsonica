@@ -16,6 +16,7 @@ import {
   Disc,
   ArrowRight,
   HelpCircle,
+  Download,
 } from 'lucide-react';
 import { Track, Playlist } from '../../../shared/types.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -31,6 +32,7 @@ import {
   getCompatibleCamelotKeys,
   MatchedDjTrack,
 } from '../../services/harmonicMatcher.js';
+import { exportDjCrateM3U8 } from '../../services/crateExporter.js';
 
 export const DjMatcherView: React.FC = () => {
   const { tracks, selectedDjAnchorTrack, openDjMatcher, createPlaylist, addTrackToPlaylist, toggleLikeTrack, selectTrackDetail } = useLibraryStore();
@@ -494,11 +496,32 @@ export const DjMatcherView: React.FC = () => {
 
       {/* Results Header & Quick Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <h2 className="text-sm font-bold text-[var(--text-primary)]">Matched Tracks</h2>
           <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
             {matchedResults.length}
           </span>
+          {matchedResults.length > 0 && (
+            <button
+              onClick={() => {
+                const crateTracks = selectedDjAnchorTrack
+                  ? [selectedDjAnchorTrack, ...matchedResults.map((m) => m.track)]
+                  : matchedResults.map((m) => m.track);
+                const crateName = selectedDjAnchorTrack
+                  ? `${selectedDjAnchorTrack.artist || 'DJ'} - ${selectedDjAnchorTrack.title} Matches`
+                  : 'Harmonic Matches';
+                const res = exportDjCrateM3U8(crateName, crateTracks);
+                if (res.success) {
+                  showToast(`Exported ${crateTracks.length} tracks to ${res.filename} for Rekordbox & Serato!`);
+                }
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 transition-colors cursor-pointer"
+              title="Export this harmonic match set as an extended DJ Crate (.m3u8) for USB drives and Rekordbox/Serato"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Crate (.m3u8)</span>
+            </button>
+          )}
         </div>
 
         <div className="relative w-full sm:w-72">
