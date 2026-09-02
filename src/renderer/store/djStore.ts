@@ -35,6 +35,10 @@ interface DjState {
   tapTimestamps: number[];
   tappedBpm: number | null;
 
+  // DJ Transition Filter & Frequency Isolation
+  filterPercent: number; // -100 (LPF) to 0 (flat) to +100 (HPF)
+  isBassKill: boolean;
+
   // Actions
   setPitchPercent: (percent: number) => void;
   setPitchRange: (range: PitchRange) => void;
@@ -43,6 +47,11 @@ interface DjState {
   resetPitch: () => void;
   syncBpmToTarget: (targetBpm: number, trackBpm: number) => boolean;
   toggleDeckExpanded: (enable?: boolean) => void;
+
+  // Filter Actions
+  setFilterPercent: (percent: number) => void;
+  resetFilter: () => void;
+  toggleBassKill: () => void;
 
   // Looper Actions
   setBeatLoop: (beats: number, currentPos: number, bpm: number | null, duration: number) => void;
@@ -113,6 +122,8 @@ export const useDjStore = create<DjState>()(
       mainCues: {},
       tapTimestamps: [],
       tappedBpm: null,
+      filterPercent: 0,
+      isBassKill: false,
 
       setPitchPercent: (percent: number) => {
         const range = get().pitchRange;
@@ -164,6 +175,19 @@ export const useDjStore = create<DjState>()(
         set((state) => ({
           isDeckExpanded: enable !== undefined ? enable : !state.isDeckExpanded,
         }));
+      },
+
+      setFilterPercent: (percent: number) => {
+        const clamped = Math.min(100, Math.max(-100, Number(percent.toFixed(1))));
+        set({ filterPercent: clamped });
+      },
+
+      resetFilter: () => {
+        set({ filterPercent: 0 });
+      },
+
+      toggleBassKill: () => {
+        set((state) => ({ isBassKill: !state.isBassKill }));
       },
 
       setBeatLoop: (beats: number, currentPos: number, bpm: number | null, duration: number) => {

@@ -20,6 +20,94 @@ let handoffFiredForTrackId: string | null = null;
 let precisionTimer: any = null;
 let crossfadeTimer: any = null;
 
+let audioCtx: AudioContext | null = null;
+const deckSources: (MediaElementAudioSourceNode | null)[] = [null, null];
+const filterNodes: (BiquadFilterNode | null)[] = [null, null];
+const bassKillNodes: (BiquadFilterNode | null)[] = [null, null];
+
+function ensureAudioContext(): AudioContext {
+  if (!audioCtx) {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    audioCtx = new AudioCtx();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  return audioCtx;
+}
+
+function initDeckAudioNodes(): void {
+  if (deckSources[0] && deckSources[1]) return;
+  const ctx = ensureAudioContext();
+
+  decks.forEach((deck, idx) => {
+    if (!deckSources[idx]) {
+      try {
+        const source = ctx.createMediaElementSource(deck);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'allpass';
+        filter.frequency.value = 20000;
+
+        const bassKill = ctx.createBiquadFilter();
+        bassKill.type = 'lowshelf';
+        bassKill.frequency.value = 250;
+        bassKill.gain.value = 0;
+
+        source.connect(filter);
+        filter.connect(bassKill);
+        bassKill.connect(ctx.destination);
+
+        deckSources[idx] = source;
+        filterNodes[idx] = filter;
+        bassKillNodes[idx] = bassKill;
+      } catch (err) {
+        console.warn(`[AudioContext] Deck ${idx} node init error:`, err);
+      }
+    }
+  });
+}
+
+export function applyDeckFilter(): void {
+  const isDjMode = !!useScanStore.getState().settings?.enableDjMode;
+  const { filterPercent, isBassKill } = useDjStore.getState();
+
+  if ((filterPercent !== 0 || isBassKill) && !filterNodes[0]) {
+    initDeckAudioNodes();
+  }
+
+  if (!filterNodes[0]) return;
+
+  const ctx = ensureAudioContext();
+  const now = ctx.currentTime;
+
+  filterNodes.forEach((filter) => {
+    if (!filter) return;
+    if (!isDjMode || filterPercent === 0) {
+      filter.type = 'allpass';
+      filter.frequency.setTargetAtTime(20000, now, 0.02);
+    } else if (filterPercent < 0) {
+      filter.type = 'lowpass';
+      const norm = Math.abs(filterPercent) / 100;
+      const freq = 200 * Math.pow(20000 / 200, 1 - norm);
+      filter.frequency.setTargetAtTime(Math.max(100, Math.min(20000, freq)), now, 0.02);
+    } else {
+      filter.type = 'highpass';
+      const norm = filterPercent / 100;
+      const freq = 20 * Math.pow(5000 / 20, norm);
+      filter.frequency.setTargetAtTime(Math.max(20, Math.min(8000, freq)), now, 0.02);
+    }
+  });
+
+  bassKillNodes.forEach((bassKill) => {
+    if (!bassKill) return;
+    if (!isDjMode || !isBassKill) {
+      bassKill.gain.setTargetAtTime(0, now, 0.02);
+    } else {
+      bassKill.gain.setTargetAtTime(-36, now, 0.02);
+    }
+  });
+}
+
 export function applyDeckPitch(deck: HTMLAudioElement): void {
   const isDjMode = !!useScanStore.getState().settings?.enableDjMode;
   if (!isDjMode) {
@@ -124,7 +212,18 @@ export function useAudioPlayer() {
   } = usePlayerStore();
 
   const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
-  const { pitchPercent, pitchBend, isMasterTempo, resetPitch, toggleDeckExpanded, activeLoop, exitLoop } = useDjStore();
+  const {
+    pitchPercent,
+    pitchBend,
+    isMasterTempo,
+    resetPitch,
+    toggleDeckExpanded,
+    activeLoop,
+    exitLoop,
+    filterPercent,
+    isBassKill,
+    resetFilter,
+  } = useDjStore();
 
   // Pre-buffer upcoming track on the standby deck
   const preloadUpcomingTrack = () => {
@@ -542,12 +641,20 @@ export function useAudioPlayer() {
       if (activeLoop) {
         exitLoop();
       }
+      if (filterPercent !== 0) {
+        resetFilter();
+      }
       toggleDeckExpanded(false);
     }
     decks.forEach((deck) => {
       applyDeckPitch(deck);
     });
-  }, [isDjMode, pitchPercent, pitchBend, isMasterTempo, activeLoop]);
+  }, [isDjMode, pitchPercent, pitchBend, isMasterTempo, activeLoop, filterPercent]);
+
+  // Handle DJ Transition Filter (LP/HP Sweep & Bass Kill)
+  useEffect(() => {
+    applyDeckFilter();
+  }, [isDjMode, filterPercent, isBassKill]);
 
   // High-precision sub-frame Beat Looper turnaround monitor
   useEffect(() => {

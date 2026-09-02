@@ -55,6 +55,11 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
     exitLoop,
     halveLoop,
     doubleLoop,
+    filterPercent,
+    isBassKill,
+    setFilterPercent,
+    resetFilter,
+    toggleBassKill,
   } = useDjStore();
 
   const { openDjMatcher, updateTrackInStore, selectedDjAnchorTrack } = useLibraryStore();
@@ -544,6 +549,80 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
               {isMasterTempo ? <Lock className="w-2.5 h-2.5 text-emerald-400" /> : <Unlock className="w-2.5 h-2.5" />}
               <span>MT</span>
             </button>
+          </div>
+        </div>
+
+        {/* Transition Filter Knob / Sweep + Bass Kill */}
+        <div className="bg-[var(--bg-tertiary)]/50 border border-[var(--border-color)] rounded-xl p-2.5 space-y-1.5 min-w-[200px] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
+            <div className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-[var(--text-secondary)]">
+              <Sliders className="w-3.5 h-3.5 text-purple-400" />
+              <span>Filter / Kill</span>
+            </div>
+            {/* Bass Kill Stomp Button */}
+            <button
+              onClick={toggleBassKill}
+              className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black border transition-all cursor-pointer select-none active:scale-95 ${
+                isBassKill
+                  ? 'bg-rose-500 text-white border-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.7)] animate-pulse'
+                  : 'bg-[var(--bg-secondary)] text-neutral-400 border-[var(--border-color)] hover:text-rose-400 hover:border-rose-500/40'
+              }`}
+              title="BASS KILL: Instantly isolate and cut low-end frequencies below 250Hz (-24dB)"
+            >
+              BASS KILL
+            </button>
+          </div>
+
+          {/* Filter Status Badge */}
+          <div className="flex items-center justify-between text-[10px] font-mono">
+            <span
+              className={`font-bold transition-colors ${
+                filterPercent < 0
+                  ? 'text-blue-400'
+                  : filterPercent > 0
+                  ? 'text-amber-400'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              {filterPercent < 0
+                ? `LPF: ${Math.abs(filterPercent)}%`
+                : filterPercent > 0
+                ? `HPF: ${filterPercent}%`
+                : 'FILTER: FLAT'}
+            </span>
+            {filterPercent !== 0 && (
+              <button
+                onClick={resetFilter}
+                className="text-[9px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                title="Reset filter to center (FLAT)"
+              >
+                CENTER
+              </button>
+            )}
+          </div>
+
+          {/* Bi-directional Filter Slider */}
+          <div className="relative flex items-center">
+            <input
+              type="range"
+              min={-100}
+              max={100}
+              step={1}
+              value={filterPercent}
+              onChange={(e) => setFilterPercent(parseFloat(e.target.value))}
+              className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${
+                filterPercent < 0
+                  ? 'accent-blue-400 bg-blue-950/40'
+                  : filterPercent > 0
+                  ? 'accent-amber-400 bg-amber-950/40'
+                  : 'accent-purple-400 bg-neutral-800'
+              }`}
+            />
+            {/* Center Detent Tick */}
+            <div
+              className="absolute left-1/2 -top-1 bottom-0 w-0.5 bg-neutral-500 pointer-events-none -translate-x-1/2"
+              title="Center Bypass"
+            />
           </div>
         </div>
 
