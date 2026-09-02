@@ -3,6 +3,7 @@ import { formatDuration } from '../../../shared/formatters.js';
 import { useThemeStore } from '../../store/themeStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
+import { useDjStore, CUE_COLORS } from '../../store/djStore.js';
 
 interface WaveformBarProps {
   waveformData?: number[];
@@ -27,6 +28,10 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
   const crossfadeDuration = propCrossfadeDuration !== undefined ? propCrossfadeDuration : settingsCrossfade;
   const crossfadeState = usePlayerStore((s) => s.crossfadeState);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
+  const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const hotCues = useDjStore((s) => s.hotCues);
+  const trackHotCues = currentTrack?.id ? hotCues[currentTrack.id] : undefined;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [hoverPosition, setHoverPosition] = useState<number | null>(null);
@@ -196,6 +201,44 @@ export const WaveformBar: React.FC<WaveformBarProps> = ({
         className="absolute top-0 bottom-0 w-0.5 bg-white opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-20"
         style={{ left: `${progressRatio * 100}%` }}
       />
+
+      {/* Hot Cue Markers (1..4) */}
+      {isDjMode &&
+        duration > 0 &&
+        trackHotCues &&
+        ([1, 2, 3, 4] as const).map((cueNum) => {
+          const cueTime = trackHotCues[cueNum];
+          if (cueTime === undefined || isNaN(cueTime) || cueTime < 0 || cueTime > duration) {
+            return null;
+          }
+          const cuePercent = (cueTime / duration) * 100;
+          const cueStyle = CUE_COLORS[cueNum];
+
+          return (
+            <div
+              key={cueNum}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSeek(cueTime);
+              }}
+              className="absolute top-0 bottom-0 z-20 flex flex-col items-center pointer-events-auto cursor-pointer group/cue"
+              style={{ left: `${cuePercent}%` }}
+              title={`Hot Cue ${cueNum}: ${formatDuration(cueTime)} (Click to jump)`}
+            >
+              {/* Flag Pill */}
+              <div
+                className={`-translate-x-1/2 -top-2.5 absolute px-1 py-0.2 rounded text-[8px] font-black font-mono leading-none border shadow-md transition-transform group-hover/cue:scale-125 ${cueStyle.bg} text-black ${cueStyle.glow}`}
+              >
+                {cueNum}
+              </div>
+              {/* Vertical needle */}
+              <div
+                className="w-[2px] h-full opacity-90 transition-opacity group-hover/cue:opacity-100"
+                style={{ backgroundColor: cueStyle.hex, boxShadow: `0 0 5px ${cueStyle.hex}` }}
+              />
+            </div>
+          );
+        })}
     </div>
   );
 };

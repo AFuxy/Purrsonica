@@ -247,12 +247,15 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
     version: '1.6.0-beta.2',
-    title: 'Developer Labs & Feature Flag Infrastructure, Modern Vertical Side-Nav Settings Layout & Deep-Linking Engine',
+    title: 'DJ Deck Performance Suite (Pitch Fader, Master Tempo, Hot Cues, Tap-Tempo), Developer Labs & Modern Side-Nav Settings Layout',
     isPrerelease: true,
     sections: [
       {
         heading: 'New Features',
         items: [
+          'DJ Deck Performance Suite: Integrated hardware-grade DJ performance controls featuring real-time variable pitch slider (±4%, ±8%, ±16%, ±50%), Master Tempo (key-lock) preserving harmonic keys during tempo transitions, momentary pitch-bend nudge buttons, 4 color-coded Hot Cue pads, and live Tap-Tempo BPM calibration.',
+          'Hot Cues & Interactive Waveform Markers: 4-pad performance cue system with persistent per-track memory, keyboard shortcuts (1–4, Shift+1–4 to clear, Ctrl+D / Alt+D to toggle deck), and color-coded needle markers drawn directly on the waveform bar.',
+          'Live Tap-Tempo BPM Calibration: Precision rhythmic tap calculator with moving-average interval detection, direct one-click track metadata updates, and instant synchronization to the DJ Harmonic Matcher.',
           'Developer Labs & Feature Flag Architecture: Full enterprise-grade feature flag engine allowing seamless experimentation, live parameter tuning, and zero-breakage rollout gating.',
           'Secure DevTools Console Activation: Stealth developer portal unlocked exclusively via console command (purrsonica.enableDevMode) with cryptographic passkey rotation and auto-lock security.',
           '[Experiment] Developer Labs UI: Dedicated testing panel with category filters (Audio, DJ, UI, Performance, Connectivity, Experimental), maturity stage badges, JSON config import/export, and instant state overrides.',
@@ -263,14 +266,18 @@ export const APP_CHANGELOGS: ChangelogRelease[] = [
       {
         heading: 'Improvements & Updates',
         items: [
+          'DJ Matcher Performance Deck: Embedded the live DJ Performance Deck directly inside the DJ Harmonic Matcher view for seamless beatmatching and track preparation.',
+          'DJ Mode UI Isolation & Automatic Tempo Reset: All DJ performance tools (deck drawer, waveform cue flags, keyboard shortcuts) are strictly isolated to DJ mode, and turning off DJ mode automatically resets tempo modifications back to standard 1.0x playback.',
           'Case-Resilient Feature Flag Lookup: Dynamic flag resolver engine synchronizes dictionary keys, flag identifiers, and localStorage overrides with real-time reactivity.',
           'Classic Layout Preservation: Full backward compatibility preserving the original single-page scroll experience when the Tabbed Settings flag is disabled.',
-          'Multi-Version Changelog Accordion: Enhanced changelog history with current version indicators, pre-release beta tags, and instant collapsible release notes.',
+          'Multi-Version Changelog Accordion: Enhanced changelog history with current version indicators, dynamic channel tags, experiment badges, and instant collapsible release notes.',
         ],
       },
       {
         heading: 'Bug Fixes',
         items: [
+          'Library Size Metric Formatting: Corrected calculation in Settings where total audio duration in seconds was erroneously formatted with file size units instead of total library byte volume.',
+          'Waveform Store Selector Stability: Fixed an unstable object reference in audio waveform store selectors that triggered infinite re-render loops on startup.',
           'Flag Override Synchronization: Resolved key-casing mismatch between feature flag definitions and override stores, ensuring flags toggle and persist reliably.',
           'Settings Side Navigation Scaling: Eliminated awkward top horizontal scrollbars by transitioning tab navigation to a responsive vertical side rail.',
         ],

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { usePlayerStore } from '../store/playerStore.js';
 import { useScanStore } from '../store/scanStore.js';
+import { useDjStore } from '../store/djStore.js';
 
 // Dual-deck audio pipeline for 0ms gapless and smooth crossfade transitions
 const decks = [new Audio(), new Audio()];
@@ -18,6 +19,28 @@ let isCrossfading = false;
 let handoffFiredForTrackId: string | null = null;
 let precisionTimer: any = null;
 let crossfadeTimer: any = null;
+
+export function applyDeckPitch(deck: HTMLAudioElement): void {
+  const isDjMode = !!useScanStore.getState().settings?.enableDjMode;
+  if (!isDjMode) {
+    try {
+      deck.playbackRate = 1.0;
+      deck.preservesPitch = true;
+      (deck as any).mozPreservesPitch = true;
+      (deck as any).webkitPreservesPitch = true;
+    } catch {}
+    return;
+  }
+
+  const { pitchPercent, pitchBend, isMasterTempo } = useDjStore.getState();
+  const effectiveRate = Math.max(0.1, Math.min(4.0, 1 + (pitchPercent + pitchBend) / 100));
+  try {
+    deck.playbackRate = effectiveRate;
+    deck.preservesPitch = isMasterTempo;
+    (deck as any).mozPreservesPitch = isMasterTempo;
+    (deck as any).webkitPreservesPitch = isMasterTempo;
+  } catch {}
+}
 
 function getPlayerConfig() {
   const s = useScanStore.getState().settings;
@@ -100,6 +123,9 @@ export function useAudioPlayer() {
     playPrevious,
   } = usePlayerStore();
 
+  const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
+  const { pitchPercent, pitchBend, isMasterTempo, resetPitch, toggleDeckExpanded } = useDjStore();
+
   // Pre-buffer upcoming track on the standby deck
   const preloadUpcomingTrack = () => {
     const { isGaplessEnabled, crossfadeDuration } = getPlayerConfig();
@@ -128,6 +154,7 @@ export function useAudioPlayer() {
         standby.src = nextMediaUrl;
         standby.preload = 'auto';
         standby.load();
+        applyDeckPitch(standby);
         standby.volume = crossfadeDuration > 0 ? 0 : (isMuted ? 0 : volume);
       }
     }
@@ -431,6 +458,7 @@ export function useAudioPlayer() {
         if (active.src !== mediaUrl) {
           active.src = mediaUrl;
           active.load();
+          applyDeckPitch(active);
 
           if (isPlaying) {
             active.play().catch((err) => {
@@ -491,6 +519,20 @@ export function useAudioPlayer() {
       deck.volume = targetVol;
     });
   }, [volume, isMuted, isCrossfading]);
+
+  // Handle DJ Pitch Fader, Pitch Bend & Master Tempo (Key Lock)
+  // Automatically reset tempo and close deck when DJ mode is disabled
+  useEffect(() => {
+    if (!isDjMode) {
+      if (pitchPercent !== 0 || pitchBend !== 0) {
+        resetPitch();
+      }
+      toggleDeckExpanded(false);
+    }
+    decks.forEach((deck) => {
+      applyDeckPitch(deck);
+    });
+  }, [isDjMode, pitchPercent, pitchBend, isMasterTempo]);
 
   // Media Session API integration
   useEffect(() => {

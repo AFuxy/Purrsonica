@@ -22,6 +22,7 @@ import { useLibraryStore } from '../../store/libraryStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { TrackCover } from '../common/TrackCover.js';
+import { DjDeckPanel } from '../player/DjDeckPanel.js';
 import { formatDuration } from '../../../shared/formatters.js';
 import {
   HarmonicMode,
@@ -486,6 +487,9 @@ export const DjMatcherView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Live DJ Deck Performance Suite (Pitch, Hot Cues, Tap-Tempo) */}
+      <DjDeckPanel isEmbedded={true} />
 
       {/* Results Header & Quick Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">

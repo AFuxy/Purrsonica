@@ -17,10 +17,14 @@ import {
   Disc,
   Folder,
   PictureInPicture,
+  Sliders,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
+import { useScanStore } from '../../store/scanStore.js';
+import { useDjStore } from '../../store/djStore.js';
 import { WaveformBar } from './WaveformBar.js';
+import { DjDeckPanel } from './DjDeckPanel.js';
 import { TrackCover } from '../common/TrackCover.js';
 import { formatDuration } from '../../../shared/formatters.js';
 
@@ -53,13 +57,17 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
   } = usePlayerStore();
 
   const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail } = useLibraryStore();
+  const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
+  const { isDeckExpanded, toggleDeckExpanded, pitchPercent } = useDjStore();
 
   const coverUrl = currentTrack?.cover_art_path && window.api
     ? window.api.getCoverUrl(currentTrack.cover_art_path)
     : null;
 
   return (
-    <footer className="h-20 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] px-4 flex items-center justify-between z-40 select-none">
+    <>
+      {isDjMode && isDeckExpanded && <DjDeckPanel onClose={() => toggleDeckExpanded(false)} />}
+      <footer className="h-20 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] px-4 flex items-center justify-between z-40 select-none">
       {/* Left: Track Info, Album & File Location */}
       <div
         draggable={!!currentTrack}
@@ -296,7 +304,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
       {/* Right: DJ Key/BPM Info, Queue, Volume */}
       <div className="flex items-center justify-end gap-3 w-1/4 min-w-[200px]">
         {/* BPM & Camelot Key Badge */}
-        {currentTrack && (currentTrack.bpm || currentTrack.camelot_key) && (
+        {isDjMode && currentTrack && (currentTrack.bpm || currentTrack.camelot_key) && (
           <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[10px] font-mono text-emerald-400">
             {currentTrack.bpm && <span>{Math.round(currentTrack.bpm)} BPM</span>}
             {currentTrack.bpm && currentTrack.camelot_key && <span>•</span>}
@@ -312,6 +320,24 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
             title="Video View"
           >
             <Tv className="w-4 h-4 text-purple-400" />
+          </button>
+        )}
+
+        {/* DJ Deck Performance Panel Toggle */}
+        {isDjMode && (
+          <button
+            onClick={() => toggleDeckExpanded()}
+            className={`p-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1 text-xs font-mono font-bold ${
+              isDeckExpanded
+                ? 'text-cyan-300 bg-cyan-500/20 border border-cyan-500/40 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                : pitchPercent !== 0
+                ? 'text-emerald-400 bg-[var(--bg-tertiary)] border border-emerald-500/30'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
+            }`}
+            title="Toggle DJ Deck Performance Panel (Pitch, Hot Cues, Tap-Tempo)"
+          >
+            <Sliders className="w-4 h-4" />
+            <span className="hidden xl:inline">DJ DECK</span>
           </button>
         )}
 
@@ -366,5 +392,6 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
         </div>
       </div>
     </footer>
+    </>
   );
 };

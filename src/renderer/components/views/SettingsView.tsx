@@ -41,6 +41,7 @@ import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 import { useFeatureFlag, useFeatureFlagStore } from '../../store/featureFlagStore.js';
+import { useDjStore } from '../../store/djStore.js';
 import { DuplicateCleanerModal } from '../modals/DuplicateCleanerModal.js';
 import { ActionConfirmModal, ActionConfirmConfig } from '../modals/ActionConfirmModal.js';
 import { ActionReportModal, ActionReportData } from '../modals/ActionReportModal.js';
@@ -247,7 +248,11 @@ export const SettingsView: React.FC = () => {
   const handleToggleDjMode = async () => {
     const nextVal = currentSettings.enableDjMode === false || currentSettings.enableDjMode === undefined ? true : false;
     await saveSettings({ ...currentSettings, enableDjMode: nextVal });
-    showToast(nextVal ? 'DJ Suite & Performance Mode enabled' : 'DJ Suite disabled (Standard Mode active)');
+    if (!nextVal) {
+      useDjStore.getState().resetPitch();
+      useDjStore.getState().toggleDeckExpanded(false);
+    }
+    showToast(nextVal ? 'DJ Suite & Performance Mode enabled' : 'DJ Suite disabled (Tempo reset to normal)');
   };
 
   const handleTogglePrerelease = async () => {

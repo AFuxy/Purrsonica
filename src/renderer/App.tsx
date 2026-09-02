@@ -9,12 +9,13 @@ import { ScanModal } from './components/modals/ScanModal.js';
 import { MetadataEditorModal } from './components/modals/MetadataEditorModal.js';
 import { VideoModal } from './components/player/VideoModal.js';
 import { DropZoneOverlay } from './components/common/DropZoneOverlay.js';
-import { useAudioPlayer } from './hooks/useAudioPlayer.js';
+import { useAudioPlayer, seekAudioTo } from './hooks/useAudioPlayer.js';
 import { useLibraryStore } from './store/libraryStore.js';
 import { useScanStore } from './store/scanStore.js';
 import { useUpdateStore } from './store/updateStore.js';
 import { useMaintenanceStore } from './store/maintenanceStore.js';
 import { usePlayerStore } from './store/playerStore.js';
+import { useDjStore } from './store/djStore.js';
 import { useDiscordRpc } from './hooks/useDiscordRpc.js';
 
 export const App: React.FC = () => {
@@ -80,6 +81,43 @@ export const App: React.FC = () => {
       if (e.code === 'Space' && !isVideoModalOpen && currentTrack) {
         e.preventDefault();
         togglePlay();
+        return;
+      }
+
+      // Toggle DJ Performance Deck (Ctrl + D / Cmd + D)
+      const isDjMode = !!useScanStore.getState().settings?.enableDjMode;
+      if (isDjMode && (e.ctrlKey || e.metaKey) && e.code === 'KeyD') {
+        e.preventDefault();
+        useDjStore.getState().toggleDeckExpanded();
+        return;
+      }
+
+      // Hot Cues 1..4 (Active when DJ mode is enabled AND (DJ Deck is open OR with Alt+1..4))
+      const isDjDeckActive = useDjStore.getState().isDeckExpanded;
+      const cueMatch = e.code.match(/^(?:Digit|Numpad)([1-4])$/);
+      if (isDjMode && cueMatch && currentTrack && (isDjDeckActive || e.altKey)) {
+        const cueNum = parseInt(cueMatch[1], 10) as 1 | 2 | 3 | 4;
+        const djStore = useDjStore.getState();
+        const cues = djStore.getTrackHotCues(currentTrack.id);
+
+        if (e.shiftKey) {
+          // Shift + 1..4: Clear Cue
+          e.preventDefault();
+          djStore.clearHotCue(currentTrack.id, cueNum);
+        } else {
+          // 1..4: Jump if set, else Set
+          e.preventDefault();
+          const existingTime = cues[cueNum];
+          if (existingTime !== undefined) {
+            seekAudioTo(existingTime);
+            if (!usePlayerStore.getState().isPlaying) {
+              usePlayerStore.getState().togglePlay();
+            }
+          } else {
+            djStore.setHotCue(currentTrack.id, cueNum, usePlayerStore.getState().currentTime);
+          }
+        }
+        return;
       }
     };
 
