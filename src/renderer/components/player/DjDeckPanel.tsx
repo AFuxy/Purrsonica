@@ -180,15 +180,15 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
 
   return (
     <div
-      className={`border-t border-[var(--border-color)] bg-[var(--bg-secondary)]/95 backdrop-blur-md select-none transition-all duration-200 animate-in slide-in-from-bottom-2 ${
+      className={`border-t border-[var(--border-color)] bg-[var(--bg-secondary)]/95 backdrop-blur-md select-none transition-all duration-200 animate-in slide-in-from-bottom-2 w-full ${
         isEmbedded
           ? 'rounded-2xl border border-[var(--border-color)] p-4 shadow-lg'
-          : 'px-4 py-3 shadow-2xl z-30'
+          : 'px-3 sm:px-5 lg:px-6 py-3 shadow-2xl z-30'
       }`}
     >
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-        {/* Left: Pioneer CDJ Transport (CUE + PLAY) & Hot Cues (1..4) */}
-        <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 min-w-[340px]">
+      <div className="w-full flex flex-wrap 2xl:flex-nowrap items-stretch gap-3 2xl:gap-3.5">
+        {/* Module 1: Pioneer CDJ Transport (CUE + PLAY) & Hot Cues (1..4) */}
+        <div className="flex-1 2xl:flex-[1.1] bg-[var(--bg-tertiary)]/40 border border-[var(--border-color)] rounded-xl p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 min-w-[320px]">
           {/* Pioneer CDJ Primary Transport */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Pioneer CDJ CUE Button */}
@@ -326,8 +326,8 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
         </div>
       </div>
 
-        {/* Middle-Left: Beat Looper */}
-        <div className="bg-[var(--bg-tertiary)]/50 border border-[var(--border-color)] rounded-xl p-2.5 space-y-1.5 min-w-[200px] flex flex-col justify-between">
+        {/* Module 2: Beat Looper */}
+        <div className="flex-1 2xl:flex-[0.9] bg-[var(--bg-tertiary)]/50 border border-[var(--border-color)] rounded-xl p-2.5 space-y-1.5 min-w-[210px] flex flex-col justify-between">
           <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
             <div className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-[var(--text-secondary)]">
               <Repeat className="w-3.5 h-3.5 text-amber-400" />
@@ -404,8 +404,8 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
           </div>
         </div>
 
-        {/* Center: Pitch & Tempo Performance Fader */}
-        <div className="flex-1 bg-[var(--bg-tertiary)]/60 border border-[var(--border-color)] rounded-xl p-2.5 space-y-2 min-w-[320px]">
+        {/* Module 3: Pitch & Tempo Performance Fader */}
+        <div className="flex-[1.5] 2xl:flex-[1.5] bg-[var(--bg-tertiary)]/60 border border-[var(--border-color)] rounded-xl p-2.5 space-y-2 min-w-[320px]">
           {/* Header Row: BPM display + Range selector */}
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
@@ -552,8 +552,8 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
           </div>
         </div>
 
-        {/* Transition Filter Knob / Sweep + Bass Kill */}
-        <div className="bg-[var(--bg-tertiary)]/50 border border-[var(--border-color)] rounded-xl p-2.5 space-y-1.5 min-w-[200px] flex flex-col justify-between">
+        {/* Module 4: Transition Filter Knob / Sweep + Bass Kill */}
+        <div className="flex-1 2xl:flex-[0.9] bg-[var(--bg-tertiary)]/50 border border-[var(--border-color)] rounded-xl p-2.5 space-y-1.5 min-w-[210px] flex flex-col justify-between">
           <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
             <div className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-[var(--text-secondary)]">
               <Sliders className="w-3.5 h-3.5 text-purple-400" />
@@ -626,8 +626,8 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
           </div>
         </div>
 
-        {/* Right: Tap-Tempo Calibration Tool */}
-        <div className="flex flex-col sm:flex-row lg:flex-col items-center justify-between gap-2 bg-[var(--bg-tertiary)]/40 border border-[var(--border-color)] rounded-xl p-2.5 min-w-[190px]">
+        {/* Module 5: Tap-Tempo Calibration Tool */}
+        <div className="flex-1 2xl:flex-[0.75] flex flex-col sm:flex-row 2xl:flex-col items-center justify-between gap-2 bg-[var(--bg-tertiary)]/40 border border-[var(--border-color)] rounded-xl p-2.5 min-w-[190px]">
           <div className="w-full flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
             <span className="font-mono uppercase tracking-wider text-[var(--text-secondary)]">
               Tap Tempo
