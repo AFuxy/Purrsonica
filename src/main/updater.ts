@@ -323,6 +323,8 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
 
 export function quitAndInstallUpdate(): void {
   if (currentStatus.state === 'downloaded') {
-    autoUpdater.quitAndInstall(false, true);
+    // isSilent: true (silent headless background update without installer wizard, like Discord/VS Code)
+    // isForceRunAfter: true (automatically relaunch Purrsonica immediately after update completes)
+    autoUpdater.quitAndInstall(true, true);
   }
 }

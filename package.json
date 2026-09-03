@@ -1,6 +1,6 @@
 {
   "name": "purrsonica",
-  "version": "1.6.0-prerelease.1",
+  "version": "1.6.0-prerelease.2",
   "description": "Purrsonica - Modern Local Music & Video Player",
   "main": "dist-electron/main/index.js",
   "type": "module",
@@ -123,8 +123,9 @@
       }
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Purrsonica"

@@ -257,6 +257,21 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.6.0-prerelease.2',
+    title: 'Silent Background Auto-Updates (Discord-Style) & Instant Restart',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Silent Background Auto-Updates: Reconfigured NSIS installer architecture and electron-updater to perform fully silent, headless installs in the background (Discord & VS Code style), completely eliminating intermediate wizard setup dialogs.',
+          'One-Click Instant Restart: Preserves full user control—updates download in the background with live percentage progress, allowing you to trigger the 1-click "Restart & Install" swap whenever you are ready.',
+          'Zero-Elevation Per-User Installation: Configured per-user NSIS architecture to prevent disruptive Windows UAC administrator elevation prompts during background updates.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.0-prerelease.1',
     title: 'Settings Submenu Navigation Mode & Context-Aware Auto-Collapse',
     isPrerelease: true,
