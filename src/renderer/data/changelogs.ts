@@ -257,6 +257,21 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.6.0-prerelease.1',
+    title: 'Settings Submenu Navigation Mode & Context-Aware Auto-Collapse',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Settings Submenu Navigation Mode: Converted the Settings layout into a 3-way feature flag (Off, Tabs, Submenu) in Developer Labs. Submenu mode integrates expandable sub-menu items directly inside the main app sidebar, providing a clean, full-width settings experience without crowded in-page tabs.',
+          'Context-Aware Submenu Auto-Collapse: The Settings submenu automatically collapses whenever you navigate away to any other view (All Tracks, Liked Songs, Albums, Videos, DJ Matcher, etc.), keeping your library sidebar compact and focused.',
+          'In-Page Accordion Toggle: While inside Settings, clicking the main Settings button toggles the sub-menu open or closed at will.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.0-beta.4',
     title: 'Universal Multi-Channel Auto-Updater, DJ Hot Cues Alignment & Dynamic Channel Badges',
     isPrerelease: true,

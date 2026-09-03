@@ -97,17 +97,23 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
       return undefined as unknown as T;
     }
 
+    let val: any = undefined;
     if (state.overrides[resolved.key] !== undefined) {
-      return state.overrides[resolved.key] as T;
-    }
-    if (state.overrides[resolved.def.id] !== undefined) {
-      return state.overrides[resolved.def.id] as T;
-    }
-    if (state.overrides[flagId] !== undefined) {
-      return state.overrides[flagId] as T;
+      val = state.overrides[resolved.key];
+    } else if (state.overrides[resolved.def.id] !== undefined) {
+      val = state.overrides[resolved.def.id];
+    } else if (state.overrides[flagId] !== undefined) {
+      val = state.overrides[flagId];
+    } else {
+      val = resolved.def.defaultValue;
     }
 
-    return resolved.def.defaultValue as T;
+    // Auto-migrate legacy boolean overrides for select flags:
+    if (resolved.def.type === 'select' && typeof val === 'boolean') {
+      val = val ? 'tabs' : 'off';
+    }
+
+    return val as T;
   },
 
   setFlagValue: (flagId: FeatureFlagId | string, value: any) => {

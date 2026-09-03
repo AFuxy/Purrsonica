@@ -40,7 +40,7 @@ import { useLibraryStore, SettingsTabId } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
-import { useFeatureFlag, useFeatureFlagStore } from '../../store/featureFlagStore.js';
+import { useFeatureFlagStore, useFeatureFlagValue } from '../../store/featureFlagStore.js';
 import { useDjStore } from '../../store/djStore.js';
 import { DuplicateCleanerModal } from '../modals/DuplicateCleanerModal.js';
 import { ActionConfirmModal, ActionConfirmConfig } from '../modals/ActionConfirmModal.js';
@@ -64,7 +64,7 @@ export const SettingsView: React.FC = () => {
     fetchStats();
   }, [fetchStats]);
 
-  const isTabbedLayoutEnabled = useFeatureFlag('SETTINGS_TABBED_LAYOUT');
+  const settingsNavMode = useFeatureFlagValue<'off' | 'tabs' | 'submenu'>('SETTINGS_TABBED_LAYOUT') || 'off';
   const {
     settings,
     fetchSettings,
@@ -2166,8 +2166,115 @@ export const SettingsView: React.FC = () => {
     </section>
   );
 
-  // Modern Two-Column Layout with Vertical Sidebar Tabs (when SETTINGS_TABBED_LAYOUT is enabled)
-  if (isTabbedLayoutEnabled) {
+  // Submenu Header: Displayed when in Sidebar Submenu mode (Clean breadcrumb banner, no in-page tabs rail)
+  const renderSubmenuHeader = () => {
+    const currentTabInfo = {
+      appearance: {
+        title: 'Appearance & Theme',
+        description: 'Personalize themes, accent colors, artwork contrast, and desktop styling',
+        icon: Palette,
+      },
+      library: {
+        title: 'Library & Audio Engine',
+        description: 'Folder scanning paths, media formats, gapless playback, and exclusions',
+        icon: Music,
+      },
+      dj: {
+        title: 'Purrsonica DJ Suite',
+        description: 'CDJ cue buttons, BPM sync engine, beat loopers, harmonic key detection, and filters',
+        icon: Radio,
+      },
+      maintenance: {
+        title: 'Storage & Maintenance',
+        description: 'Missing file verification, cover artwork caching, waveform pre-generation, and harmonic key analysis',
+        icon: Database,
+      },
+      system: {
+        title: 'System & Updates',
+        description: 'Discord Rich Presence, pre-release update channels, and release changelogs',
+        icon: Info,
+      },
+      danger: {
+        title: 'Danger Zone',
+        description: 'Artwork cache purge, library wipe, and complete factory reset',
+        icon: Flame,
+      },
+    }[activeSettingsTab] || {
+      title: 'Settings',
+      description: 'Configure Purrsonica preferences, scanning rules, and storage',
+      icon: SettingsIcon,
+    };
+
+    const TabIcon = currentTabInfo.icon;
+
+    return (
+      <div className="border-b border-[var(--border-color)] pb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
+            <TabIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[var(--text-muted)]">Settings</span>
+              <span className="text-xs text-[var(--text-muted)]">/</span>
+              <h1 className="text-xl font-black tracking-tight text-[var(--text-primary)]">
+                {currentTabInfo.title}
+              </h1>
+            </div>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              {currentTabInfo.description}
+            </p>
+          </div>
+        </div>
+        <div className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)] flex items-center gap-1.5">
+          <span>v{appVersion}</span>
+          {releaseTag && (
+            <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border ${releaseTag.badgeClass}`}>
+              {releaseTag.label}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Mode 1: Sidebar Submenu Navigation (Spacious, full-width single section without in-page tabs rail)
+  if (settingsNavMode === 'submenu') {
+    return (
+      <div className="flex-1 w-full h-full overflow-y-auto min-h-0 bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative">
+        <div className="max-w-4xl mx-auto p-8 space-y-6 pb-24">
+          {/* Toast Notification */}
+          {toastMessage && (
+            <div className="fixed bottom-24 right-8 bg-neutral-900 border border-emerald-500/50 text-emerald-400 px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>{toastMessage}</span>
+            </div>
+          )}
+
+          {renderSubmenuHeader()}
+
+          {activeSettingsTab === 'appearance' && renderAppearanceSection()}
+          {activeSettingsTab === 'library' && renderLibrarySection()}
+          {activeSettingsTab === 'dj' && renderDjSection()}
+          {activeSettingsTab === 'maintenance' && renderMaintenanceSection()}
+          {activeSettingsTab === 'system' && renderSystemSection()}
+          {activeSettingsTab === 'danger' && renderDangerSection()}
+        </div>
+
+        {/* Modals */}
+        <ActionConfirmModal config={confirmConfig} onClose={() => setConfirmConfig(null)} />
+        {activeReport && <ActionReportModal report={activeReport} onClose={() => setActiveReport(null)} />}
+        <DuplicateCleanerModal
+          isOpen={isDuplicateModalOpen}
+          onClose={() => setIsDuplicateModalOpen(false)}
+          onRefreshLibrary={refreshAll}
+        />
+      </div>
+    );
+  }
+
+  // Mode 2: Two-Column Layout with Vertical In-Page Tabs Rail
+  if (settingsNavMode === 'tabs') {
     return (
       <div className="flex-1 w-full h-full flex overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative">
         {/* Toast Notification */}
@@ -2205,7 +2312,7 @@ export const SettingsView: React.FC = () => {
     );
   }
 
-  // Classic Single-Scroll All-in-One Layout (Default when SETTINGS_TABBED_LAYOUT is false)
+  // Mode 3: Classic Single-Scroll All-in-One Layout (Default when settingsNavMode is 'off')
   return (
     <div className="flex-1 w-full h-full overflow-y-auto min-h-0 bg-[var(--bg-primary)] text-[var(--text-primary)] select-none relative">
       <div className="max-w-4xl mx-auto p-8 space-y-8 pb-24">

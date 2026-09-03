@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Music,
   Heart,
@@ -13,10 +13,29 @@ import {
   Settings as SettingsIcon,
   Radio,
   FlaskConical,
+  Palette,
+  Database,
+  Info,
+  Flame,
+  ChevronDown,
 } from 'lucide-react';
-import { useLibraryStore } from '../../store/libraryStore.js';
+import { useLibraryStore, SettingsTabId } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
-import { useFeatureFlagStore } from '../../store/featureFlagStore.js';
+import { useFeatureFlagStore, useFeatureFlagValue } from '../../store/featureFlagStore.js';
+
+const SIDEBAR_SETTINGS_TABS: {
+  id: SettingsTabId;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  danger?: boolean;
+}[] = [
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'library', label: 'Library & Audio', icon: Music },
+  { id: 'dj', label: 'DJ Suite', icon: Radio },
+  { id: 'maintenance', label: 'Maintenance', icon: Database },
+  { id: 'system', label: 'System & Updates', icon: Info },
+  { id: 'danger', label: 'Danger Zone', icon: Flame, danger: true },
+];
 
 export const Sidebar: React.FC = () => {
   const {
@@ -28,6 +47,7 @@ export const Sidebar: React.FC = () => {
     stats,
     setView,
     openSettings,
+    activeSettingsTab,
     selectDrive,
     selectPlaylist,
     createPlaylist,
@@ -39,9 +59,16 @@ export const Sidebar: React.FC = () => {
 
   const { settings, setModalOpen } = useScanStore();
   const { isDevMode } = useFeatureFlagStore();
+  const settingsNavMode = useFeatureFlagValue<'off' | 'tabs' | 'submenu'>('SETTINGS_TABBED_LAYOUT') || 'off';
   const isDjMode = !!settings?.enableDjMode;
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(currentView === 'settings');
+
+  // Automatically collapse Settings submenu when navigating outside the Settings view
+  useEffect(() => {
+    setIsSettingsExpanded(currentView === 'settings');
+  }, [currentView]);
   const [draggedOverPlaylistId, setDraggedOverPlaylistId] = useState<string | null>(null);
   const [draggedOverLiked, setDraggedOverLiked] = useState(false);
   const [dropToast, setDropToast] = useState<string | null>(null);
@@ -196,19 +223,87 @@ export const Sidebar: React.FC = () => {
             </button>
           )}
 
-          <button
-            onClick={() => openSettings()}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all ${
-              currentView === 'settings'
-                ? 'bg-emerald-500 text-black font-bold shadow-sm'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <SettingsIcon className="w-4 h-4" />
-              <span>Settings</span>
+          {settingsNavMode === 'submenu' ? (
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  if (currentView !== 'settings') {
+                    openSettings(activeSettingsTab || 'appearance');
+                    setIsSettingsExpanded(true);
+                  } else {
+                    setIsSettingsExpanded(!isSettingsExpanded);
+                  }
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all cursor-pointer ${
+                  currentView === 'settings'
+                    ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <SettingsIcon className="w-4 h-4" />
+                  <span>Settings</span>
+                </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                    isSettingsExpanded ? 'rotate-0' : '-rotate-90 opacity-60'
+                  }`}
+                />
+              </button>
+
+              {/* Collapsible Sub-menu Items */}
+              {isSettingsExpanded && (
+                <div className="pl-3 py-0.5 space-y-0.5 border-l border-[var(--border-color)] ml-4.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  {SIDEBAR_SETTINGS_TABS.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = currentView === 'settings' && activeSettingsTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => openSettings(tab.id)}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all cursor-pointer text-left ${
+                          isActive
+                            ? tab.danger
+                              ? 'bg-rose-500/20 text-rose-300 font-bold'
+                              : 'bg-emerald-500/15 text-emerald-400 font-bold'
+                            : tab.danger
+                            ? 'text-rose-400/70 hover:text-rose-300 hover:bg-rose-500/10'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Icon
+                            className={`w-3.5 h-3.5 flex-shrink-0 ${
+                              isActive
+                                ? tab.danger
+                                  ? 'text-rose-400'
+                                  : 'text-emerald-400'
+                                : 'text-[var(--text-muted)]'
+                            }`}
+                          />
+                          <span className="truncate">{tab.label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </button>
+          ) : (
+            <button
+              onClick={() => openSettings()}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold transition-all cursor-pointer ${
+                currentView === 'settings'
+                  ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <SettingsIcon className="w-4 h-4" />
+                <span>Settings</span>
+              </div>
+            </button>
+          )}
 
           {/* Developer Labs (Strictly visible only when isDevMode is active) */}
           {isDevMode && (

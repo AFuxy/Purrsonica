@@ -61,17 +61,34 @@ export type FeatureFlagDefinition =
   | StringFeatureFlag;
 
 export const FEATURE_FLAGS: Record<string, FeatureFlagDefinition> = {
-  // 1. Settings Tabbed Layout & Deep-Linking (UI / Navigation)
+  // 1. Settings Navigation Mode (UI / Navigation)
   SETTINGS_TABBED_LAYOUT: {
     id: 'SETTINGS_TABBED_LAYOUT',
-    name: 'Tabbed Settings Layout & Deep-Linking',
-    description: 'Categorizes the Settings view into organized tabs (Appearance, Library & Audio, DJ Suite, Storage & Maintenance, System & Updates, Danger Zone) with persistent tab state and direct deep-linking.',
+    name: 'Settings Navigation Mode',
+    description: 'Configures how Settings are organized: Off (classic single-page continuous scroll), Tabs (two-column layout with in-page navigation rail), or Submenu (sidebar expandable sub-menus).',
     category: 'ui',
     stage: 'beta',
-    type: 'boolean',
-    defaultValue: false,
+    type: 'select',
+    defaultValue: 'off',
+    options: [
+      {
+        value: 'off',
+        label: 'Off (Single Page)',
+        description: 'Classic single continuous scrolling settings page containing all sections.',
+      },
+      {
+        value: 'tabs',
+        label: 'Tabs (In-Page Rail)',
+        description: 'Two-column layout with vertical tab navigation rail inside the Settings page.',
+      },
+      {
+        value: 'submenu',
+        label: 'Submenu (Sidebar Items)',
+        description: 'Collapsible sub-menu items directly under Settings in the main sidebar, keeping the settings view clean and spacious.',
+      },
+    ],
     createdDate: '2026-09-02',
-    lastUpdated: '2026-09-02',
+    lastUpdated: '2026-09-03',
   },
 } as const;
 
