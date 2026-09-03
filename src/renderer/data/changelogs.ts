@@ -257,6 +257,20 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.6.1',
+    title: 'Auto-Updater Stable Promotion Patch & Channel Resolution Fix',
+    isPrerelease: false,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Standardized Auto-Updater Manifest: Enforced permanent targeting of latest.yml across all update checks, eliminating unnecessary channel-specific .yml requests and aligning with standard release pipelines.',
+          'Seamless Pre-Release to Stable Promotion: Implemented automated release-type detection that disengages pre-release filtering whenever a newer stable release is published, ensuring Release Candidate (rc) and custom channel builds upgrade cleanly to stable versions.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.0',
     title: 'The DJ Performance Suite, Camelot Wheel Harmonic Matching & Engine Overhaul',
     isPrerelease: false,
