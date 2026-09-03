@@ -257,13 +257,14 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
-    version: '1.6.0-prerelease.1',
-    title: 'Hot Cues Boundary Containment & DJ Deck Responsive Alignment',
+    version: '1.6.0-beta.4',
+    title: 'Universal Multi-Channel Auto-Updater, DJ Hot Cues Alignment & Dynamic Channel Badges',
     isPrerelease: true,
     sections: [
       {
         heading: 'Improvements & Updates',
         items: [
+          'Universal Multi-Channel Auto-Updater: Implemented dynamic release channel resolution supporting all pre-release tiers (Beta, Pre-Release, Alpha, RC, Canary, Dev, Preview, and Nightly) to allow seamless cross-channel updates without electron-updater whitelist blocks.',
           'Universal Dynamic Pre-Release & Channel Badges: Synchronized dynamic channel badges (Beta, Pre-Release, Alpha, RC, Canary, Dev) across the Titlebar watermark pill, Settings headers, and app watermark overlay.',
           'Comprehensive Pre-Release Opt-In Clarity: Clarified pre-release channel opt-in settings to explicitly communicate early access across all testing tracks (Beta, Pre-Release, Alpha, RC, Canary).',
           'DJ Suite Titlebar Badge Swing Animation: Added an authentic pendulum swing animation anchored to the top pin of the Titlebar DJ badge when DJ Suite is enabled, featuring responsive hover physics.',

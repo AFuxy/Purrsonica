@@ -3,6 +3,7 @@ import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import path from 'node:path';
 import fs from 'node:fs';
+import semver from 'semver';
 import { UpdateStatus } from '../shared/types.js';
 import { getScanSettings } from './db/queries.js';
 
@@ -14,7 +15,67 @@ let targetWindow: BrowserWindow | null = null;
 
 export function isPrereleaseVersion(versionStr?: string): boolean {
   if (!versionStr) return false;
-  return /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(versionStr);
+  return /-(alpha|beta|rc|canary|pre(-?release)?|dev|preview|nightly)/i.test(versionStr);
+}
+
+/**
+ * Universal Multi-Channel Resolver:
+ * Supports all pre-release tracks (beta, prerelease, alpha, rc, canary, dev, preview, nightly).
+ * Dynamically queries GitHub releases and adapts `autoUpdater.channel` so electron-updater
+ * never skips custom channel tags.
+ */
+export async function resolveTargetChannel(allow?: boolean): Promise<void> {
+  const allowPrerelease = allow !== undefined ? !!allow : !!getScanSettings().allowPrerelease;
+  const currentVer = app.getVersion();
+  const isCurrentPrerelease = isPrereleaseVersion(currentVer);
+
+  autoUpdater.allowPrerelease = allowPrerelease;
+  autoUpdater.allowDowngrade = !allowPrerelease && isCurrentPrerelease;
+
+  if (!allowPrerelease) {
+    autoUpdater.channel = 'latest';
+    console.log('[Purrsonica Updater] Pre-release disabled: Channel set to "latest" (allowDowngrade:', autoUpdater.allowDowngrade, ')');
+    return;
+  }
+
+  try {
+    const res = await fetch('https://api.github.com/repos/AFuxy/Purrsonica/releases?per_page=10', {
+      headers: {
+        'User-Agent': `Purrsonica/${currentVer}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (res.ok) {
+      const releases = (await res.json()) as Array<{ tag_name: string; draft?: boolean; prerelease?: boolean }>;
+      const validReleases = releases.filter((r) => !r.draft && r.tag_name);
+
+      if (validReleases.length > 0) {
+        // Sort by SemVer descending to find highest target release
+        const sorted = [...validReleases].sort((a, b) => {
+          const vA = semver.clean(a.tag_name) || a.tag_name.replace(/^v/, '');
+          const vB = semver.clean(b.tag_name) || b.tag_name.replace(/^v/, '');
+          if (!semver.valid(vA) || !semver.valid(vB)) return 0;
+          return semver.rcompare(vA, vB);
+        });
+
+        const targetTag = sorted[0].tag_name.replace(/^v/, '');
+        const prereleaseComponents = semver.prerelease(targetTag);
+
+        if (prereleaseComponents && prereleaseComponents.length > 0) {
+          const rawChannel = String(prereleaseComponents[0]).toLowerCase();
+          const channelName = rawChannel.split(/[0-9.]/)[0].replace(/[-_]$/, '') || rawChannel;
+          console.log(`[Purrsonica Updater] Target release is ${targetTag}, dynamically adapting channel to: "${channelName}"`);
+          autoUpdater.channel = channelName;
+        } else {
+          console.log(`[Purrsonica Updater] Target release is stable (${targetTag}), channel set to: "latest"`);
+          autoUpdater.channel = 'latest';
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn('[Purrsonica Updater] Dynamic channel resolution bypassed, using default:', err?.message || err);
+  }
 }
 
 export function syncPrereleaseSetting(allow?: boolean): void {
@@ -22,7 +83,6 @@ export function syncPrereleaseSetting(allow?: boolean): void {
   const isCurrentPrerelease = isPrereleaseVersion(app.getVersion());
 
   autoUpdater.allowPrerelease = allowPrerelease;
-  // Allow downgrade if current version is a pre-release and user turned pre-releases OFF
   autoUpdater.allowDowngrade = !allowPrerelease && isCurrentPrerelease;
 
   console.log('[Purrsonica Updater] allowPrerelease set to:', autoUpdater.allowPrerelease, 'allowDowngrade:', autoUpdater.allowDowngrade);
@@ -219,14 +279,16 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   // Automatically check for updates on startup and periodically while app remains open
   if (app.isPackaged && hasUpdateConfig()) {
     // Initial check after 4 seconds
-    setTimeout(() => {
+    setTimeout(async () => {
+      await resolveTargetChannel();
       autoUpdater.checkForUpdates().catch((err) => {
         console.warn('[Purrsonica Updater] Startup check bypassed:', err?.message || err);
       });
     }, 4000);
 
     // Periodic check every 1 hour while running continuously
-    setInterval(() => {
+    setInterval(async () => {
+      await resolveTargetChannel();
       autoUpdater.checkForUpdates().catch((err) => {
         console.warn('[Purrsonica Updater] Periodic check bypassed:', err?.message || err);
       });
@@ -235,7 +297,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 }
 
 export async function checkForUpdates(): Promise<UpdateStatus> {
-  syncPrereleaseSetting();
+  await resolveTargetChannel();
   if (!app.isPackaged || !hasUpdateConfig()) {
     sendStatus({
       state: 'not-available',
