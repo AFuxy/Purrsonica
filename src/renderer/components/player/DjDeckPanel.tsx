@@ -196,9 +196,9 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
     >
       <div className="w-full flex flex-wrap 2xl:flex-nowrap items-stretch gap-3 2xl:gap-3.5">
         {/* Module 1: Pioneer CDJ Transport (CUE + PLAY) & Hot Cues (1..4) */}
-        <div className="flex-1 2xl:flex-[1.1] bg-[var(--bg-tertiary)]/40 border border-[var(--border-color)] rounded-xl p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 min-w-[320px]">
+        <div className="flex-1 2xl:flex-[1.1] bg-[var(--bg-tertiary)]/40 border border-[var(--border-color)] rounded-xl p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 min-w-[320px] xl:min-w-[370px]">
           {/* Pioneer CDJ Primary Transport */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {/* Pioneer CDJ CUE Button */}
             <button
               onMouseDown={handleCueMouseDown}
@@ -208,7 +208,7 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
                 e.preventDefault();
                 if (currentTrack) clearMainCue(currentTrack.id);
               }}
-              className={`w-13 h-13 rounded-2xl flex flex-col items-center justify-center font-mono font-black border-2 transition-all cursor-pointer select-none active:scale-95 ${
+              className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-mono font-black border-2 transition-all cursor-pointer select-none active:scale-95 ${
                 isAuditioningCue || (isPlaying && trackMainCue !== undefined)
                   ? 'bg-amber-500 text-black border-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.7)]'
                   : trackMainCue !== undefined
@@ -230,7 +230,7 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
             {/* Pioneer CDJ PLAY / PAUSE Button */}
             <button
               onClick={() => togglePlay()}
-              className={`w-13 h-13 rounded-2xl flex flex-col items-center justify-center font-mono font-black border-2 transition-all cursor-pointer select-none active:scale-95 ${
+              className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-mono font-black border-2 transition-all cursor-pointer select-none active:scale-95 ${
                 isPlaying
                   ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.7)]'
                   : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/60 shadow-[0_0_8px_rgba(16,185,129,0.3)] hover:bg-emerald-500/30'
@@ -242,16 +242,16 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
           </div>
 
           {/* Hot Cues (1..4) */}
-          <div className="flex-1 space-y-1.5 min-w-[220px]">
+          <div className="flex-1 space-y-1.5 min-w-0 overflow-hidden">
             <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]">
               <div className="flex items-center gap-1.5 font-mono uppercase tracking-wider text-[var(--text-secondary)]">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>Hot Cues (1–4)</span>
+                <Zap className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <span className="truncate">Hot Cues</span>
               </div>
               {currentTrack && Object.keys(trackCues).length > 0 && (
                 <button
                   onClick={() => clearAllHotCues(currentTrack.id)}
-                  className="text-[10px] text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                  className="text-[10px] text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer flex-shrink-0"
                   title="Clear all hot cues for this track"
                 >
                   Clear All
@@ -259,7 +259,7 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
               )}
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1 sm:gap-1.5 min-w-0 w-full">
             {([1, 2, 3, 4] as const).map((cueNum) => {
               const cueTime = trackCues[cueNum];
               const isSet = cueTime !== undefined;
@@ -275,7 +275,7 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
                       clearHotCue(currentTrack.id, cueNum);
                     }
                   }}
-                  className={`group relative h-12 rounded-xl flex flex-col items-center justify-center border transition-all cursor-pointer overflow-hidden ${
+                  className={`group relative h-11 sm:h-12 rounded-xl flex flex-col items-center justify-center border transition-all cursor-pointer overflow-hidden min-w-0 w-full px-0.5 ${
                     isSet
                       ? `bg-[var(--bg-tertiary)] ${style.border} ${style.glow}`
                       : 'bg-[var(--bg-tertiary)]/40 border-[var(--border-color)] hover:border-neutral-600 hover:bg-[var(--bg-tertiary)]'
@@ -307,16 +307,16 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
                     </button>
                   )}
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-center gap-0.5 sm:gap-1 w-full min-w-0 px-0.5">
                     <span
-                      className={`text-[10px] font-black font-mono px-1 rounded ${
+                      className={`text-[9px] sm:text-[10px] font-black font-mono px-1 rounded flex-shrink-0 leading-tight ${
                         isSet ? `${style.bg} text-black` : 'text-neutral-500'
                       }`}
                     >
                       {cueNum}
                     </span>
                     <span
-                      className={`text-xs font-mono font-bold ${
+                      className={`text-[10px] sm:text-xs font-mono font-bold truncate ${
                         isSet ? style.text : 'text-neutral-500'
                       }`}
                     >
@@ -324,7 +324,7 @@ export const DjDeckPanel: React.FC<DjDeckPanelProps> = ({ onClose, isEmbedded = 
                     </span>
                   </div>
 
-                  <span className="text-[9px] text-[var(--text-muted)] font-mono">
+                  <span className="text-[9px] text-[var(--text-muted)] font-mono leading-none mt-0.5">
                     {isSet ? 'JUMP' : '+ SET'}
                   </span>
                 </div>
