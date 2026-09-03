@@ -257,6 +257,22 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.6.0-rc.1',
+    title: 'DJ Suite Release Candidate 1 & Complete System Stabilization',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Pioneer CDJ CUE Auditioning Protection: Implemented global window mouseup handling to guarantee that holding CUE to audition snaps back safely and cleanly even if the cursor is dragged outside the viewport or off-screen.',
+          'Isolated Artwork Cache Architecture: Relocated cover art thumbnail extraction to a dedicated covers_cache directory, fully isolating application media cache from Chromium internal storage to prevent Windows file locking conflicts.',
+          'Sub-Frame Looper Turnaround Optimization: Verified zero-overhead requestAnimationFrame looper turnaround monitoring with automatic cleanup on track changes, pausing, and loop disengagement.',
+          'Full-Spectrum DJ Deck Synchronization: Synchronized momentary pitch bend (+/-), master tempo key lock, and biquad resonant transition filters across active and standby playback decks with automated reset guards when DJ Mode is toggled off.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.0-prerelease.3',
     title: 'Frameless Splash Screen, Windows Cache Fix & UI Copy Polish',
     isPrerelease: true,

@@ -492,7 +492,9 @@ export const DjMatcherView: React.FC = () => {
       </div>
 
       {/* Live DJ Deck Performance Suite (Pitch, Hot Cues, Tap-Tempo) */}
-      <DjDeckPanel isEmbedded={true} />
+      <div className="w-full max-w-full overflow-hidden">
+        <DjDeckPanel isEmbedded={true} />
+      </div>
 
       {/* Results Header & Quick Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">

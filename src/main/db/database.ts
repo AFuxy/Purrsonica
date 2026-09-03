@@ -42,9 +42,9 @@ export function getCoversCacheDir(): string {
   if (coversCacheDir) return coversCacheDir;
 
   if (app) {
-    coversCacheDir = path.join(app.getPath('userData'), 'cache', 'covers');
+    coversCacheDir = path.join(app.getPath('userData'), 'covers_cache');
   } else {
-    coversCacheDir = path.join(process.cwd(), '.purrsonica_data', 'cache', 'covers');
+    coversCacheDir = path.join(process.cwd(), '.purrsonica_data', 'covers_cache');
   }
 
   if (!fs.existsSync(coversCacheDir)) {
@@ -56,19 +56,26 @@ export function getCoversCacheDir(): string {
 export function clearCoversCache(): boolean {
   try {
     const dir = getCoversCacheDir();
-    if (fs.existsSync(dir)) {
-      const files = fs.readdirSync(dir);
-      for (const f of files) {
-        // Never delete custom playlist or track covers
-        if (f.startsWith('pl_cover_') || f.startsWith('custom_')) continue;
-        try {
-          fs.unlinkSync(path.join(dir, f));
-        } catch {}
+    const oldDir = app
+      ? path.join(app.getPath('userData'), 'cache', 'covers')
+      : path.join(process.cwd(), '.purrsonica_data', 'cache', 'covers');
+
+    for (const d of [dir, oldDir]) {
+      if (fs.existsSync(d)) {
+        const files = fs.readdirSync(d);
+        for (const f of files) {
+          // Never delete custom playlist or track covers
+          if (f.startsWith('pl_cover_') || f.startsWith('custom_')) continue;
+          try {
+            fs.unlinkSync(path.join(d, f));
+          } catch {}
+        }
       }
     }
+
     if (dbInstance) {
-      dbInstance.prepare("UPDATE tracks SET cover_art_path = NULL WHERE cover_art_path LIKE '%cache%' AND cover_art_path NOT LIKE '%custom_%'").run();
-      dbInstance.prepare("UPDATE albums SET cover_art_path = NULL WHERE cover_art_path LIKE '%cache%'").run();
+      dbInstance.prepare("UPDATE tracks SET cover_art_path = NULL WHERE (cover_art_path LIKE '%covers_cache%' OR cover_art_path LIKE '%cache%') AND cover_art_path NOT LIKE '%custom_%'").run();
+      dbInstance.prepare("UPDATE albums SET cover_art_path = NULL WHERE cover_art_path LIKE '%covers_cache%' OR cover_art_path LIKE '%cache%'").run();
     }
     return true;
   } catch (err) {
