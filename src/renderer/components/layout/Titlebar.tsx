@@ -6,6 +6,7 @@ import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useScanStore } from '../../store/scanStore.js';
+import { getReleaseTag } from '../../data/changelogs.js';
 
 export const Titlebar: React.FC = () => {
   const { theme, toggleTheme, logoPath } = useThemeStore();
@@ -18,7 +19,7 @@ export const Titlebar: React.FC = () => {
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [appVersion, setAppVersion] = useState('');
 
-  const isPrerelease = /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(appVersion);
+  const releaseTag = getReleaseTag(appVersion);
 
   useEffect(() => {
     if (window.api?.getVersion) {
@@ -114,12 +115,12 @@ export const Titlebar: React.FC = () => {
           />
           {settings?.enableDjMode && (
             <div
-              className="relative -ml-1 -top-2 flex flex-col items-center rotate-12 hover:rotate-6 hover:scale-110 transition-all cursor-pointer select-none"
+              className="relative -ml-1 -top-2 flex flex-col items-center animate-dj-swing-in hover:rotate-6 hover:scale-110 transition-all cursor-pointer select-none"
               onClick={() => openSettings('dj')}
               title="DJ Mode Active (Click to view DJ settings)"
             >
               <div className="w-1.5 h-1.5 rounded-full bg-neutral-900 border border-white/70 -mb-0.5 z-10 shadow-sm" />
-              <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 text-black text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-amber-200/50 uppercase leading-tight animate-in zoom-in-75 duration-200">
+              <div className="bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 text-black text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-amber-200/50 uppercase leading-tight">
                 DJ
               </div>
             </div>
@@ -146,14 +147,14 @@ export const Titlebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Pre-Release Watermark Pill */}
-        {isPrerelease && (
+        {/* Pre-Release / Channel Watermark Pill */}
+        {releaseTag && (
           <div
-            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold tracking-wider uppercase select-none shadow-sm"
-            title={`Purrsonica Pre-Release Build (v${appVersion})`}
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase select-none shadow-sm border ${releaseTag.badgeClass}`}
+            title={`Purrsonica ${releaseTag.label} Build (v${appVersion})`}
           >
-            <Flame className="w-3 h-3 text-purple-400" />
-            <span>Pre-Release</span>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${releaseTag.dotClass}`} />
+            <span className="leading-none">{releaseTag.label}</span>
           </div>
         )}
 

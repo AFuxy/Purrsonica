@@ -163,3 +163,35 @@ input[type="range"]::-moz-range-thumb {
 .animate-pulse-subtle {
   animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+@keyframes dj-tag-drop-swing {
+  0% {
+    opacity: 0;
+    transform: rotate(-32deg) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: rotate(28deg) scale(1.06);
+  }
+  40% {
+    transform: rotate(-14deg) scale(1.02);
+  }
+  60% {
+    transform: rotate(19deg) scale(1);
+  }
+  75% {
+    transform: rotate(8deg);
+  }
+  88% {
+    transform: rotate(14deg);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(12deg) scale(1);
+  }
+}
+
+.animate-dj-swing-in {
+  transform-origin: top center;
+  animation: dj-tag-drop-swing 1.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}

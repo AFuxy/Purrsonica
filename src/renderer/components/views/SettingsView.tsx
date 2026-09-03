@@ -174,6 +174,7 @@ export const SettingsView: React.FC = () => {
   };
 
   const isCurrentPrerelease = isPrereleaseVersion(appVersion);
+  const releaseTag = getReleaseTag(appVersion);
   const showPrereleases = isCurrentPrerelease || !!currentSettings.allowPrerelease;
 
   // Filter out pre-release changelogs on live stable builds unless opted in
@@ -258,7 +259,11 @@ export const SettingsView: React.FC = () => {
   const handleTogglePrerelease = async () => {
     const nextVal = !currentSettings.allowPrerelease;
     await saveSettings({ ...currentSettings, allowPrerelease: nextVal });
-    showToast(nextVal ? 'Pre-release channel enabled: Checking for beta builds' : 'Pre-release channel disabled');
+    showToast(
+      nextVal
+        ? 'Pre-release channel enabled: You will receive all Beta, Alpha, Canary, and Preview updates'
+        : 'Pre-release channel disabled: Switched to Stable release channel only'
+    );
     checkForUpdates();
   };
 
@@ -719,8 +724,13 @@ export const SettingsView: React.FC = () => {
           </p>
         </div>
       </div>
-      <div className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
-        v{appVersion}
+      <div className="text-xs font-mono px-2.5 py-1 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)] flex items-center gap-1.5">
+        <span>v{appVersion}</span>
+        {releaseTag && (
+          <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border ${releaseTag.badgeClass}`}>
+            {releaseTag.label}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -739,9 +749,16 @@ export const SettingsView: React.FC = () => {
               <p className="text-[10px] text-[var(--text-muted)]">Purrsonica Preferences</p>
             </div>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
-            v{appVersion}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-muted)]">
+              v{appVersion}
+            </span>
+            {releaseTag && (
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border ${releaseTag.badgeClass}`}>
+                {releaseTag.label}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Tab Groups List */}
@@ -1754,7 +1771,18 @@ export const SettingsView: React.FC = () => {
         <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-bold text-sm text-[var(--text-primary)]">Purrsonica v{appVersion}</div>
+              <div className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
+                <span>Purrsonica v{appVersion}</span>
+                {releaseTag ? (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${releaseTag.badgeClass}`}>
+                    {releaseTag.label}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Stable
+                  </span>
+                )}
+              </div>
               <div className="text-xs text-[var(--text-muted)] mt-0.5">
                 {updateStatus.state === 'downloaded' ? (
                   <span className={updateStatus.isDowngrade ? 'text-amber-400 font-semibold' : 'text-emerald-400 font-semibold'}>
@@ -1806,20 +1834,24 @@ export const SettingsView: React.FC = () => {
           {/* Pre-Release Channel Toggle Card */}
           <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400">
+              <div className={`p-2 rounded-lg ${currentSettings.allowPrerelease ? 'bg-indigo-500/20 text-indigo-400' : 'bg-neutral-800 text-neutral-400'}`}>
                 <Flame className="w-4 h-4" />
               </div>
               <div>
                 <div className="font-semibold text-xs text-[var(--text-primary)] flex items-center gap-2">
-                  <span>Pre-Release & Beta Updates</span>
-                  {currentSettings.allowPrerelease && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 uppercase tracking-wider">
-                      Beta
+                  <span>Opt into All Pre-Release Channels</span>
+                  {currentSettings.allowPrerelease ? (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30 uppercase tracking-wider">
+                      All Pre-Releases Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-400 font-bold border border-neutral-700 uppercase tracking-wider">
+                      Stable Only
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-[var(--text-muted)]">
-                  Receive experimental features, performance previews, and early beta builds.
+                <div className="text-[11px] text-[var(--text-muted)] max-w-xl mt-0.5">
+                  Receive all pre-release builds—including Beta, Pre-Release, Alpha, Release Candidates (RC), and Canary builds—to test new features early. Turn off at any time to return to the official stable release channel.
                 </div>
               </div>
             </div>
@@ -1827,9 +1859,9 @@ export const SettingsView: React.FC = () => {
             <button
               onClick={handleTogglePrerelease}
               className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer flex-shrink-0 ${
-                currentSettings.allowPrerelease ? 'bg-purple-600' : 'bg-neutral-600'
+                currentSettings.allowPrerelease ? 'bg-indigo-600' : 'bg-neutral-600'
               }`}
-              title="Toggle Pre-Release Channel"
+              title="Toggle Pre-Release Channel Opt-In"
             >
               <div
                 className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-0.5 ${
@@ -1924,7 +1956,7 @@ export const SettingsView: React.FC = () => {
                                         parsed.isExperiment
                                           ? 'text-purple-400 font-bold flex-shrink-0'
                                           : releaseTag
-                                          ? `${releaseTag.dotClass} font-bold flex-shrink-0`
+                                          ? `${releaseTag.bulletClass} font-bold flex-shrink-0`
                                           : 'text-emerald-400 font-bold flex-shrink-0'
                                       }
                                     >

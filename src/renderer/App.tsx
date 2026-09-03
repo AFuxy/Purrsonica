@@ -17,6 +17,7 @@ import { useMaintenanceStore } from './store/maintenanceStore.js';
 import { usePlayerStore } from './store/playerStore.js';
 import { useDjStore } from './store/djStore.js';
 import { useDiscordRpc } from './hooks/useDiscordRpc.js';
+import { getReleaseTag } from './data/changelogs.js';
 
 export const App: React.FC = () => {
   const { seekTo } = useAudioPlayer();
@@ -24,6 +25,9 @@ export const App: React.FC = () => {
   const { refreshAll, editingTrack, setEditingTrack } = useLibraryStore();
   const {
     currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
     togglePlay,
     playNext,
     playPrevious,
@@ -36,7 +40,7 @@ export const App: React.FC = () => {
   const { setArtworkProgress, setWaveformProgress } = useMaintenanceStore();
   const [appVersion, setAppVersion] = React.useState('');
 
-  const isPrerelease = /-(alpha|beta|rc|canary|pre|dev|preview)/i.test(appVersion);
+  const releaseTag = getReleaseTag(appVersion);
 
   // Global Media & Playback Keyboard Listener
   useEffect(() => {
@@ -280,10 +284,11 @@ export const App: React.FC = () => {
       <DropZoneOverlay />
 
       {/* Pre-release Watermark Overlay */}
-      {isPrerelease && (
-        <div className="fixed bottom-24 right-4 pointer-events-none select-none z-30 opacity-30 hover:opacity-75 transition-opacity">
-          <div className="text-[10px] font-mono tracking-widest text-purple-300 bg-neutral-950/70 backdrop-blur-sm px-2.5 py-1 rounded border border-purple-500/20 shadow-md">
-            PURRSONICA v{appVersion} • PRE-RELEASE
+      {releaseTag && (
+        <div className="fixed bottom-24 right-4 pointer-events-none select-none z-30 opacity-40 hover:opacity-85 transition-opacity">
+          <div className={`text-[10px] font-mono tracking-widest bg-neutral-950/80 backdrop-blur-sm px-2.5 py-1 rounded border shadow-md flex items-center gap-1.5 ${releaseTag.badgeClass}`}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${releaseTag.dotClass}`} />
+            <span className="leading-none">PURRSONICA v{appVersion} • {releaseTag.label.toUpperCase()}</span>
           </div>
         </div>
       )}

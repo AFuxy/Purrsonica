@@ -72,6 +72,7 @@ export interface ReleaseTagInfo {
   label: string;
   badgeClass: string;
   dotClass: string;
+  bulletClass: string;
   borderClass: string;
   isPrerelease: boolean;
 }
@@ -88,7 +89,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'Beta',
         badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-        dotClass: 'text-purple-400',
+        dotClass: 'bg-purple-400',
+        bulletClass: 'text-purple-400',
         borderClass: 'border-purple-500/25',
         isPrerelease: true,
       };
@@ -99,7 +101,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'Pre Release',
         badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-        dotClass: 'text-indigo-400',
+        dotClass: 'bg-indigo-400',
+        bulletClass: 'text-indigo-400',
         borderClass: 'border-indigo-500/25',
         isPrerelease: true,
       };
@@ -110,7 +113,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'Alpha',
         badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-        dotClass: 'text-amber-400',
+        dotClass: 'bg-amber-400',
+        bulletClass: 'text-amber-400',
         borderClass: 'border-amber-500/25',
         isPrerelease: true,
       };
@@ -121,7 +125,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'RC',
         badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-        dotClass: 'text-cyan-400',
+        dotClass: 'bg-cyan-400',
+        bulletClass: 'text-cyan-400',
         borderClass: 'border-cyan-500/25',
         isPrerelease: true,
       };
@@ -132,7 +137,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'Canary',
         badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-        dotClass: 'text-yellow-400',
+        dotClass: 'bg-yellow-400',
+        bulletClass: 'text-yellow-400',
         borderClass: 'border-yellow-500/25',
         isPrerelease: true,
       };
@@ -143,7 +149,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'Dev',
         badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-        dotClass: 'text-rose-400',
+        dotClass: 'bg-rose-400',
+        bulletClass: 'text-rose-400',
         borderClass: 'border-rose-500/25',
         isPrerelease: true,
       };
@@ -154,7 +161,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'Preview',
         badgeClass: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30',
-        dotClass: 'text-fuchsia-400',
+        dotClass: 'bg-fuchsia-400',
+        bulletClass: 'text-fuchsia-400',
         borderClass: 'border-fuchsia-500/25',
         isPrerelease: true,
       };
@@ -165,7 +173,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
       return {
         label: 'Nightly',
         badgeClass: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-        dotClass: 'text-teal-400',
+        dotClass: 'bg-teal-400',
+        bulletClass: 'text-teal-400',
         borderClass: 'border-teal-500/25',
         isPrerelease: true,
       };
@@ -183,7 +192,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
     return {
       label: formatted,
       badgeClass: 'bg-neutral-500/20 text-neutral-300 border-neutral-500/30',
-      dotClass: 'text-neutral-400',
+      dotClass: 'bg-neutral-400',
+      bulletClass: 'text-neutral-400',
       borderClass: 'border-neutral-500/25',
       isPrerelease: true,
     };
@@ -194,7 +204,8 @@ export function getReleaseTag(versionStr?: string, isPrerelease?: boolean): Rele
     return {
       label: 'Pre Release',
       badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-      dotClass: 'text-indigo-400',
+      dotClass: 'bg-indigo-400',
+      bulletClass: 'text-indigo-400',
       borderClass: 'border-indigo-500/25',
       isPrerelease: true,
     };
@@ -245,6 +256,28 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 }
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
+  {
+    version: '1.6.0-prerelease.1',
+    title: 'Hot Cues Boundary Containment & DJ Deck Responsive Alignment',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Universal Dynamic Pre-Release & Channel Badges: Synchronized dynamic channel badges (Beta, Pre-Release, Alpha, RC, Canary, Dev) across the Titlebar watermark pill, Settings headers, and app watermark overlay.',
+          'Comprehensive Pre-Release Opt-In Clarity: Clarified pre-release channel opt-in settings to explicitly communicate early access across all testing tracks (Beta, Pre-Release, Alpha, RC, Canary).',
+          'DJ Suite Titlebar Badge Swing Animation: Added an authentic pendulum swing animation anchored to the top pin of the Titlebar DJ badge when DJ Suite is enabled, featuring responsive hover physics.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Hot Cues Boundary Containment: Resolved an issue where the 4 Hot Cue performance pads exceeded the boundary of the transport module on the DJ Matcher page by enforcing strict sub-column containment, responsive label truncation, and dynamic minimum width constraints.',
+          'Transport Cluster Proportions: Balanced CUE and PLAY/PAUSE button footprint to ensure all 4 cue pads remain fully visible and aligned across all desktop and embedded viewports.',
+        ],
+      },
+    ],
+  },
   {
     version: '1.6.0-beta.3',
     title: 'Pioneer CDJ CUE Button, One-Click BPM SYNC, Beat Looper Suite, Transition Filter Sweep & DJ Crate Export',

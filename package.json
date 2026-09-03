@@ -1,6 +1,6 @@
 {
   "name": "purrsonica",
-  "version": "1.6.0-beta.3",
+  "version": "1.6.0-prerelease.1",
   "description": "Purrsonica - Modern Local Music & Video Player",
   "main": "dist-electron/main/index.js",
   "type": "module",
