@@ -257,6 +257,41 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.6.0',
+    title: 'The DJ Performance Suite, Camelot Wheel Harmonic Matching & Engine Overhaul',
+    isPrerelease: false,
+    sections: [
+      {
+        heading: 'DJ Performance Suite & CDJ Controls',
+        items: [
+          'Pioneer CDJ CUE Button: Authentic CDJ CUE mechanics featuring instant playhead snap-to-cue, hold-to-audition with global drag release safety, and paused cue placement.',
+          'Performance Hot Cues: 4 instant Hot Cues per track with color-coded transport pads, persistent library storage, jump-to-cue, and quick clear controls.',
+          'Quantized Beat Looper: Sub-frame looping from ½ to 32 beats with double/halve loop multipliers and zero-overhead turnaround monitoring.',
+          'Transition Resonance Filter & Bass Kill: Dual High-Pass / Low-Pass bi-quad filter sweep with center detent bypass and instant 250Hz Bass Kill stomp.',
+          'One-Click BPM Sync & Key Lock: Automated tempo matching to target reference tracks with Master Tempo (Key Lock) preserving musical pitch.',
+        ],
+      },
+      {
+        heading: 'Harmonic Camelot Wheel & Matcher Assistant',
+        items: [
+          'Camelot Wheel Compatibility Engine: Real-time harmonic mixing assistant analyzing your library across Energy Boost (+1 / +2), Smooth Key (+0), Mood Shift (-1), and Diagonal transitions.',
+          'DJ Matcher View: Dedicated mixing suite with configurable BPM tolerance windows, half/double-time compatibility toggles, and live track auditioning.',
+          'M3U8 DJ Crate Export: Direct export of harmonically compatible setlists into industry-standard crates formatted for Rekordbox, Serato, Traktor, and VirtualDJ.',
+        ],
+      },
+      {
+        heading: 'DSP Engine & System Polish',
+        items: [
+          'Multithreaded WASM EDMA HPCP Analyzer: WebAssembly DSP engine running 36-bin harmonic pitch chromagram and BPM detection in parallel worker threads.',
+          'Frameless Startup Splash Screen: Frameless startup card featuring the full Purrsonica text logo with live update download progress tracking.',
+          'Silent Background Auto-Updates: Headless zero-wizard background installation architecture with instant 1-click restart.',
+          'Settings Submenu Navigation Mode: Expandable sidebar navigation with context-aware auto-collapse.',
+          'Isolated Artwork Cache & Windows File Locking Fix: Dedicated covers_cache directory and Chromium cache switches eliminating Windows cache collision notices.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.0-rc.1',
     title: 'DJ Suite Release Candidate 1 & Complete System Stabilization',
     isPrerelease: true,
