@@ -257,14 +257,32 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
-    version: '1.6.0-prerelease.2',
-    title: 'Silent Background Auto-Updates (Discord-Style) & Instant Restart',
+    version: '1.6.0-prerelease.3',
+    title: 'Frameless Splash Screen, Windows Cache Fix & UI Copy Polish',
     isPrerelease: true,
     sections: [
       {
         heading: 'Improvements & Updates',
         items: [
-          'Silent Background Auto-Updates: Reconfigured NSIS installer architecture and electron-updater to perform fully silent, headless installs in the background (Discord & VS Code style), completely eliminating intermediate wizard setup dialogs.',
+          'Frameless Startup Splash Screen: Introduces a dedicated, frameless startup window featuring the full Purrsonica text wordmark (PurrSonica-White.png) with a sleek dark card aesthetic (#141414), rounded corners, and gentle breathing animation.',
+          'Live Update & Startup Progress: Real-time progress bar embedded directly into the splash screen that tracks update checks and download percentages (0-100%) with an emerald-to-cyan indicator before seamlessly transitioning into the main player window.',
+          'Clean Windows Visual Polish: Refined splash window borders and shadows to eliminate colored edge fringing and side glow on Windows DWM, delivering a crisp, modern aesthetic.',
+          'Chromium GPU Cache Access Fix: Integrated shader disk cache switch to resolve Chromium "Unable to move the cache: Access is denied (0x5)" and GPU cache creation error notices on Windows systems.',
+          'Single-Instance Process Protection: Enforced single-instance application locking to prevent duplicate processes from competing for cache directories and SQLite database access.',
+          'Simplified UI Copywriting: Streamlined descriptions, toggles, action cards, and confirmation modal dialogs across Settings to keep interface copy concise and punchy.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.6.0-prerelease.2',
+    title: 'Silent Background Auto-Updates & Instant Restart',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Silent Background Auto-Updates: Reconfigured NSIS installer architecture and electron-updater to perform fully silent, headless installs in the background, completely eliminating intermediate wizard setup dialogs.',
           'One-Click Instant Restart: Preserves full user control—updates download in the background with live percentage progress, allowing you to trigger the 1-click "Restart & Install" swap whenever you are ready.',
           'Zero-Elevation Per-User Installation: Configured per-user NSIS architecture to prevent disruptive Windows UAC administrator elevation prompts during background updates.',
         ],

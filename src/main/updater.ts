@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import semver from 'semver';
 import { UpdateStatus } from '../shared/types.js';
 import { getScanSettings } from './db/queries.js';
+import { updateSplashStatus } from './splash.js';
 
 let currentStatus: UpdateStatus = {
   state: 'idle',
@@ -92,6 +93,16 @@ function sendStatus(status: UpdateStatus) {
   currentStatus = status;
   if (targetWindow && !targetWindow.isDestroyed()) {
     targetWindow.webContents.send('updater:status', currentStatus);
+  }
+
+  if (status.state === 'checking') {
+    updateSplashStatus('Checking for updates...', null);
+  } else if (status.state === 'downloading') {
+    updateSplashStatus(`Downloading update (${status.percent || 0}%)...`, status.percent ?? null);
+  } else if (status.state === 'downloaded') {
+    updateSplashStatus('Update ready to install!', 100);
+  } else if (status.state === 'not-available' || status.state === 'idle') {
+    updateSplashStatus('Starting Purrsonica...', 100);
   }
 }
 

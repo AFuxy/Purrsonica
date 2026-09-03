@@ -307,12 +307,11 @@ export const SettingsView: React.FC = () => {
     if (isCleaningGhostTracks) return;
     setConfirmConfig({
       title: 'Verify Library & Clean Missing Files',
-      description: 'Scans all indexed tracks in the database against your physical disks and active Excluded Folders list.',
+      description: 'Checks database records against physical files on disk.',
       points: [
-        'Removes tracks whose files no longer exist on disk (deleted, renamed, or moved)',
-        'Purges tracks located within your currently Excluded Folders',
-        'Does not delete or modify your physical files on disk',
-        'Preserves your custom playlists, tags, and verified tracks',
+        'Removes missing, moved, or deleted files',
+        'Purges records in excluded folders',
+        'Physical files on disk are not modified',
       ],
       confirmLabel: 'Verify & Clean',
       isDestructive: true,
@@ -385,14 +384,13 @@ export const SettingsView: React.FC = () => {
     }
     setConfirmConfig({
       title: 'Re-extract & Cache Album Artwork',
-      description: 'Re-scans all audio and video tracks in your library to extract embedded ID3 picture tags and local folder cover images (folder.jpg, cover.jpg).',
+      description: 'Extracts embedded covers and album art across your library.',
       points: [
-        'Extracts high-resolution embedded ID3 picture tags from files',
-        'Finds local folder.jpg and cover.jpg images for multi-track albums',
-        'Generates optimized webp thumbnails in the local Purrsonica cache',
-        'Can be cancelled at any time without losing already cached artwork',
+        'Reads embedded ID3 picture tags and cover images',
+        'Saves optimized thumbnails to cache',
+        'Can be stopped at any time',
       ],
-      estimatedTime: '~30 seconds to 2 minutes',
+      estimatedTime: '~30s – 2m',
       confirmLabel: 'Start Re-caching',
       isDestructive: false,
       onConfirm: executeRecacheArtwork,
@@ -453,14 +451,13 @@ export const SettingsView: React.FC = () => {
     }
     setConfirmConfig({
       title: 'Re-generate Audio Waveforms',
-      description: 'Pre-computes 128-bar energy amplitude waveform visualization peaks for all audio tracks across your library.',
+      description: 'Generates waveform peak data for tracks across your library.',
       points: [
-        'Computes audio waveform visualization arrays using parallel decoders',
-        'Enables instant seek bar and visual transition zone rendering',
-        'Stores peak amplitudes directly in the SQLite database',
-        'Can be cancelled at any time without losing already generated waveforms',
+        'Computes audio amplitude peaks',
+        'Enables fast seeking and transition previews',
+        'Can be stopped at any time',
       ],
-      estimatedTime: '~1 to 4 minutes depending on library size',
+      estimatedTime: '~1m – 4m',
       confirmLabel: 'Start Generation',
       isDestructive: false,
       onConfirm: executeRecacheWaveforms,
@@ -519,14 +516,13 @@ export const SettingsView: React.FC = () => {
     }
     setConfirmConfig({
       title: reanalyzeAll ? 'Re-Analyze All BPM & Musical Keys' : 'Analyze Unanalyzed Audio Tracks',
-      description: 'Runs high-precision EDMA HPCP 36-bin harmonic key detection and tempo peak analysis across your music tracks.',
+      description: 'Detects musical keys and tempo across your music tracks.',
       points: [
-        'Calculates exact Camelot Key (e.g. 8A, 11B) and OpenKey notations',
-        'Detects tempo BPM with high accuracy',
-        'Saves analyzed metadata to database tags for DJ Matcher & Harmonic Mixing',
-        'Can be stopped at any time without losing already analyzed tracks',
+        'Calculates Camelot key and BPM values',
+        'Saves metadata for DJ Matcher and mixing',
+        'Can be stopped at any time',
       ],
-      estimatedTime: reanalyzeAll ? '~2 to 8 minutes' : 'Varies based on unanalyzed count',
+      estimatedTime: reanalyzeAll ? '~2m – 8m' : 'Varies by track count',
       confirmLabel: reanalyzeAll ? 'Re-Analyze All' : 'Start Analysis',
       isDestructive: false,
       onConfirm: () => executeBatchAnalyzeAudio(reanalyzeAll),
@@ -578,11 +574,11 @@ export const SettingsView: React.FC = () => {
   const requestClearCache = () => {
     setConfirmConfig({
       title: 'Clear Artwork & Thumbnail Cache',
-      description: 'This will purge all pre-rendered album cover art images from your local cache directory on disk.',
+      description: 'Deletes cached thumbnail images from local disk storage.',
       points: [
-        'Frees up disk space in the Purrsonica cache directory',
-        'Thumbnails will be re-extracted on-demand as you browse tracks',
-        'Does not delete tracks or metadata from the database',
+        'Frees up disk space in cache directory',
+        'Thumbnails re-cache automatically when viewed',
+        'Database metadata is not deleted',
       ],
       confirmLabel: 'Clear Cache',
       isDestructive: true,
@@ -860,7 +856,7 @@ export const SettingsView: React.FC = () => {
             </div>
             <div>
               <div className="font-bold text-sm text-white">Dark Theme</div>
-              <div className="text-xs text-neutral-400">Deep obsidian background & glowing accents</div>
+              <div className="text-xs text-neutral-400">Obsidian background with glowing accents</div>
             </div>
           </div>
           {theme === 'dark' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
@@ -881,7 +877,7 @@ export const SettingsView: React.FC = () => {
             </div>
             <div>
               <div className="font-bold text-sm text-[var(--text-primary)]">Light Theme</div>
-              <div className="text-xs text-[var(--text-muted)]">Clean, high-contrast daylight aesthetic</div>
+              <div className="text-xs text-[var(--text-muted)]">High-contrast daylight theme</div>
             </div>
           </div>
           {theme === 'light' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
@@ -898,7 +894,7 @@ export const SettingsView: React.FC = () => {
             </h3>
           </div>
           <span className="text-[11px] text-[var(--text-muted)]">
-            Controls buttons, progress bars, active badges & glowing UI highlights
+            Primary highlights, buttons, and active badges
           </span>
         </div>
 
@@ -1040,7 +1036,7 @@ export const SettingsView: React.FC = () => {
           <div>
             <div className="font-bold text-sm text-[var(--text-primary)]">Fast Background Scanner</div>
             <div className="text-xs text-[var(--text-muted)]">
-              Multithreaded scanner indexes newly added FLAC, MP3, and WAV audio tracks in seconds.
+              Index local drives and folders for audio and video files.
             </div>
           </div>
         </div>
@@ -1123,7 +1119,7 @@ export const SettingsView: React.FC = () => {
               <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
               <div className="min-w-0">
                 <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Generate Waveform Data</div>
-                <div className="text-[11px] text-[var(--text-muted)] truncate">128-bar loudness amplitude curves</div>
+                <div className="text-[11px] text-[var(--text-muted)] truncate">Visual amplitude curves for player</div>
               </div>
             </div>
             <button
@@ -1183,7 +1179,7 @@ export const SettingsView: React.FC = () => {
               <AudioWaveform className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <div className="min-w-0">
                 <div className="font-semibold text-xs text-[var(--text-primary)] truncate">Gapless Audio Playback</div>
-                <div className="text-[11px] text-[var(--text-muted)] truncate">Pre-buffers upcoming songs for seamless, zero-delay transitions</div>
+                <div className="text-[11px] text-[var(--text-muted)] truncate">Zero-delay transitions between tracks</div>
               </div>
             </div>
             <button
@@ -1212,7 +1208,7 @@ export const SettingsView: React.FC = () => {
                 <div>
                   <div className="font-semibold text-xs text-[var(--text-primary)]">Audio Crossfade Duration</div>
                   <div className="text-[11px] text-[var(--text-muted)]">
-                    Smoothly blends the ending and beginning of consecutive songs (visualized as a transition zone on the waveform)
+                    Blends playback between consecutive songs
                   </div>
                 </div>
               </div>
@@ -1352,7 +1348,7 @@ export const SettingsView: React.FC = () => {
                 )}
               </div>
               <div className="text-[11px] sm:text-xs text-[var(--text-muted)] mt-0.5">
-                Unlocks BPM and Camelot Harmonic Key columns in track tables, Camelot Wheel harmonic mixing tools, and detailed tempo inspection.
+                Enables BPM & Camelot key columns, harmonic mixing tools, and DJ Matcher.
               </div>
             </div>
           </div>
@@ -1388,7 +1384,7 @@ export const SettingsView: React.FC = () => {
                     Harmonic Key & BPM DSP Analysis Engine
                   </div>
                   <div className="text-[11px] text-[var(--text-muted)]">
-                    High-performance multithreaded WASM analyzer to extract musical key and tempo for seamless DJ blending.
+                    Analyzes musical key and tempo using WASM DSP for harmonic mixing.
                   </div>
                 </div>
               </div>
@@ -1506,7 +1502,7 @@ export const SettingsView: React.FC = () => {
                 <span>Verify Library & Clean Missing Files</span>
               </div>
               <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                Scans all indexed file paths in the database and prunes stale records for audio/video files that were moved, deleted, renamed, or located within excluded folders.
+                Scans database and removes records for moved or deleted files.
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -1548,7 +1544,7 @@ export const SettingsView: React.FC = () => {
                 <span>Re-cache Album Artwork</span>
               </div>
               <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                Re-extracts embedded cover art for all indexed albums and saves high-performance webp thumbnails to app cache.
+                Extracts cover art and updates thumbnail cache.
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -1612,7 +1608,7 @@ export const SettingsView: React.FC = () => {
                 <span>Re-generate Audio Waveforms</span>
               </div>
               <div className="text-[11px] text-[var(--text-muted)] mt-1">
-                Re-analyzes audio tracks and creates 128-sample visual amplitude peak curves for accurate track scrubbing.
+                Re-analyzes audio tracks to update player waveform data.
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -1675,7 +1671,7 @@ export const SettingsView: React.FC = () => {
               <span>Duplicate File Cleaner</span>
             </div>
             <div className="text-[11px] text-[var(--text-muted)] mt-1">
-              Finds identical audio files indexed across multiple drives, folders, or formats and lets you prune unwanted duplicates.
+              Scans library and removes duplicate audio files.
             </div>
           </div>
           <button
@@ -1715,7 +1711,7 @@ export const SettingsView: React.FC = () => {
                   )}
                 </div>
                 <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                  Broadcasts your current song title, artist, album, live playback timer, and play/pause status to your Discord profile.
+                  Shows currently playing song on your Discord profile.
                 </div>
               </div>
             </div>
@@ -1740,7 +1736,7 @@ export const SettingsView: React.FC = () => {
               <div>
                 <div className="font-semibold text-xs text-[var(--text-primary)]">Include "Get Purrsonica" Button</div>
                 <div className="text-[11px] text-[var(--text-muted)]">
-                  Displays an action button on your Discord status linking to the Purrsonica repository.
+                  Adds a button on Discord linking to Purrsonica.
                 </div>
               </div>
               <button
@@ -1850,8 +1846,8 @@ export const SettingsView: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-[var(--text-muted)] max-w-xl mt-0.5">
-                  Receive all pre-release builds—including Beta, Pre-Release, Alpha, Release Candidates (RC), and Canary builds—to test new features early. Turn off at any time to return to the official stable release channel.
+                <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                  Receive Beta, Pre-Release, Alpha, and RC test builds early.
                 </div>
               </div>
             </div>
@@ -2078,7 +2074,7 @@ export const SettingsView: React.FC = () => {
           <div className="pr-4">
             <div className="font-bold text-xs text-[var(--text-primary)]">Clear Artwork Cache</div>
             <div className="text-[11px] text-[var(--text-muted)]">
-              Deletes all cached album art thumbnails to reclaim storage. Artwork will re-cache on demand.
+              Deletes cached album art thumbnails to free disk space.
             </div>
           </div>
           <button
@@ -2095,7 +2091,7 @@ export const SettingsView: React.FC = () => {
           <div className="pr-4">
             <div className="font-bold text-xs text-[var(--text-primary)]">Wipe Library Index</div>
             <div className="text-[11px] text-[var(--text-muted)]">
-              Removes all scanned tracks and albums from SQLite. Your local files and custom playlists remain safe.
+              Clears the library database without deleting files.
             </div>
           </div>
 
@@ -2133,7 +2129,7 @@ export const SettingsView: React.FC = () => {
               <span>Factory Reset Purrsonica</span>
             </div>
             <div className="text-[11px] text-[var(--text-muted)]">
-              Permanently wipes all indexed tracks, playlists, favorites, custom metadata tags, and settings.
+              Resets database, playlists, and settings to factory defaults.
             </div>
           </div>
 
@@ -2171,37 +2167,37 @@ export const SettingsView: React.FC = () => {
     const currentTabInfo = {
       appearance: {
         title: 'Appearance & Theme',
-        description: 'Personalize themes, accent colors, artwork contrast, and desktop styling',
+        description: 'Themes, accent colors, and player styling',
         icon: Palette,
       },
       library: {
         title: 'Library & Audio Engine',
-        description: 'Folder scanning paths, media formats, gapless playback, and exclusions',
+        description: 'Scan paths, formats, and audio playback',
         icon: Music,
       },
       dj: {
         title: 'Purrsonica DJ Suite',
-        description: 'CDJ cue buttons, BPM sync engine, beat loopers, harmonic key detection, and filters',
+        description: 'BPM sync, CUE points, loopers, and filters',
         icon: Radio,
       },
       maintenance: {
         title: 'Storage & Maintenance',
-        description: 'Missing file verification, cover artwork caching, waveform pre-generation, and harmonic key analysis',
+        description: 'Artwork cache, waveforms, and library health',
         icon: Database,
       },
       system: {
         title: 'System & Updates',
-        description: 'Discord Rich Presence, pre-release update channels, and release changelogs',
+        description: 'Discord RPC, update channels, and changelogs',
         icon: Info,
       },
       danger: {
         title: 'Danger Zone',
-        description: 'Artwork cache purge, library wipe, and complete factory reset',
+        description: 'Reset settings and wipe local database',
         icon: Flame,
       },
     }[activeSettingsTab] || {
       title: 'Settings',
-      description: 'Configure Purrsonica preferences, scanning rules, and storage',
+      description: 'Preferences, audio engine, and maintenance',
       icon: SettingsIcon,
     };
 

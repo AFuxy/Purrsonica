@@ -9,11 +9,31 @@ import { initAutoUpdater } from './updater.js';
 import { initDiscordRpc, destroyDiscordRpc } from './discord.js';
 import { registerGlobalMediaShortcuts, unregisterGlobalMediaShortcuts } from './mediaKeys.js';
 import { parseFile } from 'music-metadata';
+import { showSplashWindow, closeSplashWindow } from './splash.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
+
+// Prevent Windows Chromium disk cache file locking collisions (cache_util_win.cc Access is denied 0x5)
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+app.commandLine.appendSwitch('disable-http-cache');
+
+// Ensure single instance lock in production so two instances never contend for cache or database locks
+if (app.isPackaged) {
+  const hasSingleInstanceLock = app.requestSingleInstanceLock();
+  if (!hasSingleInstanceLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    });
+  }
+}
 
 // Register privileged custom protocols before app is ready
 protocol.registerSchemesAsPrivileged([
@@ -335,6 +355,7 @@ function createWindow(): void {
     trafficLightPosition: process.platform === 'darwin' ? { x: 14, y: 14 } : undefined,
     backgroundColor: '#121212',
     icon: defaultIcon,
+    show: false,
     webPreferences: {
       preload: preloadScript,
       nodeIntegration: false,
@@ -360,6 +381,18 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
 
+  // Smooth splash screen transition with safety timeout
+  const safetyTimeout = setTimeout(() => {
+    closeSplashWindow(mainWindow);
+  }, 4000);
+
+  mainWindow.once('ready-to-show', () => {
+    clearTimeout(safetyTimeout);
+    setTimeout(() => {
+      closeSplashWindow(mainWindow);
+    }, 1200);
+  });
+
   mainWindow.on('closed', () => {
     unregisterGlobalMediaShortcuts();
     mainWindow = null;
@@ -367,6 +400,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  showSplashWindow();
   initDatabase();
   registerStreamingProtocols();
   initDiscordRpc();

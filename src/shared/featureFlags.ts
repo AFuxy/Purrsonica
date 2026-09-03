@@ -65,7 +65,7 @@ export const FEATURE_FLAGS: Record<string, FeatureFlagDefinition> = {
   SETTINGS_TABBED_LAYOUT: {
     id: 'SETTINGS_TABBED_LAYOUT',
     name: 'Settings Navigation Mode',
-    description: 'Configures how Settings are organized: Off (classic single-page continuous scroll), Tabs (two-column layout with in-page navigation rail), or Submenu (sidebar expandable sub-menus).',
+    description: 'Choose layout: continuous page, in-page tabs, or sidebar submenu.',
     category: 'ui',
     stage: 'beta',
     type: 'select',
@@ -74,17 +74,17 @@ export const FEATURE_FLAGS: Record<string, FeatureFlagDefinition> = {
       {
         value: 'off',
         label: 'Off (Single Page)',
-        description: 'Classic single continuous scrolling settings page containing all sections.',
+        description: 'All sections in one continuous page.',
       },
       {
         value: 'tabs',
         label: 'Tabs (In-Page Rail)',
-        description: 'Two-column layout with vertical tab navigation rail inside the Settings page.',
+        description: 'Two-column layout with vertical tab rail.',
       },
       {
         value: 'submenu',
         label: 'Submenu (Sidebar Items)',
-        description: 'Collapsible sub-menu items directly under Settings in the main sidebar, keeping the settings view clean and spacious.',
+        description: 'Submenu items directly in the sidebar.',
       },
     ],
     createdDate: '2026-09-02',
