@@ -162,19 +162,11 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
   };
 
   const handlePrevious = () => {
-    if (isMobileActive && mobilePlaybackState) {
-      sendRemoteCommand({ type: 'previous' }, mobilePlaybackState.deviceId);
-    } else {
-      playPrevious();
-    }
+    playPrevious();
   };
 
   const handleNext = () => {
-    if (isMobileActive && mobilePlaybackState) {
-      sendRemoteCommand({ type: 'next' }, mobilePlaybackState.deviceId);
-    } else {
-      playNext();
-    }
+    playNext();
   };
 
   const handleTakeOverOnPC = () => {

@@ -213,10 +213,21 @@ export function getAlbumsSummary(): Album[] {
     name: r.name,
     artist: r.artist,
     cover_art_path: r.cover_art_path,
+    has_cover: !!r.cover_art_path,
     year: r.year,
     track_count: r.track_count,
     is_custom: false,
   }));
+}
+
+export function getAlbumCoverPath(albumName: string): string | null {
+  const db = getDB();
+  const row = db
+    .prepare(
+      `SELECT cover_art_path FROM tracks WHERE TRIM(LOWER(album)) = TRIM(LOWER(?)) AND cover_art_path IS NOT NULL AND cover_art_path != '' LIMIT 1`
+    )
+    .get(albumName) as { cover_art_path?: string } | undefined;
+  return row?.cover_art_path || null;
 }
 
 export function getPlaylists(): Playlist[] {

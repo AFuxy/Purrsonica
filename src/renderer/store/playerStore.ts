@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Track } from '../../shared/types.js';
-import { useCompanionStore } from './companionStore.js';
+import { useCompanionStore, registerPlayerStoreSync } from './companionStore.js';
+
+let getLibraryTracksFallback: (() => Track[]) | null = null;
+export function registerLibraryTracksFallback(fn: () => Track[]) {
+  getLibraryTracksFallback = fn;
+}
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -123,13 +128,33 @@ export const usePlayerStore = create<PlayerState>()(
         lastReceivedAt: Date.now(),
       });
 
-      // Keep desktop audio silent
-      set({ isPlaying: false });
+      const state = get();
+      const history = state.currentTrack
+        ? [state.currentTrack, ...state.history.slice(0, 50)]
+        : state.history;
 
+      let queue = state.queue;
       if (newQueue) {
         const index = newQueue.findIndex((t) => t.id === track.id);
-        const queue = index !== -1 ? newQueue.slice(index + 1) : newQueue;
-        set({ queue });
+        queue = index !== -1 ? newQueue.slice(index + 1) : newQueue;
+      } else {
+        const index = queue.findIndex((t) => t.id === track.id);
+        if (index !== -1) {
+          queue = queue.slice(index + 1);
+        }
+      }
+
+      set({
+        currentTrack: track,
+        duration: track.duration || 0,
+        currentTime: 0,
+        isPlaying: false, // Desktop audio stays silent
+        queue,
+        history,
+      });
+
+      if (window.api) {
+        window.api.incrementPlayCount(track.id);
       }
       return;
     }
@@ -230,76 +255,210 @@ export const usePlayerStore = create<PlayerState>()(
   },
 
   playNext: () => {
-    const { queue, repeatMode, currentTrack, history } = get();
+    const { queue, repeatMode, currentTrack, history, isShuffle } = get();
+    const companionStore = useCompanionStore.getState();
+    const mobileState = companionStore.mobilePlaybackState;
+    const activeDevice = companionStore.devices.find((d) => d.is_active);
+    const targetDeviceId = mobileState?.deviceId || activeDevice?.id;
+    const isMobileInCharge =
+      companionStore.playbackTarget === 'remote_mobile' && Boolean(targetDeviceId);
+
+    let nextTrack: Track | null = null;
+    let nextQueue: Track[] = queue;
+    let nextHistory: Track[] = currentTrack ? [currentTrack, ...history.slice(0, 50)] : history;
 
     if (queue.length > 0) {
-      const nextTrack = queue[0];
-      const nextQueue = queue.slice(1);
-      const nextHistory = currentTrack ? [currentTrack, ...history] : history;
+      nextTrack = queue[0];
+      nextQueue = queue.slice(1);
+    } else if (repeatMode === 'all') {
+      const fullHistory = currentTrack ? [currentTrack, ...history] : history;
+      if (fullHistory.length > 0) {
+        const reversedHistory = [...fullHistory].reverse();
+        nextTrack = reversedHistory[0];
+        nextQueue = reversedHistory.slice(1);
+        nextHistory = [];
+      }
+    } else if (repeatMode === 'one' && currentTrack) {
+      nextTrack = currentTrack;
+    } else {
+      // If queue is empty, resolve next track from current active view tracks
+      const libTracks = getLibraryTracksFallback?.() || [];
+      if (libTracks.length > 0) {
+        if (isShuffle) {
+          const pool = currentTrack ? libTracks.filter((t) => t.id !== currentTrack.id) : libTracks;
+          if (pool.length > 0) {
+            nextTrack = pool[Math.floor(Math.random() * pool.length)];
+          }
+        } else if (currentTrack) {
+          const curIdx = libTracks.findIndex((t) => t.id === currentTrack.id);
+          if (curIdx !== -1 && curIdx + 1 < libTracks.length) {
+            nextTrack = libTracks[curIdx + 1];
+            nextQueue = libTracks.slice(curIdx + 2);
+          } else if ((repeatMode as string) === 'all') {
+            nextTrack = libTracks[0];
+            nextQueue = libTracks.slice(1);
+          }
+        }
+      }
+    }
 
-      set({
-        currentTrack: nextTrack,
-        queue: nextQueue,
-        history: nextHistory,
-        currentTime: 0,
-        isPlaying: true,
-        isVideoModalOpen: nextTrack.media_type === 'video',
-      });
+    if (nextTrack) {
+      if (isMobileInCharge && targetDeviceId) {
+        set({
+          currentTrack: nextTrack,
+          queue: nextQueue,
+          history: nextHistory,
+          currentTime: 0,
+          duration: nextTrack.duration || 0,
+          isPlaying: false, // Keep desktop audio silent
+        });
+
+        companionStore.sendRemoteCommand(
+          {
+            type: 'playTrack',
+            trackId: nextTrack.id,
+            position: 0,
+            title: nextTrack.title,
+            artist: nextTrack.artist,
+            album: nextTrack.album,
+            duration: nextTrack.duration,
+          } as any,
+          targetDeviceId
+        );
+
+        companionStore.setMobilePlaybackState({
+          deviceId: targetDeviceId,
+          deviceName: mobileState?.deviceName || activeDevice?.name || 'Mobile Companion',
+          trackId: nextTrack.id,
+          trackTitle: nextTrack.title || nextTrack.file_name,
+          trackArtist: nextTrack.artist,
+          artist: nextTrack.artist,
+          album: nextTrack.album || undefined,
+          duration: nextTrack.duration || 0,
+          currentTime: 0,
+          cover_art_path: nextTrack.cover_art_path || undefined,
+          isPlaying: true,
+          lastReceivedAt: Date.now(),
+        });
+      } else {
+        set({
+          currentTrack: nextTrack,
+          queue: nextQueue,
+          history: nextHistory,
+          currentTime: 0,
+          duration: nextTrack.duration || 0,
+          isPlaying: true,
+          isVideoModalOpen: nextTrack.media_type === 'video',
+        });
+      }
 
       if (window.api) {
         window.api.incrementPlayCount(nextTrack.id);
       }
-    } else if (repeatMode === 'all') {
-      // Loop back entire playback history plus the current track
-      const fullHistory = currentTrack ? [currentTrack, ...history] : history;
-      if (fullHistory.length > 0) {
-        const reversedHistory = [...fullHistory].reverse();
-        const first = reversedHistory[0];
-        const rest = reversedHistory.slice(1);
-
-        set({
-          currentTrack: first,
-          queue: rest,
-          history: [],
-          currentTime: 0,
-          isPlaying: true,
-          isVideoModalOpen: first.media_type === 'video',
-        });
-
-        if (window.api) {
-          window.api.incrementPlayCount(first.id);
-        }
-      } else {
-        set({ isPlaying: false, currentTime: 0 });
-      }
-    } else if (repeatMode === 'one' && currentTrack) {
-      set({ currentTime: 0, isPlaying: true });
     } else {
+      if (isMobileInCharge && targetDeviceId) {
+        companionStore.sendRemoteCommand({ type: 'pause' }, targetDeviceId);
+        if (mobileState) {
+          companionStore.setMobilePlaybackState({
+            ...mobileState,
+            isPlaying: false,
+          });
+        }
+      }
       set({ isPlaying: false, currentTime: 0 });
     }
   },
 
   playPrevious: () => {
     const { currentTime, history, currentTrack, queue } = get();
+    const companionStore = useCompanionStore.getState();
+    const mobileState = companionStore.mobilePlaybackState;
+    const activeDevice = companionStore.devices.find((d) => d.is_active);
+    const targetDeviceId = mobileState?.deviceId || activeDevice?.id;
+    const isMobileInCharge =
+      companionStore.playbackTarget === 'remote_mobile' && Boolean(targetDeviceId);
 
     // If played more than 3 seconds, replay from start of current track
-    if (currentTime > 3 || history.length === 0) {
+    if (currentTime > 3) {
+      if (isMobileInCharge && targetDeviceId) {
+        companionStore.sendRemoteCommand({ type: 'seek', position: 0 }, targetDeviceId);
+      }
       set({ currentTime: 0 });
       return;
     }
 
-    const prevTrack = history[0];
-    const newHistory = history.slice(1);
-    const newQueue = currentTrack ? [currentTrack, ...queue] : queue;
+    let prevTrack: Track | null = null;
+    let nextHistory = history;
+    let nextQueue = currentTrack ? [currentTrack, ...queue] : queue;
 
-    set({
-      currentTrack: prevTrack,
-      history: newHistory,
-      queue: newQueue,
-      currentTime: 0,
-      isPlaying: true,
-      isVideoModalOpen: prevTrack.media_type === 'video',
-    });
+    if (history.length > 0) {
+      prevTrack = history[0];
+      nextHistory = history.slice(1);
+    } else {
+      const libTracks = getLibraryTracksFallback?.() || [];
+      if (currentTrack && libTracks.length > 0) {
+        const curIdx = libTracks.findIndex((t) => t.id === currentTrack.id);
+        if (curIdx > 0) {
+          prevTrack = libTracks[curIdx - 1];
+        }
+      }
+    }
+
+    if (prevTrack) {
+      if (isMobileInCharge && targetDeviceId) {
+        set({
+          currentTrack: prevTrack,
+          history: nextHistory,
+          queue: nextQueue,
+          currentTime: 0,
+          duration: prevTrack.duration || 0,
+          isPlaying: false,
+        });
+
+        companionStore.sendRemoteCommand(
+          {
+            type: 'playTrack',
+            trackId: prevTrack.id,
+            position: 0,
+            title: prevTrack.title,
+            artist: prevTrack.artist,
+            album: prevTrack.album,
+            duration: prevTrack.duration,
+          } as any,
+          targetDeviceId
+        );
+
+        companionStore.setMobilePlaybackState({
+          deviceId: targetDeviceId,
+          deviceName: mobileState?.deviceName || activeDevice?.name || 'Mobile Companion',
+          trackId: prevTrack.id,
+          trackTitle: prevTrack.title || prevTrack.file_name,
+          trackArtist: prevTrack.artist,
+          artist: prevTrack.artist,
+          album: prevTrack.album || undefined,
+          duration: prevTrack.duration || 0,
+          currentTime: 0,
+          cover_art_path: prevTrack.cover_art_path || undefined,
+          isPlaying: true,
+          lastReceivedAt: Date.now(),
+        });
+      } else {
+        set({
+          currentTrack: prevTrack,
+          history: nextHistory,
+          queue: nextQueue,
+          currentTime: 0,
+          duration: prevTrack.duration || 0,
+          isPlaying: true,
+          isVideoModalOpen: prevTrack.media_type === 'video',
+        });
+      }
+    } else {
+      if (isMobileInCharge && targetDeviceId) {
+        companionStore.sendRemoteCommand({ type: 'seek', position: 0 }, targetDeviceId);
+      }
+      set({ currentTime: 0 });
+    }
   },
 
   addToQueue: (track: Track) => {
@@ -368,3 +527,77 @@ export const usePlayerStore = create<PlayerState>()(
     }
   )
 );
+
+registerPlayerStoreSync(async (state) => {
+  if (!state.trackId) return;
+
+  const player = usePlayerStore.getState();
+  const targetId = state.trackId;
+
+  if (player.currentTrack?.id === targetId) {
+    usePlayerStore.setState({
+      currentTime: state.currentTime,
+      duration: state.duration || player.duration,
+    });
+    return;
+  }
+
+  let fullTrack: Track | null = null;
+  const libTracks = getLibraryTracksFallback?.() || [];
+  fullTrack = libTracks.find((t) => t.id === targetId) || null;
+
+  if (!fullTrack && window.api?.getTrackById) {
+    try {
+      fullTrack = await window.api.getTrackById(targetId);
+    } catch {}
+  }
+
+  if (!fullTrack) {
+    fullTrack = {
+      id: targetId,
+      title: state.trackTitle || 'Streaming Track',
+      artist: state.trackArtist || state.artist || 'Unknown Artist',
+      album: state.album || '',
+      duration: state.duration || 0,
+      cover_art_path: state.cover_art_path || undefined,
+      file_name: state.trackTitle || '',
+      file_path: '',
+      drive_letter: '',
+      file_size: 0,
+      format: 'mp3',
+      mtime: Date.now(),
+      is_custom_metadata: false,
+      play_count: 0,
+      is_liked: false,
+      media_type: 'audio',
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    };
+  }
+
+  let currentQueue = player.queue;
+  const idxInQueue = currentQueue.findIndex((t) => t.id === targetId);
+  if (idxInQueue !== -1) {
+    currentQueue = currentQueue.slice(idxInQueue + 1);
+  } else if (currentQueue.length === 0 && libTracks.length > 0) {
+    const idxInLib = libTracks.findIndex((t) => t.id === targetId);
+    if (idxInLib !== -1) {
+      currentQueue = libTracks.slice(idxInLib + 1);
+    }
+  }
+
+  const history = player.currentTrack
+    ? [player.currentTrack, ...player.history.slice(0, 50)]
+    : player.history;
+
+  const finalTrack: Track = fullTrack!;
+  usePlayerStore.setState({
+    currentTrack: finalTrack,
+    queue: currentQueue,
+    history,
+    duration: state.duration || finalTrack.duration || 0,
+    currentTime: state.currentTime || 0,
+    isPlaying: false,
+  });
+});
+

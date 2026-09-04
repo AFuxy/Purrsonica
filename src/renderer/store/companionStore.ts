@@ -132,6 +132,7 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
           },
           ...(state.isPlaying ? { playbackTarget: 'remote_mobile' } : {}),
         });
+        playerStoreSyncCallback?.(state);
       } else {
         set({ mobilePlaybackState: null });
       }
@@ -149,3 +150,8 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
     };
   },
 }));
+
+let playerStoreSyncCallback: ((state: MobilePlaybackState) => void) | null = null;
+export function registerPlayerStoreSync(cb: (state: MobilePlaybackState) => void) {
+  playerStoreSyncCallback = cb;
+}

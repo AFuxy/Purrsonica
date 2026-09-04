@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Track, DriveInfo, Album, Playlist, LibraryStats } from '../../shared/types.js';
-import { usePlayerStore } from './playerStore.js';
+import { usePlayerStore, registerLibraryTracksFallback } from './playerStore.js';
 
 export type LibraryViewType =
   | 'all'
@@ -693,3 +693,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }
   },
 }));
+
+registerLibraryTracksFallback(() => useLibraryStore.getState().tracks);
+

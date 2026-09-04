@@ -38,6 +38,7 @@ export interface Album {
   name: string;
   artist: string;
   cover_art_path?: string;
+  has_cover?: boolean;
   year?: number;
   track_count: number;
   is_custom: boolean;

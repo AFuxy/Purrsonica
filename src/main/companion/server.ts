@@ -18,6 +18,8 @@ import {
   setAllCompanionDevicesInactive,
   deleteCompanionDevice,
   getScanSettings,
+  getAlbumsSummary,
+  getAlbumCoverPath,
 } from '../db/queries.js';
 import {
   CompanionDevice,
@@ -412,7 +414,7 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse):
       isLiked,
       limit,
       offset,
-      sortBy: 'title',
+      sortBy: album ? 'track_number' : 'title',
       sortOrder: 'ASC',
     });
 
@@ -423,6 +425,7 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse):
       artist: t.artist,
       album: t.album,
       duration: t.duration,
+      track_number: t.track_number || undefined,
       bpm: t.bpm,
       musical_key: t.musical_key,
       camelot_key: t.camelot_key,
@@ -443,6 +446,37 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse):
     const playlists = getPlaylists();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ playlists }));
+    return;
+  }
+
+  // --- Library Albums Query ---
+  if (pathname === '/api/v1/library/albums' && req.method === 'GET') {
+    const albums = getAlbumsSummary();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ albums }));
+    return;
+  }
+
+  // --- Album Artwork Endpoint ---
+  if (pathname.startsWith('/api/v1/art/album/') && req.method === 'GET') {
+    const rawAlbum = pathname.replace('/api/v1/art/album/', '').trim();
+    const albumName = decodeURIComponent(rawAlbum);
+    const coverPath = getAlbumCoverPath(albumName);
+
+    if (coverPath && fs.existsSync(coverPath)) {
+      const ext = path.extname(coverPath).toLowerCase();
+      const mime = ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg';
+
+      res.writeHead(200, {
+        'Content-Type': mime,
+        'Cache-Control': 'public, max-age=86400, immutable',
+      });
+      fs.createReadStream(coverPath).pipe(res);
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Album cover art not found');
     return;
   }
 
