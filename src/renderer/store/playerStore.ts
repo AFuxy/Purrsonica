@@ -80,50 +80,64 @@ export const usePlayerStore = create<PlayerState>()(
   },
 
   setTrack: (track: Track, newQueue?: Track[], forceDesktop = false) => {
-    // Check if phone is in charge
-    if (!forceDesktop) {
-      const companionState = useCompanionStore.getState();
-      const mobileState = companionState.mobilePlaybackState;
-      // Phone is in charge if desktop is not currently playing and phone has an active session
-      const isMobileInCharge = Boolean(
-        !get().isPlaying && mobileState?.deviceId && (mobileState.isPlaying || mobileState.trackId)
+    const companionStore = useCompanionStore.getState();
+    const mobileState = companionStore.mobilePlaybackState;
+    const activeDevice = companionStore.devices.find((d) => d.is_active);
+    const targetDeviceId = mobileState?.deviceId || activeDevice?.id;
+
+    // Check if phone is in charge:
+    // When playbackTarget is 'remote_mobile' or mobile is playing, route playback to mobile phone
+    const isMobileInCharge =
+      !forceDesktop &&
+      Boolean(targetDeviceId) &&
+      (companionStore.playbackTarget === 'remote_mobile' ||
+        (!get().isPlaying && Boolean(mobileState?.isPlaying)));
+
+    if (isMobileInCharge && targetDeviceId) {
+      companionStore.setPlaybackTarget('remote_mobile');
+      companionStore.sendRemoteCommand(
+        {
+          type: 'playTrack',
+          trackId: track.id,
+          position: 0,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          duration: track.duration,
+        } as any,
+        targetDeviceId
       );
 
-      if (isMobileInCharge && mobileState?.deviceId) {
-        companionState.sendRemoteCommand(
-          {
-            type: 'playTrack',
-            trackId: track.id,
-            position: 0,
-            title: track.title,
-            artist: track.artist,
-            album: track.album,
-            duration: track.duration,
-          } as any,
-          mobileState.deviceId
-        );
+      companionStore.setMobilePlaybackState({
+        deviceId: targetDeviceId,
+        deviceName: mobileState?.deviceName || activeDevice?.name || 'Mobile Companion',
+        trackId: track.id,
+        trackTitle: track.title || track.file_name,
+        trackArtist: track.artist,
+        artist: track.artist,
+        album: track.album || undefined,
+        duration: track.duration || 0,
+        currentTime: 0,
+        cover_art_path: track.cover_art_path || undefined,
+        isPlaying: true,
+        lastReceivedAt: Date.now(),
+      });
 
-        companionState.setMobilePlaybackState({
-          ...mobileState,
-          trackId: track.id,
-          trackTitle: track.title || track.file_name,
-          trackArtist: track.artist,
-          artist: track.artist,
-          album: track.album || undefined,
-          duration: track.duration || 0,
-          currentTime: 0,
-          cover_art_path: track.cover_art_path || undefined,
-          isPlaying: true,
-          lastReceivedAt: Date.now(),
-        });
+      // Keep desktop audio silent
+      set({ isPlaying: false });
 
-        if (newQueue) {
-          const index = newQueue.findIndex((t) => t.id === track.id);
-          const queue = index !== -1 ? newQueue.slice(index + 1) : newQueue;
-          set({ queue });
-        }
-        return;
+      if (newQueue) {
+        const index = newQueue.findIndex((t) => t.id === track.id);
+        const queue = index !== -1 ? newQueue.slice(index + 1) : newQueue;
+        set({ queue });
       }
+      return;
+    }
+
+    // Otherwise, playing locally on desktop:
+    companionStore.setPlaybackTarget('desktop');
+    if (mobileState?.isPlaying) {
+      companionStore.sendRemoteCommand({ type: 'pause' }, targetDeviceId);
     }
 
     const state = get();

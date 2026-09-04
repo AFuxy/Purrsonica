@@ -126,6 +126,14 @@ export const useThemeStore = create<ThemeState>((set, get) => {
         logoPath: theme === 'dark' ? './PurrSonica-White.png' : './PurrSonica-Black.png',
         iconPath: theme === 'dark' ? './PurrSonica-White-logo.png' : './PurrSonica-Black-logo.png',
       });
+
+      if (window.api?.broadcastCompanionTheme) {
+        window.api.broadcastCompanionTheme({
+          accentColor: get().accentColor,
+          accentPreset: get().accentPreset,
+          theme,
+        });
+      }
     },
     toggleTheme: () => {
       const next = get().theme === 'dark' ? 'light' : 'dark';
@@ -143,6 +151,14 @@ export const useThemeStore = create<ThemeState>((set, get) => {
         accentColor: validHex,
         accentPreset: presetId,
       });
+
+      if (window.api?.broadcastCompanionTheme) {
+        window.api.broadcastCompanionTheme({
+          accentColor: validHex,
+          accentPreset: presetId,
+          theme: get().theme,
+        });
+      }
     },
   };
 });

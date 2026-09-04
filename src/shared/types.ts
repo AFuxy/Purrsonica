@@ -254,4 +254,7 @@ export interface MobilePlaybackState {
   lastReceivedAt?: number;
 }
 
+export type PlaybackTarget = 'desktop' | 'remote_mobile';
+
+
 

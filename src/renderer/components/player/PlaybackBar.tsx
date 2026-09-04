@@ -63,11 +63,21 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
   const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail, tracks } = useLibraryStore();
   const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
   const { isDeckExpanded, toggleDeckExpanded, pitchPercent } = useDjStore();
-  const { devices, mobilePlaybackState, openPairingModal, sendRemoteCommand } = useCompanionStore();
+  const {
+    devices,
+    mobilePlaybackState,
+    playbackTarget,
+    setPlaybackTarget,
+    openPairingModal,
+    sendRemoteCommand,
+    setMobilePlaybackState,
+  } = useCompanionStore();
   const activeCompanionCount = devices.filter((d) => d.is_active).length;
 
   // Track if mobile playback is actively playing or paused with a track loaded
-  const isMobileActive = Boolean(!isPlaying && mobilePlaybackState?.trackId);
+  const isMobileActive = Boolean(
+    (playbackTarget === 'remote_mobile' || !isPlaying) && mobilePlaybackState?.trackId
+  );
 
   // Resolve full Track object for the track currently streaming on mobile
   const [resolvedMobileTrack, setResolvedMobileTrack] = useState<Track | null>(null);
@@ -170,9 +180,16 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
   const handleTakeOverOnPC = () => {
     if (!mobilePlaybackState?.trackId) return;
     sendRemoteCommand({ type: 'pause' }, mobilePlaybackState.deviceId);
+    setPlaybackTarget('desktop');
+    if (mobilePlaybackState) {
+      setMobilePlaybackState({
+        ...mobilePlaybackState,
+        isPlaying: false,
+      });
+    }
     const track = resolvedMobileTrack || tracks.find((t) => t.id === mobilePlaybackState.trackId);
     if (track) {
-      usePlayerStore.getState().playTrack(track);
+      usePlayerStore.getState().playTrack(track, true);
       const pos = smoothMobileTime;
       if (pos > 0) {
         setTimeout(() => {
@@ -180,6 +197,43 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
         }, 200);
       }
     }
+  };
+
+  const handleTransferToPhone = () => {
+    if (!currentTrack) return;
+    const activeDevice = devices.find((d) => d.is_active);
+    if (!activeDevice) return;
+
+    usePlayerStore.getState().setIsPlaying(false);
+    setPlaybackTarget('remote_mobile');
+
+    sendRemoteCommand(
+      {
+        type: 'playTrack',
+        trackId: currentTrack.id,
+        position: Math.round(currentTime),
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: currentTrack.album,
+        duration: currentTrack.duration,
+      } as any,
+      activeDevice.id
+    );
+
+    setMobilePlaybackState({
+      deviceId: activeDevice.id,
+      deviceName: activeDevice.name,
+      trackId: currentTrack.id,
+      trackTitle: currentTrack.title || currentTrack.file_name,
+      trackArtist: currentTrack.artist,
+      artist: currentTrack.artist,
+      album: currentTrack.album || undefined,
+      duration: currentTrack.duration || 0,
+      currentTime: Math.round(currentTime),
+      cover_art_path: currentTrack.cover_art_path || undefined,
+      isPlaying: true,
+      lastReceivedAt: Date.now(),
+    });
   };
 
   const coverUrl = currentTrack?.cover_art_path && window.api
@@ -561,6 +615,18 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
         >
           <ListMusic className="w-4 h-4" />
         </button>
+
+        {/* Send Playback to Phone Button */}
+        {activeCompanionCount > 0 && currentTrack && !isMobileActive && (
+          <button
+            onClick={handleTransferToPhone}
+            className="p-1.5 rounded-md transition-colors text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 flex items-center gap-1 cursor-pointer"
+            title="Transfer playback to connected mobile phone"
+          >
+            <Smartphone className="w-4 h-4 text-emerald-400" />
+            <span className="hidden 2xl:inline text-[10px] font-mono font-bold">TO PHONE</span>
+          </button>
+        )}
 
         {/* Mobile Companion Devices Indicator */}
         <button

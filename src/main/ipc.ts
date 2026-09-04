@@ -46,6 +46,7 @@ import {
   sendCommandToCompanion,
   disconnectCompanionDevice,
   revokeCompanionDevice,
+  setLatestCompanionTheme,
 } from './companion/server.js';
 import {
   startScan,
@@ -493,6 +494,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('companion:broadcastPlaybackState', (_event, state: any) => {
     broadcastToCompanions('DESKTOP_PLAYBACK_STATE', state);
+  });
+
+  ipcMain.handle('companion:broadcastTheme', (_event, themeData: any) => {
+    setLatestCompanionTheme(themeData);
   });
 
   ipcMain.handle('companion:sendRemoteCommand', (_event, cmd: any, deviceId?: string) => {

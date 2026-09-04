@@ -3,6 +3,7 @@ import {
   CompanionDevice,
   CompanionServerStatus,
   MobilePlaybackState,
+  PlaybackTarget,
 } from '../../shared/types.js';
 
 interface CompanionStoreState {
@@ -10,6 +11,7 @@ interface CompanionStoreState {
   devices: CompanionDevice[];
   isPairingModalOpen: boolean;
   mobilePlaybackState: MobilePlaybackState | null;
+  playbackTarget: PlaybackTarget;
 
   // Actions
   fetchStatus: () => Promise<void>;
@@ -19,6 +21,7 @@ interface CompanionStoreState {
   disconnectDevice: (id: string) => Promise<boolean>;
   revokeDevice: (id: string) => Promise<boolean>;
   sendRemoteCommand: (cmd: any, deviceId?: string) => Promise<boolean>;
+  setPlaybackTarget: (target: PlaybackTarget) => void;
   setMobilePlaybackState: (state: MobilePlaybackState | null) => void;
   initCompanionListeners: () => () => void;
 }
@@ -28,6 +31,7 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
   devices: [],
   isPairingModalOpen: false,
   mobilePlaybackState: null,
+  playbackTarget: 'desktop',
 
   fetchStatus: async () => {
     if (!window.api?.getCompanionStatus) return;
@@ -88,6 +92,8 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
     }
   },
 
+  setPlaybackTarget: (target) => set({ playbackTarget: target }),
+
   setMobilePlaybackState: (state) => set({ mobilePlaybackState: state }),
 
   initCompanionListeners: () => {
@@ -112,7 +118,7 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
       get().fetchDevices();
       get().fetchStatus();
       if (get().mobilePlaybackState?.deviceId === device.id) {
-        set({ mobilePlaybackState: null });
+        set({ mobilePlaybackState: null, playbackTarget: 'desktop' });
       }
     });
 
@@ -124,6 +130,7 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
             ...state,
             lastReceivedAt: Date.now(),
           },
+          ...(state.isPlaying ? { playbackTarget: 'remote_mobile' } : {}),
         });
       } else {
         set({ mobilePlaybackState: null });

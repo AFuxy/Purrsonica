@@ -20,6 +20,7 @@ import { useDiscordRpc } from './hooks/useDiscordRpc.js';
 import { getReleaseTag } from './data/changelogs.js';
 import { CompanionPairingModal } from './components/modals/CompanionPairingModal.js';
 import { useCompanionStore } from './store/companionStore.js';
+import { useThemeStore } from './store/themeStore.js';
 
 export const App: React.FC = () => {
   const { seekTo } = useAudioPlayer();
@@ -221,9 +222,10 @@ export const App: React.FC = () => {
       } else if (cmd.type === 'setVolume' && typeof cmd.volume === 'number') {
         usePlayerStore.getState().setVolume(cmd.volume);
       } else if (cmd.type === 'playTrack' && cmd.trackId) {
+        useCompanionStore.getState().setPlaybackTarget('desktop');
         window.api?.getTrackById?.(cmd.trackId)?.then((tr) => {
           if (tr) {
-            usePlayerStore.getState().playTrack(tr);
+            usePlayerStore.getState().playTrack(tr, true);
             if (typeof cmd.position === 'number' && cmd.position > 0) {
               setTimeout(() => {
                 seekTo(cmd.position!);
@@ -237,6 +239,13 @@ export const App: React.FC = () => {
       if (unsubscribe) unsubscribe();
     };
   }, [togglePlay, playNext, playPrevious, seekTo]);
+
+  // Broadcast Desktop Theme to Connected Mobile Companion Devices on mount
+  useEffect(() => {
+    if (!window.api?.broadcastCompanionTheme) return;
+    const { accentColor, accentPreset, theme } = useThemeStore.getState();
+    window.api.broadcastCompanionTheme({ accentColor, accentPreset, theme });
+  }, []);
 
   // Broadcast Desktop Playback State to Connected Mobile Companion Devices
   useEffect(() => {

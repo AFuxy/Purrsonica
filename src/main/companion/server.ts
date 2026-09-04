@@ -255,6 +255,17 @@ export function broadcastToCompanions(type: string, payload: any): void {
   }
 }
 
+let latestThemeData: { accentColor: string; accentPreset: string; theme: string } = {
+  accentColor: '#10b981',
+  accentPreset: 'emerald',
+  theme: 'dark',
+};
+
+export function setLatestCompanionTheme(themeData: { accentColor: string; accentPreset: string; theme: string }): void {
+  latestThemeData = { ...latestThemeData, ...themeData };
+  broadcastToCompanions('THEME_UPDATE', latestThemeData);
+}
+
 // Handle HTTP API requests
 function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
   // CORS Headers
@@ -593,6 +604,12 @@ export function startCompanionServer(mainWindow: BrowserWindow, requestedPort = 
           version: app.getVersion(),
           timestamp: Date.now(),
         },
+      }));
+
+      // Immediately sync current desktop theme
+      ws.send(JSON.stringify({
+        type: 'THEME_UPDATE',
+        payload: latestThemeData,
       }));
 
       ws.on('message', (raw: string) => {
