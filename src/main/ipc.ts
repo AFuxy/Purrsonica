@@ -35,7 +35,17 @@ import {
   cleanDeadTracks,
   findDuplicateTracks,
   deleteDuplicateTracks,
+  listCompanionDevices,
 } from './db/queries.js';
+import {
+  startCompanionServer,
+  stopCompanionServer,
+  getCompanionServerStatus,
+  createPairingSession,
+  broadcastToCompanions,
+  disconnectCompanionDevice,
+  revokeCompanionDevice,
+} from './companion/server.js';
 import {
   startScan,
   stopScan,
@@ -447,6 +457,41 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('media:importPaths', async (_event, paths: string[]) => {
     const imported = await importSpecificFiles(paths, mainWindow);
     return { importedCount: imported.length };
+  });
+
+  // --- Mobile Companion Server & Devices ---
+  ipcMain.handle('companion:startServer', async () => {
+    return startCompanionServer(mainWindow);
+  });
+
+  ipcMain.handle('companion:stopServer', async () => {
+    await stopCompanionServer();
+    return getCompanionServerStatus();
+  });
+
+  ipcMain.handle('companion:getStatus', () => {
+    return getCompanionServerStatus();
+  });
+
+  ipcMain.handle('companion:createPairingSession', async () => {
+    await startCompanionServer(mainWindow);
+    return createPairingSession();
+  });
+
+  ipcMain.handle('companion:getDevices', () => {
+    return listCompanionDevices();
+  });
+
+  ipcMain.handle('companion:disconnectDevice', (_event, id: string) => {
+    return disconnectCompanionDevice(id);
+  });
+
+  ipcMain.handle('companion:revokeDevice', (_event, id: string) => {
+    return revokeCompanionDevice(id);
+  });
+
+  ipcMain.handle('companion:broadcastPlaybackState', (_event, state: any) => {
+    broadcastToCompanions('DESKTOP_PLAYBACK_STATE', state);
   });
 }
 

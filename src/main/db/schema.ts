@@ -87,4 +87,18 @@ CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value_json TEXT NOT NULL
 );
+
+-- Mobile Companion Devices
+CREATE TABLE IF NOT EXISTS companion_devices (
+  id TEXT PRIMARY KEY,               -- Unique hardware device UUID
+  name TEXT NOT NULL,               -- e.g. "Zak's iPhone 16 Pro"
+  platform TEXT NOT NULL,           -- 'ios' | 'android' | 'web'
+  model TEXT,                       -- Device model
+  auth_token_hash TEXT NOT NULL,    -- SHA-256 hash of pairing token
+  ip_address TEXT,                  -- Last known IP
+  paired_at INTEGER NOT NULL,       -- Creation timestamp
+  last_seen_at INTEGER NOT NULL,    -- Heartbeat timestamp
+  is_active INTEGER DEFAULT 0       -- 1 = Currently connected via WS
+);
+CREATE INDEX IF NOT EXISTS idx_companion_devices_active ON companion_devices(is_active);
 `;

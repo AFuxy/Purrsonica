@@ -4,7 +4,7 @@ export type FeatureFlagStage = 'experimental' | 'alpha' | 'beta' | 'stable';
  * Configure the secret developer passcode required to unlock Developer Labs via console.
  * You can customize this string anytime to change the passkey.
  */
-export const DEV_MODE_PASSKEY = 'purrdev2026';
+export const DEV_MODE_PASSKEY = 'purrdev170';
 
 export type FeatureFlagCategory =
   | 'audio'

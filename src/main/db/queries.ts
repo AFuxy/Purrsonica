@@ -13,6 +13,7 @@ import {
   DuplicateCluster,
   DuplicateTrackItem,
   DuplicateScanResult,
+  CompanionDevice,
 } from '../../shared/types.js';
 
 export interface TrackQueryParams {
@@ -528,6 +529,7 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   enableDjMode: false,
   enableGaplessPlayback: true,
   crossfadeDuration: 0,
+  allowOutsideLan: false,
 };
 
 export function getScanSettings(): ScanSettings {
@@ -783,5 +785,107 @@ export function factoryResetDatabase(): void {
     db.prepare('DELETE FROM tracks').run();
     db.prepare('DELETE FROM albums').run();
     db.prepare('DELETE FROM app_settings').run();
+    db.prepare('DELETE FROM companion_devices').run();
   })();
 }
+
+// --- Mobile Companion Device Queries ---
+
+export function upsertCompanionDevice(device: {
+  id: string;
+  name: string;
+  platform: 'ios' | 'android' | 'web';
+  model?: string;
+  authTokenHash: string;
+  ipAddress?: string;
+}): void {
+  const db = getDB();
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO companion_devices (id, name, platform, model, auth_token_hash, ip_address, paired_at, last_seen_at, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      platform = excluded.platform,
+      model = excluded.model,
+      auth_token_hash = excluded.auth_token_hash,
+      ip_address = excluded.ip_address,
+      last_seen_at = excluded.last_seen_at,
+      is_active = 1
+  `).run(device.id, device.name, device.platform, device.model || null, device.authTokenHash, device.ipAddress || null, now, now);
+}
+
+export function getCompanionDeviceById(id: string): (CompanionDevice & { auth_token_hash: string }) | null {
+  const db = getDB();
+  const row = db.prepare('SELECT * FROM companion_devices WHERE id = ?').get(id) as any;
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    platform: row.platform,
+    model: row.model,
+    ip_address: row.ip_address,
+    paired_at: row.paired_at,
+    last_seen_at: row.last_seen_at,
+    is_active: Boolean(row.is_active),
+    auth_token_hash: row.auth_token_hash,
+  };
+}
+
+export function getCompanionDeviceByTokenHash(tokenHash: string): (CompanionDevice & { auth_token_hash: string }) | null {
+  const db = getDB();
+  const row = db.prepare('SELECT * FROM companion_devices WHERE auth_token_hash = ?').get(tokenHash) as any;
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    platform: row.platform,
+    model: row.model,
+    ip_address: row.ip_address,
+    paired_at: row.paired_at,
+    last_seen_at: row.last_seen_at,
+    is_active: Boolean(row.is_active),
+    auth_token_hash: row.auth_token_hash,
+  };
+}
+
+export function listCompanionDevices(): CompanionDevice[] {
+  const db = getDB();
+  const rows = db.prepare('SELECT id, name, platform, model, ip_address, paired_at, last_seen_at, is_active FROM companion_devices ORDER BY last_seen_at DESC').all() as any[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    platform: r.platform,
+    model: r.model,
+    ip_address: r.ip_address,
+    paired_at: r.paired_at,
+    last_seen_at: r.last_seen_at,
+    is_active: Boolean(r.is_active),
+  }));
+}
+
+export function updateCompanionDeviceHeartbeat(id: string, ipAddress?: string): void {
+  const db = getDB();
+  const now = Date.now();
+  if (ipAddress) {
+    db.prepare('UPDATE companion_devices SET last_seen_at = ?, ip_address = ?, is_active = 1 WHERE id = ?').run(now, ipAddress, id);
+  } else {
+    db.prepare('UPDATE companion_devices SET last_seen_at = ?, is_active = 1 WHERE id = ?').run(now, id);
+  }
+}
+
+export function updateCompanionDeviceActiveStatus(id: string, isActive: boolean): void {
+  const db = getDB();
+  db.prepare('UPDATE companion_devices SET is_active = ? WHERE id = ?').run(isActive ? 1 : 0, id);
+}
+
+export function setAllCompanionDevicesInactive(): void {
+  const db = getDB();
+  db.prepare('UPDATE companion_devices SET is_active = 0').run();
+}
+
+export function deleteCompanionDevice(id: string): void {
+  const db = getDB();
+  db.prepare('DELETE FROM companion_devices WHERE id = ?').run(id);
+}
+

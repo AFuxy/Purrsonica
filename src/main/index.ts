@@ -10,6 +10,7 @@ import { initDiscordRpc, destroyDiscordRpc } from './discord.js';
 import { registerGlobalMediaShortcuts, unregisterGlobalMediaShortcuts } from './mediaKeys.js';
 import { parseFile } from 'music-metadata';
 import { showSplashWindow, closeSplashWindow } from './splash.js';
+import { startCompanionServer, stopCompanionServer } from './companion/server.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -374,6 +375,11 @@ function createWindow(): void {
   // Initialize Auto Updater
   initAutoUpdater(mainWindow);
 
+  // Initialize Mobile Companion Server
+  startCompanionServer(mainWindow).catch((err) => {
+    console.warn('[Companion] Server startup warning:', err);
+  });
+
   // Load URL
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -416,6 +422,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   unregisterGlobalMediaShortcuts();
   destroyDiscordRpc();
+  stopCompanionServer().catch(() => {});
   closeDatabase();
   if (process.platform !== 'darwin') {
     app.quit();

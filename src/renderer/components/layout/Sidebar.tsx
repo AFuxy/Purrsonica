@@ -18,6 +18,7 @@ import {
   Info,
   Flame,
   ChevronDown,
+  Smartphone,
 } from 'lucide-react';
 import { useLibraryStore, SettingsTabId } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
@@ -32,6 +33,7 @@ const SIDEBAR_SETTINGS_TABS: {
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'library', label: 'Library & Audio', icon: Music },
   { id: 'dj', label: 'DJ Suite', icon: Radio },
+  { id: 'companion', label: 'Mobile Companion', icon: Smartphone },
   { id: 'maintenance', label: 'Maintenance', icon: Database },
   { id: 'system', label: 'System & Updates', icon: Info },
   { id: 'danger', label: 'Danger Zone', icon: Flame, danger: true },

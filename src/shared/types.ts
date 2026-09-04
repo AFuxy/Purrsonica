@@ -96,6 +96,7 @@ export interface ScanSettings {
   enableDjMode?: boolean;
   enableGaplessPlayback?: boolean;
   crossfadeDuration?: number; // 0 to 10 seconds (0 = 0ms gapless, 1-10s = crossfade)
+  allowOutsideLan?: boolean; // Out-of-LAN Remote Streaming Toggle (Default: false)
 }
 
 export interface DiscordPresencePayload {
@@ -196,5 +197,56 @@ export interface DuplicateScanResult {
   totalClusters: number;
   totalDuplicateFiles: number;
   totalWastedBytes: number;
+}
+
+// --- Mobile Companion App Protocol Types ---
+
+export interface CompanionDevice {
+  id: string;
+  name: string;
+  platform: 'ios' | 'android' | 'web';
+  model?: string;
+  ip_address?: string;
+  paired_at: number;
+  last_seen_at: number;
+  is_active: boolean;
+}
+
+export interface CompanionServerStatus {
+  isRunning: boolean;
+  port: number;
+  localIps: string[];
+  serverName: string;
+  activeDeviceCount: number;
+  pairedDeviceCount: number;
+  allowOutsideLan: boolean;
+}
+
+export interface CompanionPairingSession {
+  pairingToken: string;
+  qrCodeDataUrl: string;
+  port: number;
+  localIps: string[];
+  serverName: string;
+  expiresAt: number;
+  allowOutsideLan: boolean;
+}
+
+export interface RemotePlaybackCommand {
+  type: 'play' | 'pause' | 'toggle' | 'next' | 'previous' | 'seek' | 'setVolume' | 'playTrack' | 'transferToPC';
+  trackId?: string;
+  position?: number;
+  volume?: number;
+}
+
+export interface MobilePlaybackState {
+  deviceId: string;
+  deviceName: string;
+  isPlaying: boolean;
+  trackTitle?: string;
+  trackArtist?: string;
+  trackId?: string;
+  currentTime?: number;
+  duration?: number;
 }
 

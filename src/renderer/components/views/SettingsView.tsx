@@ -34,6 +34,11 @@ import {
   Copy,
   Zap,
   Sliders,
+  Smartphone,
+  QrCode,
+  Wifi,
+  Unlink,
+  Globe,
 } from 'lucide-react';
 import { useThemeStore, ACCENT_PRESETS } from '../../store/themeStore.js';
 import { useLibraryStore, SettingsTabId } from '../../store/libraryStore.js';
@@ -42,6 +47,7 @@ import { useUpdateStore } from '../../store/updateStore.js';
 import { useMaintenanceStore } from '../../store/maintenanceStore.js';
 import { useFeatureFlagStore, useFeatureFlagValue } from '../../store/featureFlagStore.js';
 import { useDjStore } from '../../store/djStore.js';
+import { useCompanionStore } from '../../store/companionStore.js';
 import { DuplicateCleanerModal } from '../modals/DuplicateCleanerModal.js';
 import { ActionConfirmModal, ActionConfirmConfig } from '../modals/ActionConfirmModal.js';
 import { ActionReportModal, ActionReportData } from '../modals/ActionReportModal.js';
@@ -59,6 +65,20 @@ export const SettingsView: React.FC = () => {
 
   const { drives, stats, fetchStats, refreshAll, activeSettingsTab, setActiveSettingsTab, setView } = useLibraryStore();
   const { isDevMode } = useFeatureFlagStore();
+  const {
+    serverStatus: companionServerStatus,
+    devices: companionDevices,
+    fetchDevices: fetchCompanionDevices,
+    fetchStatus: fetchCompanionStatus,
+    openPairingModal,
+    disconnectDevice: disconnectCompanionDevice,
+    revokeDevice: revokeCompanionDevice,
+  } = useCompanionStore();
+
+  useEffect(() => {
+    fetchCompanionDevices();
+    fetchCompanionStatus();
+  }, [fetchCompanionDevices, fetchCompanionStatus]);
 
   useEffect(() => {
     fetchStats();
@@ -254,6 +274,37 @@ export const SettingsView: React.FC = () => {
       useDjStore.getState().toggleDeckExpanded(false);
     }
     showToast(nextVal ? 'DJ Suite & Performance Mode enabled' : 'DJ Suite disabled (Tempo reset to normal)');
+  };
+
+  const handleToggleOutsideLan = () => {
+    const isCurrentlyAllowed = !!currentSettings.allowOutsideLan;
+
+    if (!isCurrentlyAllowed) {
+      setConfirmConfig({
+        title: 'Enable Out-of-LAN Remote Streaming?',
+        description:
+          'Enabling this permits encrypted peer-to-peer audio traffic to leave your local home network so your paired mobile companion app can stream music on 4G/5G mobile networks when away from home.',
+        points: [
+          'All media and commands are protected with End-to-End Encryption (DTLS / TLS)',
+          'ZERO third-party cloud servers ever store your music, playlists, or telemetry',
+          'Only devices you have physically scanned & paired via QR code are permitted',
+          'You can instantly revoke access or re-lock to local LAN at any time',
+        ],
+        confirmLabel: 'Enable Remote Access',
+        cancelLabel: 'Keep Local LAN Only',
+        isDestructive: false,
+        onConfirm: async () => {
+          await saveSettings({ ...currentSettings, allowOutsideLan: true });
+          await fetchCompanionStatus();
+          showToast('Out-of-LAN Remote Streaming enabled (Encrypted E2EE)');
+        },
+      });
+    } else {
+      saveSettings({ ...currentSettings, allowOutsideLan: false }).then(async () => {
+        await fetchCompanionStatus();
+        showToast('Out-of-LAN Remote Streaming disabled (Local LAN only)');
+      });
+    }
   };
 
   const handleTogglePrerelease = async () => {
@@ -663,6 +714,14 @@ export const SettingsView: React.FC = () => {
           icon: Radio,
           badge: currentSettings.enableDjMode ? 'Active' : undefined,
           badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+        },
+        {
+          id: 'companion',
+          label: 'Mobile Companion',
+          description: 'Paired devices, sync & streaming',
+          icon: Smartphone,
+          badge: companionDevices.some((d) => d.is_active) ? `${companionDevices.filter((d) => d.is_active).length} Active` : undefined,
+          badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
         },
       ],
     },
@@ -1452,6 +1511,224 @@ export const SettingsView: React.FC = () => {
     </section>
   );
 
+  const renderCompanionSection = () => {
+    const activeCount = companionDevices.filter((d) => d.is_active).length;
+
+    const formatLastSeen = (timestamp: number) => {
+      const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+      if (diffSec < 60) return 'Just now';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr}h ago`;
+      const diffDays = Math.floor(diffHr / 24);
+      return `${diffDays}d ago`;
+    };
+
+    const handleDisconnect = async (id: string, name: string) => {
+      await disconnectCompanionDevice(id);
+      showToast(`Disconnected ${name}`);
+    };
+
+    const handleRevoke = (id: string, name: string) => {
+      setConfirmConfig({
+        title: `Revoke "${name}"?`,
+        description: 'This will remove the pairing authorization. You will need to re-scan the QR code on this device to connect again.',
+        confirmLabel: 'Revoke Pairing',
+        isDestructive: true,
+        onConfirm: async () => {
+          await revokeCompanionDevice(id);
+          showToast(`Revoked pairing for ${name}`);
+        },
+      });
+    };
+
+    return (
+      <section className="space-y-4 animate-in fade-in duration-150">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+            <Smartphone className="w-4 h-4 text-emerald-400" />
+            <span>Mobile Companion & Connected Devices</span>
+          </h2>
+          {activeCount > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>{activeCount} {activeCount === 1 ? 'Device Active' : 'Devices Active'}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Server & Pairing Hub Card */}
+        <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-gradient-to-r from-emerald-950/20 via-[var(--bg-tertiary)] to-transparent border border-[var(--border-color)]">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                  Embedded Companion Server Active
+                </h3>
+              </div>
+              <p className="text-xs text-[var(--text-muted)]">
+                Local IP: <span className="font-mono text-[var(--text-secondary)]">{companionServerStatus?.localIps[0] || '127.0.0.1'}:{companionServerStatus?.port || 51820}</span> • Stream lossless audio directly from your PC
+              </p>
+            </div>
+
+            <button
+              onClick={openPairingModal}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black font-bold text-xs transition-all shadow-lg shadow-emerald-500/15 active:scale-95 cursor-pointer flex-shrink-0"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>Pair New Phone</span>
+            </button>
+          </div>
+
+          {/* Out-of-LAN Remote Access Security Card */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-[var(--bg-tertiary)]/60 via-[var(--bg-tertiary)]/30 to-transparent border border-[var(--border-color)] space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                  <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)]">
+                    Out-of-LAN Remote Streaming (4G / 5G)
+                  </h4>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                      currentSettings.allowOutsideLan
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                        : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    }`}
+                  >
+                    {currentSettings.allowOutsideLan ? 'Remote Access Enabled' : 'Local LAN Only (Secure)'}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] max-w-xl leading-relaxed">
+                  Allow your paired phone to stream music when away from your home Wi-Fi over 4G/5G cellular networks.
+                  When disabled, any incoming traffic from outside your local network is strictly blocked.
+                </p>
+              </div>
+
+              {/* Master Security Toggle */}
+              <button
+                onClick={handleToggleOutsideLan}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  currentSettings.allowOutsideLan ? 'bg-cyan-500 shadow-sm shadow-cyan-500/30' : 'bg-neutral-700'
+                }`}
+                title={currentSettings.allowOutsideLan ? 'Disable Out-of-LAN streaming' : 'Enable Out-of-LAN streaming'}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    currentSettings.allowOutsideLan ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Privacy & Security Banner */}
+            <div className="p-2.5 rounded-lg bg-[var(--bg-secondary)]/80 border border-[var(--border-color)] flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <span>
+                {currentSettings.allowOutsideLan
+                  ? 'All remote streams use direct end-to-end encryption (DTLS / TLS). Zero music or metadata is ever stored on external cloud servers.'
+                  : 'Strict home Wi-Fi perimeter active. External connection attempts from public internet IPs are blocked with HTTP 403.'}
+              </span>
+            </div>
+          </div>
+
+          {/* Connected / Paired Devices List */}
+          <div className="space-y-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] px-1">
+              Paired Devices ({companionDevices.length})
+            </div>
+
+            {companionDevices.length === 0 ? (
+              <div className="p-8 rounded-xl border border-dashed border-[var(--border-color)] text-center space-y-3 bg-[var(--bg-tertiary)]/20">
+                <div className="w-12 h-12 rounded-2xl bg-neutral-800/80 border border-neutral-700/80 text-[var(--text-muted)] flex items-center justify-center mx-auto">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-[var(--text-primary)]">No Devices Paired Yet</h4>
+                  <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+                    Install <strong>Purrsonica Mobile</strong> on your iOS or Android device and scan the pairing QR code to get started.
+                  </p>
+                </div>
+                <button
+                  onClick={openPairingModal}
+                  className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Pair First Device
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                {companionDevices.map((dev) => (
+                  <div
+                    key={dev.id}
+                    className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                      dev.is_active
+                        ? 'bg-emerald-950/20 border-emerald-500/30 shadow-sm'
+                        : 'bg-[var(--bg-tertiary)]/40 border-[var(--border-color)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          dev.is_active
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-neutral-800 text-[var(--text-muted)] border border-neutral-700'
+                        }`}
+                      >
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-[var(--text-primary)] truncate">
+                            {dev.name}
+                          </span>
+                          {dev.is_active ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                              Active Now
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                              Last seen {formatLastSeen(dev.last_seen_at)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)] font-mono truncate mt-0.5">
+                          {dev.platform.toUpperCase()} {dev.model ? `• ${dev.model}` : ''} {dev.ip_address ? `• ${dev.ip_address}` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {dev.is_active && (
+                        <button
+                          onClick={() => handleDisconnect(dev.id, dev.name)}
+                          className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-[var(--text-secondary)] hover:text-white border border-neutral-700 text-xs font-semibold transition-colors cursor-pointer"
+                          title="Disconnect active session"
+                        >
+                          Disconnect
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRevoke(dev.id, dev.name)}
+                        className="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 transition-colors cursor-pointer"
+                        title="Revoke device pairing"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  };
+
   const renderMaintenanceSection = () => (
     <section className="space-y-4 animate-in fade-in duration-150">
       <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
@@ -2180,6 +2457,11 @@ export const SettingsView: React.FC = () => {
         description: 'BPM sync, CUE points, loopers, and filters',
         icon: Radio,
       },
+      companion: {
+        title: 'Mobile Companion & Devices',
+        description: 'Wirelessly pair and stream lossless music to iOS & Android',
+        icon: Smartphone,
+      },
       maintenance: {
         title: 'Storage & Maintenance',
         description: 'Artwork cache, waveforms, and library health',
@@ -2252,6 +2534,7 @@ export const SettingsView: React.FC = () => {
           {activeSettingsTab === 'appearance' && renderAppearanceSection()}
           {activeSettingsTab === 'library' && renderLibrarySection()}
           {activeSettingsTab === 'dj' && renderDjSection()}
+          {activeSettingsTab === 'companion' && renderCompanionSection()}
           {activeSettingsTab === 'maintenance' && renderMaintenanceSection()}
           {activeSettingsTab === 'system' && renderSystemSection()}
           {activeSettingsTab === 'danger' && renderDangerSection()}
@@ -2290,6 +2573,7 @@ export const SettingsView: React.FC = () => {
             {activeSettingsTab === 'appearance' && renderAppearanceSection()}
             {activeSettingsTab === 'library' && renderLibrarySection()}
             {activeSettingsTab === 'dj' && renderDjSection()}
+            {activeSettingsTab === 'companion' && renderCompanionSection()}
             {activeSettingsTab === 'maintenance' && renderMaintenanceSection()}
             {activeSettingsTab === 'system' && renderSystemSection()}
             {activeSettingsTab === 'danger' && renderDangerSection()}
@@ -2324,6 +2608,7 @@ export const SettingsView: React.FC = () => {
         {renderAppearanceSection()}
         {renderLibrarySection()}
         {renderDjSection()}
+        {renderCompanionSection()}
         {renderMaintenanceSection()}
         {renderSystemSection()}
         {renderDangerSection()}

@@ -18,6 +18,8 @@ import { usePlayerStore } from './store/playerStore.js';
 import { useDjStore } from './store/djStore.js';
 import { useDiscordRpc } from './hooks/useDiscordRpc.js';
 import { getReleaseTag } from './data/changelogs.js';
+import { CompanionPairingModal } from './components/modals/CompanionPairingModal.js';
+import { useCompanionStore } from './store/companionStore.js';
 
 export const App: React.FC = () => {
   const { seekTo } = useAudioPlayer();
@@ -38,6 +40,11 @@ export const App: React.FC = () => {
   const { setProgress } = useScanStore();
   const { setStatus } = useUpdateStore();
   const { setArtworkProgress, setWaveformProgress } = useMaintenanceStore();
+  const {
+    isPairingModalOpen,
+    closePairingModal,
+    initCompanionListeners,
+  } = useCompanionStore();
   const [appVersion, setAppVersion] = React.useState('');
 
   const releaseTag = getReleaseTag(appVersion);
@@ -187,6 +194,73 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Mobile Companion Device Lifecycle & Event Listeners
+  useEffect(() => {
+    const cleanup = initCompanionListeners();
+    return () => {
+      cleanup();
+    };
+  }, [initCompanionListeners]);
+
+  // Handle Remote Control Commands from Connected Companion Devices
+  useEffect(() => {
+    if (!window.api?.onCompanionRemoteCommand) return;
+    const unsubscribe = window.api.onCompanionRemoteCommand((cmd) => {
+      if (cmd.type === 'play') {
+        usePlayerStore.getState().setIsPlaying(true);
+      } else if (cmd.type === 'pause') {
+        usePlayerStore.getState().setIsPlaying(false);
+      } else if (cmd.type === 'toggle') {
+        togglePlay();
+      } else if (cmd.type === 'next') {
+        playNext();
+      } else if (cmd.type === 'previous') {
+        playPrevious();
+      } else if (cmd.type === 'seek' && typeof cmd.position === 'number') {
+        seekTo(cmd.position);
+      } else if (cmd.type === 'setVolume' && typeof cmd.volume === 'number') {
+        usePlayerStore.getState().setVolume(cmd.volume);
+      } else if (cmd.type === 'playTrack' && cmd.trackId) {
+        window.api?.getTrackById?.(cmd.trackId)?.then((tr) => {
+          if (tr) {
+            usePlayerStore.getState().playTrack(tr);
+            if (typeof cmd.position === 'number' && cmd.position > 0) {
+              setTimeout(() => {
+                seekTo(cmd.position!);
+              }, 200);
+            }
+          }
+        });
+      }
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [togglePlay, playNext, playPrevious, seekTo]);
+
+  // Broadcast Desktop Playback State to Connected Mobile Companion Devices
+  useEffect(() => {
+    if (!window.api?.broadcastCompanionPlaybackState) return;
+    window.api.broadcastCompanionPlaybackState({
+      isPlaying,
+      currentTime,
+      duration,
+      volume: usePlayerStore.getState().volume,
+      track: currentTrack
+        ? {
+            id: currentTrack.id,
+            title: currentTrack.title,
+            artist: currentTrack.artist,
+            album: currentTrack.album,
+            duration: currentTrack.duration,
+            bpm: currentTrack.bpm,
+            camelot_key: currentTrack.camelot_key,
+            has_cover: !!currentTrack.cover_art_path,
+          }
+        : null,
+    });
+  }, [isPlaying, currentTrack?.id, Math.floor(currentTime)]);
+
   useEffect(() => {
     if (window.api?.getVersion) {
       window.api.getVersion().then((v) => {
@@ -302,6 +376,10 @@ export const App: React.FC = () => {
         />
       )}
       <VideoModal />
+      <CompanionPairingModal
+        isOpen={isPairingModalOpen}
+        onClose={closePairingModal}
+      />
     </div>
   );
 };

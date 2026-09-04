@@ -11,6 +11,11 @@ import {
   UpdateStatus,
   DiscordPresencePayload,
   DuplicateScanResult,
+  CompanionDevice,
+  CompanionServerStatus,
+  CompanionPairingSession,
+  RemotePlaybackCommand,
+  MobilePlaybackState,
 } from '../shared/types.js';
 
 export const electronAPI = {
@@ -159,6 +164,49 @@ export const electronAPI = {
     const handler = (_event: any, action: 'play-pause' | 'next' | 'previous' | 'stop') => callback(action);
     ipcRenderer.on('media:global-key', handler);
     return () => ipcRenderer.removeListener('media:global-key', handler);
+  },
+
+  // Mobile Companion Server & Devices
+  startCompanionServer: (): Promise<CompanionServerStatus> =>
+    ipcRenderer.invoke('companion:startServer'),
+  stopCompanionServer: (): Promise<CompanionServerStatus> =>
+    ipcRenderer.invoke('companion:stopServer'),
+  getCompanionStatus: (): Promise<CompanionServerStatus> =>
+    ipcRenderer.invoke('companion:getStatus'),
+  createCompanionPairingSession: (): Promise<CompanionPairingSession> =>
+    ipcRenderer.invoke('companion:createPairingSession'),
+  getCompanionDevices: (): Promise<CompanionDevice[]> =>
+    ipcRenderer.invoke('companion:getDevices'),
+  disconnectCompanionDevice: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('companion:disconnectDevice', id),
+  revokeCompanionDevice: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke('companion:revokeDevice', id),
+  broadcastCompanionPlaybackState: (state: any): Promise<void> =>
+    ipcRenderer.invoke('companion:broadcastPlaybackState', state),
+  onCompanionDevicePaired: (callback: (device: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('companion:device-paired', handler);
+    return () => ipcRenderer.removeListener('companion:device-paired', handler);
+  },
+  onCompanionDeviceConnected: (callback: (device: CompanionDevice) => void) => {
+    const handler = (_event: any, data: CompanionDevice) => callback(data);
+    ipcRenderer.on('companion:device-connected', handler);
+    return () => ipcRenderer.removeListener('companion:device-connected', handler);
+  },
+  onCompanionDeviceDisconnected: (callback: (device: CompanionDevice) => void) => {
+    const handler = (_event: any, data: CompanionDevice) => callback(data);
+    ipcRenderer.on('companion:device-disconnected', handler);
+    return () => ipcRenderer.removeListener('companion:device-disconnected', handler);
+  },
+  onCompanionRemoteCommand: (callback: (cmd: RemotePlaybackCommand) => void) => {
+    const handler = (_event: any, data: RemotePlaybackCommand) => callback(data);
+    ipcRenderer.on('companion:remote-command', handler);
+    return () => ipcRenderer.removeListener('companion:remote-command', handler);
+  },
+  onCompanionMobilePlaybackState: (callback: (state: MobilePlaybackState) => void) => {
+    const handler = (_event: any, data: MobilePlaybackState) => callback(data);
+    ipcRenderer.on('companion:mobile-playback-state', handler);
+    return () => ipcRenderer.removeListener('companion:mobile-playback-state', handler);
   },
 
   // Protocol URL helpers

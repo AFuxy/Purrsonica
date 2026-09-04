@@ -18,11 +18,13 @@ import {
   Folder,
   PictureInPicture,
   Sliders,
+  Smartphone,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
 import { useScanStore } from '../../store/scanStore.js';
 import { useDjStore } from '../../store/djStore.js';
+import { useCompanionStore } from '../../store/companionStore.js';
 import { WaveformBar } from './WaveformBar.js';
 import { DjDeckPanel } from './DjDeckPanel.js';
 import { TrackCover } from '../common/TrackCover.js';
@@ -59,6 +61,8 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
   const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail } = useLibraryStore();
   const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
   const { isDeckExpanded, toggleDeckExpanded, pitchPercent } = useDjStore();
+  const { devices, mobilePlaybackState, openPairingModal } = useCompanionStore();
+  const activeCompanionCount = devices.filter((d) => d.is_active).length;
 
   const coverUrl = currentTrack?.cover_art_path && window.api
     ? window.api.getCoverUrl(currentTrack.cover_art_path)
@@ -209,6 +213,20 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
               />
             </button>
           </>
+        ) : mobilePlaybackState?.isPlaying ? (
+          <div className="flex items-center gap-2.5 min-w-0 animate-in fade-in duration-200">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
+              <Smartphone className="w-5 h-5 animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">
+                {mobilePlaybackState.trackTitle || 'Streaming Audio'}
+              </div>
+              <div className="text-[11px] text-emerald-300 font-mono truncate">
+                Now playing on {mobilePlaybackState.deviceName}
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="text-xs text-[var(--text-muted)] italic">
             Select a track to start playback
@@ -361,6 +379,26 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
           title="Queue & Info"
         >
           <ListMusic className="w-4 h-4" />
+        </button>
+
+        {/* Mobile Companion Devices Indicator */}
+        <button
+          onClick={openPairingModal}
+          className={`p-1.5 rounded-md transition-colors relative flex items-center gap-1 cursor-pointer ${
+            activeCompanionCount > 0
+              ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
+          }`}
+          title={
+            activeCompanionCount > 0
+              ? `${activeCompanionCount} Mobile Companion device(s) connected. Click to manage.`
+              : 'Pair Mobile Companion (iOS / Android)'
+          }
+        >
+          <Smartphone className={`w-4 h-4 ${activeCompanionCount > 0 ? 'animate-pulse' : ''}`} />
+          {activeCompanionCount > 0 && (
+            <span className="text-[10px] font-mono font-bold">{activeCompanionCount}</span>
+          )}
         </button>
 
         {/* Volume Slider */}

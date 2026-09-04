@@ -22,6 +22,7 @@ export type SettingsTabId =
   | 'appearance'
   | 'library'
   | 'dj'
+  | 'companion'
   | 'maintenance'
   | 'system'
   | 'danger';
