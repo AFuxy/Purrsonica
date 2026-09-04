@@ -43,6 +43,7 @@ import {
   getCompanionServerStatus,
   createPairingSession,
   broadcastToCompanions,
+  sendCommandToCompanion,
   disconnectCompanionDevice,
   revokeCompanionDevice,
 } from './companion/server.js';
@@ -492,6 +493,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('companion:broadcastPlaybackState', (_event, state: any) => {
     broadcastToCompanions('DESKTOP_PLAYBACK_STATE', state);
+  });
+
+  ipcMain.handle('companion:sendRemoteCommand', (_event, cmd: any, deviceId?: string) => {
+    return sendCommandToCompanion(cmd, deviceId);
   });
 }
 

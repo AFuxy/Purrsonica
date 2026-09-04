@@ -245,8 +245,13 @@ export interface MobilePlaybackState {
   isPlaying: boolean;
   trackTitle?: string;
   trackArtist?: string;
+  artist?: string;
+  album?: string;
   trackId?: string;
   currentTime?: number;
   duration?: number;
+  cover_art_path?: string;
+  lastReceivedAt?: number;
 }
+
 

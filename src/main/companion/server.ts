@@ -640,7 +640,9 @@ export function startCompanionServer(mainWindow: BrowserWindow, requestedPort = 
               targetMainWindow.webContents.send('companion:mobile-playback-state', {
                 ...mobileState,
                 deviceId,
-                deviceName: device.name,
+                deviceName: device.name || mobileState.deviceName,
+                trackArtist: mobileState.trackArtist || (mobileState as any).artist,
+                artist: (mobileState as any).artist || mobileState.trackArtist,
               });
             }
           }
@@ -729,3 +731,20 @@ export function revokeCompanionDevice(id: string): boolean {
   deleteCompanionDevice(id);
   return true;
 }
+
+// Send a remote playback command to a specific connected companion or all companions
+export function sendCommandToCompanion(command: RemotePlaybackCommand, deviceId?: string): boolean {
+  if (deviceId) {
+    const ws = activeSockets.get(deviceId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify({ type: 'REMOTE_COMMAND', payload: command }));
+        return true;
+      } catch {}
+    }
+    return false;
+  }
+  broadcastToCompanions('REMOTE_COMMAND', command);
+  return true;
+}
+

@@ -183,6 +183,8 @@ export const electronAPI = {
     ipcRenderer.invoke('companion:revokeDevice', id),
   broadcastCompanionPlaybackState: (state: any): Promise<void> =>
     ipcRenderer.invoke('companion:broadcastPlaybackState', state),
+  sendCompanionRemoteCommand: (cmd: any, deviceId?: string): Promise<boolean> =>
+    ipcRenderer.invoke('companion:sendRemoteCommand', cmd, deviceId),
   onCompanionDevicePaired: (callback: (device: any) => void) => {
     const handler = (_event: any, data: any) => callback(data);
     ipcRenderer.on('companion:device-paired', handler);

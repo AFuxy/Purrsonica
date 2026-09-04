@@ -18,6 +18,7 @@ interface CompanionStoreState {
   closePairingModal: () => void;
   disconnectDevice: (id: string) => Promise<boolean>;
   revokeDevice: (id: string) => Promise<boolean>;
+  sendRemoteCommand: (cmd: any, deviceId?: string) => Promise<boolean>;
   setMobilePlaybackState: (state: MobilePlaybackState | null) => void;
   initCompanionListeners: () => () => void;
 }
@@ -77,6 +78,16 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
     }
   },
 
+  sendRemoteCommand: async (cmd: any, deviceId?: string) => {
+    if (!window.api?.sendCompanionRemoteCommand) return false;
+    try {
+      return await window.api.sendCompanionRemoteCommand(cmd, deviceId);
+    } catch (err) {
+      console.error('Failed to send remote command to companion:', err);
+      return false;
+    }
+  },
+
   setMobilePlaybackState: (state) => set({ mobilePlaybackState: state }),
 
   initCompanionListeners: () => {
@@ -97,14 +108,26 @@ export const useCompanionStore = create<CompanionStoreState>((set, get) => ({
     });
 
     // Update state on disconnect
-    const unsubDisconnected = window.api.onCompanionDeviceDisconnected?.(() => {
+    const unsubDisconnected = window.api.onCompanionDeviceDisconnected?.((device) => {
       get().fetchDevices();
       get().fetchStatus();
+      if (get().mobilePlaybackState?.deviceId === device.id) {
+        set({ mobilePlaybackState: null });
+      }
     });
 
-    // Track phone playback state when phone is playing music
+    // Track phone playback state when phone is playing or paused
     const unsubMobileState = window.api.onCompanionMobilePlaybackState?.((state) => {
-      set({ mobilePlaybackState: state.isPlaying ? state : null });
+      if (state.trackId) {
+        set({
+          mobilePlaybackState: {
+            ...state,
+            lastReceivedAt: Date.now(),
+          },
+        });
+      } else {
+        set({ mobilePlaybackState: null });
+      }
     });
 
     // Initial fetch

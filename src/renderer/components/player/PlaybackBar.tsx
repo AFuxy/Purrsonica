@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Play,
   Pause,
@@ -19,6 +19,7 @@ import {
   PictureInPicture,
   Sliders,
   Smartphone,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore.js';
 import { useLibraryStore } from '../../store/libraryStore.js';
@@ -29,6 +30,7 @@ import { WaveformBar } from './WaveformBar.js';
 import { DjDeckPanel } from './DjDeckPanel.js';
 import { TrackCover } from '../common/TrackCover.js';
 import { formatDuration } from '../../../shared/formatters.js';
+import { Track } from '../../../shared/types.js';
 
 interface PlaybackBarProps {
   onSeek: (time: number) => void;
@@ -58,11 +60,127 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
     crossfadeState,
   } = usePlayerStore();
 
-  const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail } = useLibraryStore();
+  const { toggleLikeTrack, selectAlbumByName, selectArtist, selectTrackDetail, tracks } = useLibraryStore();
   const isDjMode = !!useScanStore((s) => s.settings?.enableDjMode);
   const { isDeckExpanded, toggleDeckExpanded, pitchPercent } = useDjStore();
-  const { devices, mobilePlaybackState, openPairingModal } = useCompanionStore();
+  const { devices, mobilePlaybackState, openPairingModal, sendRemoteCommand } = useCompanionStore();
   const activeCompanionCount = devices.filter((d) => d.is_active).length;
+
+  // Track if mobile playback is actively playing or paused with a track loaded
+  const isMobileActive = Boolean(!isPlaying && mobilePlaybackState?.trackId);
+
+  // Resolve full Track object for the track currently streaming on mobile
+  const [resolvedMobileTrack, setResolvedMobileTrack] = useState<Track | null>(null);
+
+  useEffect(() => {
+    if (!mobilePlaybackState?.trackId) {
+      setResolvedMobileTrack(null);
+      return;
+    }
+    const found = tracks.find((t) => t.id === mobilePlaybackState.trackId);
+    if (found) {
+      setResolvedMobileTrack(found);
+    } else if (window.api?.getTrackById) {
+      window.api.getTrackById(mobilePlaybackState.trackId).then((tr) => {
+        if (tr) setResolvedMobileTrack(tr);
+      });
+    }
+  }, [mobilePlaybackState?.trackId, tracks]);
+
+  // Smoothly interpolate mobile playback position between network sync ticks
+  const [smoothMobileTime, setSmoothMobileTime] = useState(0);
+
+  useEffect(() => {
+    if (!mobilePlaybackState) {
+      setSmoothMobileTime(0);
+      return;
+    }
+
+    const baseSec = mobilePlaybackState.currentTime || 0;
+    setSmoothMobileTime(baseSec);
+
+    if (!mobilePlaybackState.isPlaying) return;
+
+    const startTimestamp = mobilePlaybackState.lastReceivedAt || Date.now();
+    const interval = setInterval(() => {
+      const elapsedSec = (Date.now() - startTimestamp) / 1000;
+      const totalDur = mobilePlaybackState.duration || resolvedMobileTrack?.duration || 0;
+      const interpolated = totalDur > 0 ? Math.min(totalDur, baseSec + elapsedSec) : baseSec + elapsedSec;
+      setSmoothMobileTime(interpolated);
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [
+    mobilePlaybackState?.currentTime,
+    mobilePlaybackState?.isPlaying,
+    mobilePlaybackState?.lastReceivedAt,
+    resolvedMobileTrack?.duration,
+  ]);
+
+  const activeCurrentTime = isMobileActive ? smoothMobileTime : currentTime;
+  const activeDuration = isMobileActive
+    ? (mobilePlaybackState?.duration || resolvedMobileTrack?.duration || 0)
+    : duration;
+  const activeIsPlaying = isMobileActive ? Boolean(mobilePlaybackState?.isPlaying) : isPlaying;
+
+  const handleSeek = (time: number) => {
+    if (isMobileActive && mobilePlaybackState) {
+      setSmoothMobileTime(time);
+      sendRemoteCommand(
+        {
+          type: 'seek',
+          position: time,
+        },
+        mobilePlaybackState.deviceId
+      );
+    } else {
+      onSeek(time);
+    }
+  };
+
+  const handleTogglePlay = () => {
+    if (isMobileActive && mobilePlaybackState) {
+      sendRemoteCommand(
+        {
+          type: mobilePlaybackState.isPlaying ? 'pause' : 'play',
+        },
+        mobilePlaybackState.deviceId
+      );
+    } else {
+      togglePlay();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (isMobileActive && mobilePlaybackState) {
+      sendRemoteCommand({ type: 'previous' }, mobilePlaybackState.deviceId);
+    } else {
+      playPrevious();
+    }
+  };
+
+  const handleNext = () => {
+    if (isMobileActive && mobilePlaybackState) {
+      sendRemoteCommand({ type: 'next' }, mobilePlaybackState.deviceId);
+    } else {
+      playNext();
+    }
+  };
+
+  const handleTakeOverOnPC = () => {
+    if (!mobilePlaybackState?.trackId) return;
+    sendRemoteCommand({ type: 'pause' }, mobilePlaybackState.deviceId);
+    const track = resolvedMobileTrack || tracks.find((t) => t.id === mobilePlaybackState.trackId);
+    if (track) {
+      usePlayerStore.getState().playTrack(track);
+      const pos = smoothMobileTime;
+      if (pos > 0) {
+        setTimeout(() => {
+          onSeek(pos);
+        }, 200);
+      }
+    }
+  };
 
   const coverUrl = currentTrack?.cover_art_path && window.api
     ? window.api.getCoverUrl(currentTrack.cover_art_path)
@@ -72,20 +190,85 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
     <>
       {isDjMode && isDeckExpanded && <DjDeckPanel onClose={() => toggleDeckExpanded(false)} />}
       <footer className="h-20 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] px-4 flex items-center justify-between z-40 select-none">
-      {/* Left: Track Info, Album & File Location */}
+      {/* Left: Track Info, Album & File Location OR Mobile Companion Info */}
       <div
-        draggable={!!currentTrack}
+        draggable={!isMobileActive && !!currentTrack}
         onDragStart={(e) => {
-          if (!currentTrack) return;
+          if (!currentTrack || isMobileActive) return;
           e.dataTransfer.setData('application/purrsonica-track', currentTrack.id);
           e.dataTransfer.setData('application/json', JSON.stringify({ trackId: currentTrack.id, track: currentTrack }));
           e.dataTransfer.setData('text/plain', currentTrack.id);
           e.dataTransfer.effectAllowed = 'copy';
         }}
-        className={`flex items-center gap-3 w-1/3 max-w-sm min-w-[220px] ${currentTrack ? 'cursor-grab active:cursor-grabbing' : ''}`}
-        title={currentTrack ? 'Drag track to a playlist' : undefined}
+        className={`flex items-center gap-3 w-1/3 max-w-sm min-w-[220px] ${!isMobileActive && currentTrack ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        title={!isMobileActive && currentTrack ? 'Drag track to a playlist' : undefined}
       >
-        {currentTrack ? (
+        {isMobileActive && mobilePlaybackState ? (
+          <div className="flex items-center gap-3 min-w-0 pr-1 flex-1 animate-in fade-in duration-300">
+            {/* Cover art with PHONE tag overlay */}
+            <div
+              onClick={handleTakeOverOnPC}
+              className="relative w-14 h-14 rounded-md overflow-hidden bg-[var(--bg-tertiary)] flex-shrink-0 shadow-md ring-1 ring-emerald-500/50 hover:ring-emerald-400 group cursor-pointer transition-all"
+              title="Click to take over playback on this PC"
+            >
+              <TrackCover
+                coverPath={resolvedMobileTrack?.cover_art_path || mobilePlaybackState.cover_art_path}
+                alt={resolvedMobileTrack?.title || mobilePlaybackState.trackTitle || 'Phone Track'}
+                fallbackIconClassName="w-6 h-6 text-emerald-400/60"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
+              <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-emerald-500 text-[8px] font-mono font-bold text-black flex items-center gap-0.5 shadow-sm">
+                <Smartphone className="w-2.5 h-2.5" />
+                <span>PHONE</span>
+              </div>
+            </div>
+
+            {/* Track Info & Device State */}
+            <div className="flex flex-col min-w-0 pr-1 flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span
+                  onClick={() => resolvedMobileTrack && selectTrackDetail(resolvedMobileTrack)}
+                  className={`text-xs font-bold text-white truncate leading-tight transition-colors ${resolvedMobileTrack ? 'hover:text-emerald-400 hover:underline cursor-pointer' : ''}`}
+                  title={resolvedMobileTrack?.title || mobilePlaybackState.trackTitle}
+                >
+                  {resolvedMobileTrack?.title || mobilePlaybackState.trackTitle || 'Streaming Audio'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] truncate leading-tight mt-0.5">
+                <span
+                  onClick={() => (resolvedMobileTrack?.artist || mobilePlaybackState.artist) && selectArtist(resolvedMobileTrack?.artist || mobilePlaybackState.artist!)}
+                  className="truncate hover:text-emerald-400 hover:underline cursor-pointer transition-colors"
+                >
+                  {resolvedMobileTrack?.artist || mobilePlaybackState.trackArtist || mobilePlaybackState.artist || 'Unknown Artist'}
+                </span>
+                {(resolvedMobileTrack?.album || mobilePlaybackState.album) && (
+                  <>
+                    <span className="text-[var(--text-muted)] opacity-60">•</span>
+                    <span className="truncate text-[var(--text-muted)]">{resolvedMobileTrack?.album || mobilePlaybackState.album}</span>
+                  </>
+                )}
+              </div>
+
+              {/* Status Indicator & Take Over Button */}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <span className={`w-1.5 h-1.5 rounded-full ${mobilePlaybackState.isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  {mobilePlaybackState.isPlaying ? 'Playing on' : 'Paused on'} {mobilePlaybackState.deviceName || 'Phone'}
+                </span>
+
+                <button
+                  onClick={handleTakeOverOnPC}
+                  className="text-[9px] font-sans font-semibold px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500 hover:text-black text-emerald-300 border border-emerald-500/40 transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                  title="Transfer playback from phone and play on this PC"
+                >
+                  <ArrowRightLeft className="w-2.5 h-2.5" />
+                  <span>Take Over on PC</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : currentTrack ? (
           <>
             <div
               onClick={() => {
@@ -213,20 +396,6 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
               />
             </button>
           </>
-        ) : mobilePlaybackState?.isPlaying ? (
-          <div className="flex items-center gap-2.5 min-w-0 animate-in fade-in duration-200">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
-              <Smartphone className="w-5 h-5 animate-pulse" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-white truncate">
-                {mobilePlaybackState.trackTitle || 'Streaming Audio'}
-              </div>
-              <div className="text-[11px] text-emerald-300 font-mono truncate">
-                Now playing on {mobilePlaybackState.deviceName}
-              </div>
-            </div>
-          </div>
         ) : (
           <div className="text-xs text-[var(--text-muted)] italic">
             Select a track to start playback
@@ -236,11 +405,22 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
 
       {/* Center: Playback Controls & Waveform Bar */}
       <div className="flex flex-col items-center max-w-xl w-2/4 px-4">
+        {/* Mobile Streaming Pill */}
+        {isMobileActive && mobilePlaybackState && (
+          <div className="flex items-center gap-1.5 mb-1 animate-in fade-in duration-200">
+            <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+              <Smartphone className={`w-3 h-3 text-emerald-400 ${mobilePlaybackState.isPlaying ? 'animate-pulse' : ''}`} />
+              PLAYING ON {mobilePlaybackState.deviceName?.toUpperCase() || 'PHONE'} • {formatDuration(smoothMobileTime)} / {formatDuration(activeDuration)}
+            </span>
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex items-center gap-4 mb-1">
           <button
             onClick={toggleShuffle}
-            className={`p-1.5 transition-colors ${
+            disabled={isMobileActive}
+            className={`p-1.5 transition-colors disabled:opacity-30 ${
               isShuffle
                 ? 'text-emerald-400'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -251,21 +431,25 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
           </button>
 
           <button
-            onClick={playPrevious}
-            disabled={!currentTrack}
-            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1.5 transition-colors disabled:opacity-40"
+            onClick={handlePrevious}
+            disabled={!isMobileActive && !currentTrack}
+            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1.5 transition-colors disabled:opacity-40 cursor-pointer"
             title="Previous"
           >
             <SkipBack className="w-4 h-4 fill-current" />
           </button>
 
           <button
-            onClick={togglePlay}
-            disabled={!currentTrack}
-            className="w-8 h-8 rounded-full bg-[var(--text-primary)] text-[var(--bg-primary)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center shadow-lg disabled:opacity-40"
-            title={isPlaying ? 'Pause' : 'Play'}
+            onClick={handleTogglePlay}
+            disabled={!isMobileActive && !currentTrack}
+            className={`w-8 h-8 rounded-full transition-all flex items-center justify-center shadow-lg disabled:opacity-40 hover:scale-105 active:scale-95 cursor-pointer ${
+              isMobileActive
+                ? 'bg-emerald-500 text-black shadow-emerald-500/30'
+                : 'bg-[var(--text-primary)] text-[var(--bg-primary)]'
+            }`}
+            title={activeIsPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? (
+            {activeIsPlaying ? (
               <Pause className="w-4 h-4 fill-current" />
             ) : (
               <Play className="w-4 h-4 fill-current ml-0.5" />
@@ -273,9 +457,9 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
           </button>
 
           <button
-            onClick={playNext}
-            disabled={!currentTrack}
-            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1.5 transition-colors disabled:opacity-40"
+            onClick={handleNext}
+            disabled={!isMobileActive && !currentTrack}
+            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1.5 transition-colors disabled:opacity-40 cursor-pointer"
             title="Next"
           >
             <SkipForward className="w-4 h-4 fill-current" />
@@ -283,7 +467,8 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
 
           <button
             onClick={cycleRepeat}
-            className={`p-1.5 transition-colors ${
+            disabled={isMobileActive}
+            className={`p-1.5 transition-colors disabled:opacity-30 ${
               repeatMode !== 'off'
                 ? 'text-[var(--accent)] font-bold'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -300,21 +485,21 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
 
         {/* Waveform & Time */}
         <div className="w-full flex items-center gap-3">
-          <span className="text-[11px] font-mono text-[var(--text-muted)] w-9 text-right">
-            {formatDuration(currentTime)}
+          <span className={`text-[11px] font-mono w-9 text-right ${isMobileActive ? 'text-emerald-400 font-bold' : 'text-[var(--text-muted)]'}`}>
+            {formatDuration(activeCurrentTime)}
           </span>
 
           <div className="flex-1">
             <WaveformBar
-              waveformData={currentTrack?.waveform_data}
-              currentTime={currentTime}
-              duration={duration}
-              onSeek={onSeek}
+              waveformData={isMobileActive ? resolvedMobileTrack?.waveform_data : currentTrack?.waveform_data}
+              currentTime={activeCurrentTime}
+              duration={activeDuration}
+              onSeek={handleSeek}
             />
           </div>
 
-          <span className="text-[11px] font-mono text-[var(--text-muted)] w-9">
-            {formatDuration(duration)}
+          <span className={`text-[11px] font-mono w-9 ${isMobileActive ? 'text-emerald-400/80' : 'text-[var(--text-muted)]'}`}>
+            {formatDuration(activeDuration)}
           </span>
         </div>
       </div>
@@ -322,12 +507,18 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
       {/* Right: DJ Key/BPM Info, Queue, Volume */}
       <div className="flex items-center justify-end gap-3 w-1/4 min-w-[200px]">
         {/* BPM & Camelot Key Badge */}
-        {isDjMode && currentTrack && (currentTrack.bpm || currentTrack.camelot_key) && (
-          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[10px] font-mono text-emerald-400">
-            {currentTrack.bpm && <span>{Math.round(currentTrack.bpm)} BPM</span>}
-            {currentTrack.bpm && currentTrack.camelot_key && <span>•</span>}
-            {currentTrack.camelot_key && <span>{currentTrack.camelot_key}</span>}
-          </div>
+        {isDjMode && (isMobileActive ? resolvedMobileTrack : currentTrack) && (
+          (() => {
+            const tr = isMobileActive ? resolvedMobileTrack : currentTrack;
+            if (!tr || (!tr.bpm && !tr.camelot_key)) return null;
+            return (
+              <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[10px] font-mono text-emerald-400">
+                {tr.bpm && <span>{Math.round(tr.bpm)} BPM</span>}
+                {tr.bpm && tr.camelot_key && <span>•</span>}
+                {tr.camelot_key && <span>{tr.camelot_key}</span>}
+              </div>
+            );
+          })()
         )}
 
         {/* Video Mode Button */}
