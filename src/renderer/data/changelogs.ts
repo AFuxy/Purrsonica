@@ -257,6 +257,37 @@ export async function fetchGitHubReleases(): Promise<GitHubReleaseInfo[]> {
 
 export const APP_CHANGELOGS: ChangelogRelease[] = [
   {
+    version: '1.7.0-beta.1',
+    title: 'Mobile Companion Ecosystem & Master Queue Synchronization',
+    isPrerelease: true,
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'Mobile Companion Ecosystem: Built-in local area network WebSocket and HTTP 206 chunk-range streaming server with QR code device pairing and token authentication.',
+          'Two-Way Playback Handoff: Seamlessly transfer playback between Desktop and Mobile with instant handoff ("To Phone" and "Take Over on PC") preserving exact playback position.',
+          'Remote Library & Album Browsing: High-performance companion endpoints for streaming high-fidelity audio, full library track search, playlists, and albums with dedicated cover art delivery.',
+          'Synchronized Theme & Accent Color Sharing: Automatic broadcast of desktop accent colors, presets, and theme configurations to connected mobile companion devices.',
+        ],
+      },
+      {
+        heading: 'Improvements & Updates',
+        items: [
+          'Authoritative Desktop Queue & Playlist Conductor: Desktop maintains authoritative control over playlist sequence, queue, shuffle, and next/previous song resolution when mobile is in charge.',
+          'Live Now Playing & Queue Sidebar Sync: Continuous synchronization between mobile playback and Desktop player store, keeping Now Playing and Up Next queue panels dynamically updated in real time.',
+          'Enhanced Album Track Ordering: Automatic sorting by track number when querying tracks within an album.',
+        ],
+      },
+      {
+        heading: 'Bug Fixes',
+        items: [
+          'Remote Mobile Audio Engine Isolation: Fixed desktop audio engine triggering simultaneously when routing playback to mobile devices, keeping desktop speakers silent while mobile is active.',
+          'Companion Heartbeat & Socket Lifecycle: Resolved reconnect loops and duplicate socket sessions when mobile devices reconnect across LAN interfaces.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.1',
     title: 'Auto-Updater Stable Promotion Patch & Channel Resolution Fix',
     isPrerelease: false,
