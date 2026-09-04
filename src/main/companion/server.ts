@@ -430,6 +430,7 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse):
       bitrate: t.bitrate,
       is_liked: t.is_liked,
       has_cover: !!t.cover_art_path,
+      cover_art_path: t.cover_art_path || undefined,
     }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
