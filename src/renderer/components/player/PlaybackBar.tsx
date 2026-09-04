@@ -405,16 +405,6 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({ onSeek }) => {
 
       {/* Center: Playback Controls & Waveform Bar */}
       <div className="flex flex-col items-center max-w-xl w-2/4 px-4">
-        {/* Mobile Streaming Pill */}
-        {isMobileActive && mobilePlaybackState && (
-          <div className="flex items-center gap-1.5 mb-1 animate-in fade-in duration-200">
-            <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-              <Smartphone className={`w-3 h-3 text-emerald-400 ${mobilePlaybackState.isPlaying ? 'animate-pulse' : ''}`} />
-              PLAYING ON {mobilePlaybackState.deviceName?.toUpperCase() || 'PHONE'} • {formatDuration(smoothMobileTime)} / {formatDuration(activeDuration)}
-            </span>
-          </div>
-        )}
-
         {/* Buttons */}
         <div className="flex items-center gap-4 mb-1">
           <button
